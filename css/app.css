@@ -1567,6 +1567,9 @@ dialog > form {
 }
 .owner-button > span:nth-child(2) {
   flex: 1;
+  min-width: 0;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   font-size: 14px;
   font-weight: 600;
 }
