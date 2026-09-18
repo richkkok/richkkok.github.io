@@ -145,7 +145,7 @@ export function budgetEditor(app) {
   const p = planFor(app.state, app.month);
   openDialog(
     "이번 달 예산",
-    `<p class="muted">${app.month}에만 적용해요. 다른 달의 목표는 그대로예요.</p><div class="form-grid">${field("공동생활비 (원)", "sharedBudget", p.sharedBudget, "number", "required")}${field(`${app.state.settings.members.p1} 용돈 (원)`, "p1Budget", p.personalBudgets.p1, "number", "required")}${field(`${app.state.settings.members.p2} 용돈 (원)`, "p2Budget", p.personalBudgets.p2, "number", "required")}${field("이달 계획 수입 (원)", "income", p.income, "number", "required")}</div><h3>카테고리별 목표</h3><div class="form-grid">${app.state.categories
+    `<p class="muted">${app.month}에만 적용해요. 수입은 홈의 “수입”을 눌러 상여·보너스까지 따로 관리할 수 있어요.</p><div class="form-grid">${field("공동생활비 (원)", "sharedBudget", p.sharedBudget, "number", "required")}${field(`${app.state.settings.members.p1} 용돈 (원)`, "p1Budget", p.personalBudgets.p1, "number", "required")}${field(`${app.state.settings.members.p2} 용돈 (원)`, "p2Budget", p.personalBudgets.p2, "number", "required")}</div><h3>카테고리별 목표</h3><div class="form-grid">${app.state.categories
       .filter((c) => !c.archived)
       .map((c) =>
         field(
@@ -159,7 +159,6 @@ export function budgetEditor(app) {
     async (form) => {
       const values = {
         sharedBudget: amountInput(form.get("sharedBudget")),
-        income: amountInput(form.get("income")),
         personalBudgets: {
           p1: amountInput(form.get("p1Budget")),
           p2: amountInput(form.get("p2Budget")),
@@ -171,7 +170,11 @@ export function budgetEditor(app) {
         ),
       };
       await app.update((s) => {
-        s.settings.monthOverrides[app.month] = values;
+        s.settings.monthOverrides ||= {};
+        s.settings.monthOverrides[app.month] = {
+          ...(s.settings.monthOverrides[app.month] || {}),
+          ...values,
+        };
       });
       toast("이번 달 예산을 저장했어요.");
     },
