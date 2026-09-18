@@ -309,7 +309,7 @@ export class CloudSync {
       }
 
       if (Number(remote.revision) > Number(this.meta.revision || 0)) {
-        await this.app.repo.replace(remote.state);
+        await this.app.repo.replaceExact(remote.state);
         this.app.state = await this.app.repo.read();
         this.meta.revision = Number(remote.revision);
         this.meta.household = remote.household;
@@ -343,7 +343,7 @@ export class CloudSync {
     let expectedRevision = Number(remote.revision);
     if (!this.meta.dirty) {
       if (expectedRevision > Number(this.meta.revision || 0)) {
-        await this.app.repo.replace(remote.state);
+        await this.app.repo.replaceExact(remote.state);
         local = await this.app.repo.read();
         this.app.state = local;
       }
@@ -363,7 +363,7 @@ export class CloudSync {
         : mergeValue(base, local, remote.state);
 
     if (!same(candidate, local)) {
-      await this.app.repo.replace(candidate);
+      await this.app.repo.replaceExact(candidate);
       candidate = await this.app.repo.read();
       this.app.state = candidate;
     }
@@ -391,7 +391,7 @@ export class CloudSync {
         const newerRevision = Number(newest?.revision || 0);
         if (!newerState || !newerRevision) throw error;
         candidate = mergeValue(remote.state, candidate, newerState);
-        await this.app.repo.replace(candidate);
+        await this.app.repo.replaceExact(candidate);
         this.app.state = await this.app.repo.read();
         remote = { ...remote, state: newerState, revision: newerRevision };
         expectedRevision = newerRevision;
@@ -543,7 +543,7 @@ export class CloudSync {
           inviteToken: token,
           displayName: String(form.get("displayName") || "").trim(),
         });
-        await this.app.repo.replace(joined.state);
+        await this.app.repo.replaceExact(joined.state);
         this.app.state = await this.app.repo.read();
         this.meta = {
           sessionToken: joined.sessionToken,
