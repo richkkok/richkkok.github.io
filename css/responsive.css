@@ -612,6 +612,22 @@
   .settings-footnote {
     font-size: 10px;
   }
+  .invite-actions {
+    flex-direction: column;
+  }
+  .invite-actions .btn {
+    width: 100%;
+    min-width: 0;
+  }
+  .cloud-status-card {
+    padding: 13px;
+  }
+  .cloud-member-row {
+    min-height: 62px;
+  }
+  .cloud-member-row .status-pill {
+    display: inline-flex;
+  }
   .form-grid {
     grid-template-columns: 1fr;
   }
