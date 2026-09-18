@@ -29,6 +29,6 @@ node scripts/serve.cjs dist
 
 미리보기: http://127.0.0.1:4174
 
-main 변경 시 GitHub Actions에서 검사·테스트·빌드 후 Pages에 배포합니다. 신규 저장소는 Settings → Pages → Source에서 GitHub Actions를 선택해야 할 수 있습니다.
+현재 저장소는 GitHub Pages의 `main / (root)` 배포를 사용합니다. main 변경 시 기본 `pages build and deployment` 작업이 배포하며, `RichKkok quality checks`가 검사·테스트·오프라인 릴리스 일치 여부를 검증합니다. 중복 배포를 피하기 위해 별도의 deploy-pages 작업은 실행하지 않습니다. 소스를 수정한 뒤에는 `pnpm run build`로 갱신된 `sw.js`도 함께 커밋하세요.
 
 설계: [ARCHITECTURE](docs/ARCHITECTURE.md) · 조사: [BENCHMARK](docs/BENCHMARK.md)

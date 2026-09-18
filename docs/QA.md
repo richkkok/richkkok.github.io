@@ -23,4 +23,8 @@ Local validation: 2026-09-17–18. This record does not claim a production deplo
 
 No bank login, cloud sync, automatic shared account access, PIN authentication or external AI. Privacy mode is visual masking. Real production-bank exports were not supplied; representative synthetic exports and manual mapping were tested. Password-protected spreadsheets are not supported. Browser-based size checks are not physical iPhone/iPad Safari tests. Home-screen installation requires a browser supporting the platform's PWA flow.
 
-Production HTTP, workflow, manifest, cache and live navigation checks must be recorded after GitHub write access and Pages deployment become available.
+## Production checks
+
+The app is reachable at https://richkkok.github.io. All 43 shipped resources, including the manifest, icons, service worker and local spreadsheet parser, returned HTTP 200 and matched the tested local build byte-for-byte (2026-09-18). A private setup file was applied through the visible restore workflow on the live origin; its settings and four recurring items survived reload. No actual household values or original files are included in this repository. Live tablet navigation across all five routes passed without horizontal overflow or undersized targets.
+
+The initial custom deploy-pages job competed with the repository's already-active main/root Pages deployment and timed out during CDN purging. Deployment now has one owner: GitHub's built-in Pages workflow. The separate quality workflow runs the tests and verifies the committed service-worker release, without issuing another deployment.
