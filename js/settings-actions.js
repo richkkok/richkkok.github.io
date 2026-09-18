@@ -48,7 +48,7 @@ export async function settingsAction(app, action) {
   } else if (action === "household")
     openDialog(
       "수입 · 생활비 · 용돈",
-      `<p class="muted">별도로 설정하지 않은 달에 적용할 기본값이에요.</p><div class="form-grid">${field("월 가구 실수입 (원)", "income", s.income, "number", "required")}${select(
+      `<p class="muted">별도로 설정하지 않은 달에 적용할 기본값이에요.</p><div class="form-grid">${field("기본 월수입 (원)", "income", s.income, "number", "required")}${select(
         "가용금액 계산 기준",
         "incomeMode",
         [
@@ -56,7 +56,7 @@ export async function settingsAction(app, action) {
           ["actual", "실제 수입 내역만"],
         ],
         s.incomeMode,
-      )}${field("공동생활비 목표 (원)", "sharedBudget", s.sharedBudget, "number", "required")}${field(`${s.members.p1} 용돈 (원)`, "p1Budget", s.personalBudgets.p1, "number", "required")}${field(`${s.members.p2} 용돈 (원)`, "p2Budget", s.personalBudgets.p2, "number", "required")}</div><p class="small muted">계획 수입은 아직 입금되지 않은 금액을 포함해요. 계좌의 실제 잔액과는 달라요.</p>`,
+      )}${field("공동생활비 목표 (원)", "sharedBudget", s.sharedBudget, "number", "required")}${field(`${s.members.p1} 용돈 (원)`, "p1Budget", s.personalBudgets.p1, "number", "required")}${field(`${s.members.p2} 용돈 (원)`, "p2Budget", s.personalBudgets.p2, "number", "required")}</div><p class="small muted">기본 월수입은 평소 정기수입 기준이에요. 상여·보너스처럼 월별로 달라지는 수입은 홈의 “수입”에서 이번 달만 따로 바꿀 수 있어요.</p>`,
       async (f) => {
         await app.update((st) => {
           st.settings = {
