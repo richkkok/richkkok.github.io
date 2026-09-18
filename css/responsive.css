@@ -70,7 +70,7 @@
     font-size: 9px;
     gap: 4px;
   }
-  .kpi-strip > div {
+  .kpi-strip > .kpi-cell {
     padding: 0 22px;
   }
   .kpi-strip strong {
@@ -181,7 +181,7 @@
   .kpi-strip {
     padding: 20px 0;
   }
-  .kpi-strip > div {
+  .kpi-strip > .kpi-cell {
     padding: 0 16px;
   }
   .kpi-strip strong {
@@ -398,23 +398,23 @@
     gap: 0;
     border-radius: 18px;
   }
-  .kpi-strip > div {
+  .kpi-strip > .kpi-cell {
     padding: 18px 20px;
     gap: 5px;
   }
-  .kpi-strip > div:nth-child(2) {
+  .kpi-strip > .kpi-cell:nth-child(2) {
     border-right: 0;
   }
-  .kpi-strip > div:nth-child(-n + 2) {
+  .kpi-strip > .kpi-cell:nth-child(-n + 2) {
     border-bottom: 1px solid var(--line);
   }
-  .kpi-strip > div:last-child {
+  .kpi-strip > .kpi-cell:last-child {
     border: 0;
   }
   .kpi-strip strong {
     font-size: 24px;
   }
-  .kpi-strip > div > span {
+  .kpi-strip > .kpi-cell > span {
     font-size: 11px;
   }
   .kpi-strip small {
