@@ -13,7 +13,10 @@ import {
 export async function settingsAction(app, action) {
   const state = app.state,
     s = state.settings;
-  if (action === "month-income") {
+  if (action === "cloud-start") await app.cloud.startSharing();
+  else if (action === "cloud-invite") await app.cloud.createInvite();
+  else if (action === "cloud-members") await app.cloud.showMembers();
+  else if (action === "month-income") {
     const plan = planFor(state, app.month),
       override = s.monthOverrides?.[app.month] || {},
       base =
@@ -182,25 +185,34 @@ export async function settingsAction(app, action) {
     );
   } else if (action === "restore")
     document.querySelector("#restore-file").click();
-  else if (action === "delete-all")
-    openDialog(
-      "현재 공간의 데이터 삭제",
-      `<p>${state.demo ? "샘플" : "실제"} 공간의 거래·규칙·예산·설정을 모두 지워요. 다른 공간은 유지돼요. 먼저 백업했는지 확인해 주세요.</p>${field("삭제하려면 “전체삭제” 입력", "confirm", "", "text", 'required autocomplete="off"')}`,
-      async (f) => {
-        if (f.get("confirm") !== "전체삭제")
-          throw Error("전체삭제를 정확히 입력해 주세요.");
-        await app.repo.clear();
-        await app.load();
-        app.step = 1;
-        app.navigate("home");
-        toast("현재 공간을 초기화했어요.");
-      },
-      "전체 로컬데이터 삭제",
-    );
+  else if (action === "delete-all") {
+    if (app.mode === "real" && app.cloud?.connected)
+      openDialog(
+        "공동가계부 연결 중이에요",
+        "<p>공동가계부 사용 중에는 이 기기만 전체삭제하지 않아요. 지워도 서버의 우리집 기록이 다시 내려오기 때문이에요.</p><p class=\"small muted\">필요한 기록을 없애려면 개별 내역을 삭제하거나, 먼저 암호화 백업을 만들어 주세요.</p>",
+      );
+    else
+      openDialog(
+        "현재 공간의 데이터 삭제",
+        `<p>${state.demo ? "샘플" : "실제"} 공간의 거래·규칙·예산·설정을 모두 지워요. 다른 공간은 유지돼요. 먼저 백업했는지 확인해 주세요.</p>${field("삭제하려면 “전체삭제” 입력", "confirm", "", "text", 'required autocomplete="off"')}`,
+        async (f) => {
+          if (f.get("confirm") !== "전체삭제")
+            throw Error("전체삭제를 정확히 입력해 주세요.");
+          await app.repo.clear();
+          await app.load();
+          app.step = 1;
+          app.navigate("home");
+          toast("현재 공간을 초기화했어요.");
+        },
+        "전체 로컬데이터 삭제",
+      );
+  }
   else if (action === "privacy-info")
     openDialog(
-      "우리집 정보는 우리 기기에",
-      `<div class="privacy-copy"><h3>외부로 보내지 않아요</h3><p>금융파일은 브라우저에서만 읽고 정규화된 거래만 IndexedDB에 저장해요. 은행 아이디·비밀번호를 수집하지 않으며 광고·분석 SDK·외부 AI·추적 기능이 없어요.</p><h3>서로 다른 기기는 자동 연결되지 않아요</h3><p>v1은 한 기기에서 두 사람의 파일을 합쳐 관리해요. 다른 기기로 옮길 때는 암호화 백업을 사용해 주세요. 복원은 병합이 아닌 전체 교체예요.</p><h3>개인 숨김의 범위</h3><p>가맹점·메모·결제수단을 화면에서 가리는 기능이에요. 기기 사용자에 대한 인증이나 저장 데이터 암호화는 아니에요. 기기 잠금을 함께 사용해 주세요.</p><h3>데이터와 업데이트</h3><p>앱 업데이트는 화면 코드만 바꾸며 가계 데이터를 지우지 않아요. 브라우저 데이터를 지우거나 기기를 바꾸기 전에는 백업해 주세요.</p></div>`,
+      app.cloud?.connected ? "공동가계부 데이터 안내" : "우리집 정보는 우리 기기에",
+      app.cloud?.connected
+        ? '<div class="privacy-copy"><h3>금융파일 원본은 서버로 보내지 않아요</h3><p>CSV·XLS·XLSX 원본은 브라우저에서만 읽어요. 공동가계부를 켜면 리치콕에 정규화되어 저장된 거래·예산·설정 데이터만 공동 저장소와 동기화해요.</p><h3>우리집 구성원만 사용하는 세션</h3><p>초대링크는 한 번만 사용할 수 있고 7일 뒤 만료돼요. 참여한 기기에는 별도의 비밀 세션토큰이 발급되며, 브라우저가 서버 테이블을 직접 읽지 못하도록 접근권한을 차단해 두었어요.</p><h3>실시간 신호에는 가계부 내용이 없어요</h3><p>기기간 실시간 채널에는 새 버전 번호와 갱신 시각만 전달해요. 실제 가계부 내용은 세션을 검증한 뒤 별도로 가져와요.</p><h3>오프라인과 백업</h3><p>기기에도 오프라인 사본을 유지하고, 재연결하면 변경사항을 병합해요. 중요한 시점에는 암호화 백업도 함께 보관해 주세요.</p></div>'
+        : '<div class="privacy-copy"><h3>기본 모드는 외부로 보내지 않아요</h3><p>금융파일은 브라우저에서만 읽고 정규화된 거래를 IndexedDB에 저장해요. 은행 아이디·비밀번호를 수집하지 않으며 광고·분석 SDK·외부 AI·추적 기능이 없어요.</p><h3>공동가계부는 선택 기능이에요</h3><p>설정에서 공동가계부를 직접 시작하기 전까지는 다른 기기나 서버와 자동 동기화하지 않아요. 다른 기기로 옮길 때는 암호화 백업을 사용할 수 있어요.</p><h3>개인 숨김의 범위</h3><p>가맹점·메모·결제수단을 화면에서 가리는 기능이에요. 기기 잠금과는 별개이므로 기기 자체 잠금도 함께 사용해 주세요.</p><h3>데이터와 업데이트</h3><p>앱 업데이트는 화면 코드만 바꾸며 가계 데이터를 지우지 않아요. 브라우저 데이터를 지우거나 기기를 바꾸기 전에는 백업해 주세요.</p></div>',
     );
   else if (action === "install") await app.pwa.install();
   else return false;
@@ -236,6 +248,8 @@ export async function restoreFile(app, file) {
                 st.recurring = s.recurring;
                 st.configured = true;
               });
+            else if (app.mode === "real" && app.cloud?.connected)
+              await app.update(() => ({ ...s, demo: false }));
             else await app.repo.replace({ ...s, demo: app.mode === "demo" });
             await app.load();
             app.navigate("home");
