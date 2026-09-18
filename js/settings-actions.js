@@ -13,7 +13,39 @@ import {
 export async function settingsAction(app, action) {
   const state = app.state,
     s = state.settings;
-  if (action === "household")
+  if (action === "month-income") {
+    const plan = planFor(state, app.month),
+      override = s.monthOverrides?.[app.month] || {},
+      base =
+        override.incomeBase ??
+        (override.income !== undefined
+          ? Math.min(s.income, override.income)
+          : s.income),
+      extra =
+        override.incomeExtra ??
+        Math.max(0, (override.income ?? plan.income) - base);
+    openDialog(
+      "이번 달 수입",
+      `<p class="muted">${app.month}에만 적용하는 계획 수입이에요. 상여·성과급처럼 이번 달만 달라지는 돈을 따로 넣을 수 있어요.</p><div class="form-grid">${field("정기수입 (원)", "incomeBase", base, "number", "required")}${field("추가수입 · 상여 · 보너스 (원)", "incomeExtra", extra, "number", "required")}</div><div class="notice"><strong>현재 계획 합계 ${won(base + extra)}</strong><p class="small muted">저장하면 이번 달 가용금액 계산에 바로 반영돼요.</p></div><label class="check-field"><input name="makeDefault" type="checkbox">정기수입 금액을 앞으로 기본 월수입으로 사용</label>${plan.incomeMode === "actual" ? '<p class="small muted">현재는 “실제 수입 내역 기준”이라 이 계획금액은 가용금액 계산에 사용되지 않아요. 설정에서 계산 기준을 계획 수입으로 바꾸면 적용돼요.</p>' : ""}`,
+      async (f) => {
+        const incomeBase = amountInput(f.get("incomeBase")),
+          incomeExtra = amountInput(f.get("incomeExtra")),
+          income = incomeBase + incomeExtra;
+        await app.update((st) => {
+          st.settings.monthOverrides ||= {};
+          st.settings.monthOverrides[app.month] = {
+            ...(st.settings.monthOverrides[app.month] || {}),
+            income,
+            incomeBase,
+            incomeExtra,
+          };
+          if (f.get("makeDefault")) st.settings.income = incomeBase;
+        });
+        toast("이번 달 수입을 저장했어요.");
+      },
+      "이번 달 수입 저장",
+    );
+  } else if (action === "household")
     openDialog(
       "수입 · 생활비 · 용돈",
       `<p class="muted">별도로 설정하지 않은 달에 적용할 기본값이에요.</p><div class="form-grid">${field("월 가구 실수입 (원)", "income", s.income, "number", "required")}${select(
