@@ -31,6 +31,8 @@ export async function settingsAction(app, action) {
         const incomeBase = amountInput(f.get("incomeBase")),
           incomeExtra = amountInput(f.get("incomeExtra")),
           income = incomeBase + incomeExtra;
+        if (!Number.isSafeInteger(income) || income > 1e12)
+          throw Error("이번 달 총수입은 1조 원 이하로 입력해 주세요.");
         await app.update((st) => {
           st.settings.monthOverrides ||= {};
           st.settings.monthOverrides[app.month] = {
