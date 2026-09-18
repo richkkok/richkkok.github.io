@@ -89,7 +89,7 @@ export function validateState(input) {
     if (!isMoney(v)) throw Error("카테고리 예산을 확인해 주세요.");
   for (const [month, override] of Object.entries(s.monthOverrides || {})) {
     if (!/^\d{4}-\d{2}$/.test(month)) throw Error("예산 월이 올바르지 않아요.");
-    for (const key of ["income", "sharedBudget"])
+    for (const key of ["income", "incomeBase", "incomeExtra", "sharedBudget"])
       if (override[key] !== undefined && !isMoney(override[key]))
         throw Error("월별 금액을 확인해 주세요.");
     for (const value of Object.values(override.personalBudgets || {}))
