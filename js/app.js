@@ -30,6 +30,7 @@ import {
 } from "./editors.js";
 import { settingsAction, restoreFile } from "./settings-actions.js";
 import { setupPWA } from "./pwa.js";
+import { CloudSync } from "./cloud.js";
 import { route, navigate, watchRoute } from "./router.js";
 const titles = {
   home: "홈",
@@ -48,6 +49,7 @@ const app = {
   importSession: { owner: "p1", sheet: 0, queue: [] },
   repo: null,
   pwa: null,
+  cloud: null,
   navigate,
 };
 try {
@@ -56,12 +58,16 @@ try {
 app.repo = new Repository(
   app.mode === "demo" ? "richkkok-demo-v1" : "richkkok-v1",
 );
+app.cloud = new CloudSync(app);
 app.load = async () => {
   app.state = await app.repo.read();
   app.render();
 };
 app.update = async (change) => {
-  app.state = await app.repo.mutate(change);
+  app.state =
+    app.mode === "real" && app.cloud?.connected
+      ? await app.cloud.mutate(change)
+      : await app.repo.mutate(change);
   app.render();
   try {
     channel?.postMessage("changed");
@@ -73,7 +79,10 @@ const channel =
     : null;
 channel &&
   (channel.onmessage = () => {
-    if (!document.querySelector("#dialog").open) app.load().catch(showError);
+    if (document.querySelector("#dialog").open) return;
+    if (app.mode === "real" && app.cloud?.connected)
+      app.cloud.pullLatest().catch(showError);
+    else app.load().catch(showError);
   });
 app.render = () => {
   if (!app.state) return;
@@ -108,7 +117,7 @@ app.render = () => {
       transactions: () => transactionsView(app.state, app.month, app.filters),
       budget: () => budgetView(app.state, app.month),
       analytics: () => analyticsView(app.state, app.month),
-      settings: () => settingsView(app.state),
+      settings: () => settingsView(app.state, app.cloud?.summary()),
       import: () => importView(app.state, app.importSession),
     }[current]();
   if (app.state.configured && current === "import") mountImport(app);
@@ -135,6 +144,7 @@ async function switchMode(mode) {
   app.repo = new Repository(
     mode === "demo" ? "richkkok-demo-v1" : "richkkok-v1",
   );
+  await app.cloud?.setMode(mode);
   if (mode === "demo") {
     const existing = await app.repo.read();
     if (!existing.configured) await app.repo.replace(sampleState());
@@ -310,9 +320,12 @@ watchRoute(() => {
   document.querySelector("#main")?.focus({ preventScroll: true });
 });
 app.pwa = setupPWA();
-app.load().catch((error) => {
-  document.querySelector("#main").innerHTML =
-    '<section class="card"><h1>저장소를 열지 못했어요</h1><p>브라우저의 일반 창에서 다시 열어 주세요. 기존 데이터는 삭제하지 않았어요.</p><button class="btn primary" type="button" id="retry-storage">다시 시도</button></section>';
-  document.querySelector("#retry-storage").onclick = () => location.reload();
-  console.error(error);
-});
+app
+  .load()
+  .then(() => app.cloud.init())
+  .catch((error) => {
+    document.querySelector("#main").innerHTML =
+      '<section class="card"><h1>저장소를 열지 못했어요</h1><p>브라우저의 일반 창에서 다시 열어 주세요. 기존 데이터는 삭제하지 않았어요.</p><button class="btn primary" type="button" id="retry-storage">다시 시도</button></section>';
+    document.querySelector("#retry-storage").onclick = () => location.reload();
+    console.error(error);
+  });
