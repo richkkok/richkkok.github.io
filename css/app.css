@@ -639,17 +639,17 @@ small {
   border-radius: var(--radius);
   padding: 24px 0;
 }
-.kpi-strip > div {
+.kpi-strip > .kpi-cell {
   padding: 0 28px;
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
-.kpi-strip > div:last-child {
+.kpi-strip > .kpi-cell:last-child {
   border: 0;
 }
-.kpi-strip > div > span {
+.kpi-strip > .kpi-cell > span {
   font-size: 12px;
   color: var(--muted);
 }
@@ -661,6 +661,18 @@ small {
 .kpi-strip small {
   font-size: 10px;
   color: #849084;
+}
+.kpi-action {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  transition: background 0.18s var(--ease);
+}
+.kpi-action:hover {
+  background: #fafbf8;
+}
+.kpi-action:active {
+  background: #f2f5ef;
 }
 .card-performance .section-heading {
   margin-bottom: 22px;
@@ -865,12 +877,22 @@ small {
   font-size: 9px;
   font-weight: 400;
 }
-.schedule-row > div {
+.schedule-copy {
   flex: 1;
   min-width: 0;
 }
-.schedule-row > div strong {
+.schedule-copy strong {
+  display: block;
   font-size: 12px;
+}
+.schedule-row-button {
+  width: 100%;
+  text-align: left;
+  border-radius: 10px;
+  transition: background 0.18s var(--ease);
+}
+.schedule-row-button:hover {
+  background: #fafbf8;
 }
 .schedule-row small {
   display: block;
