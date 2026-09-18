@@ -1,0 +1,30 @@
+:root {
+  --bg: #f5f5f1;
+  --surface: #fff;
+  --ink: #1e302c;
+  --text: #293a35;
+  --muted: #6b7771;
+  --line: #e6e9e3;
+  --accent: #28634f;
+  --accent-dark: #204f40;
+  --accent-soft: #edf4ee;
+  --mint: #cde2cc;
+  --gold: #e4c876;
+  --danger: #b54e43;
+  --radius-sm: 10px;
+  --radius: 20px;
+  --radius-lg: 26px;
+  --shadow: 0 12px 48px #183d2820;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --font:
+    -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
+    "맑은 고딕", system-ui, sans-serif;
+  --layer-nav: 20;
+  --layer-toast: 100;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}

@@ -1,0 +1,58 @@
+name: RichKkok QA and Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: richkkok-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11'
+      - run: pnpm install --frozen-lockfile
+      - name: Verify pinned local spreadsheet library
+        run: node scripts/vendor.mjs
+      - name: Store verified vendor source on first bootstrap
+        run: |
+          if ! git ls-files --error-unmatch vendor/xlsx.full.min.js >/dev/null 2>&1; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add vendor/xlsx.full.min.js
+            git commit -m 'Vendor verified SheetJS CE 0.20.3 for offline imports'
+            git push origin HEAD:main
+          fi
+      - run: pnpm run check
+      - run: pnpm test
+      - run: pnpm run build
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
