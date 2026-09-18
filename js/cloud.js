@@ -239,7 +239,7 @@ export class CloudSync {
 
   onOnline = () => {
     if (!this.connected) return;
-    this.flushPending().catch(() => {});
+    this.enqueue(() => this.flushPending()).catch(() => {});
     this.startRealtime();
   };
 
@@ -340,14 +340,14 @@ export class CloudSync {
 
   async flushWithRemote(remote) {
     let local = await this.app.repo.read();
-    const remoteRevision = Number(remote.revision);
+    let expectedRevision = Number(remote.revision);
     if (!this.meta.dirty) {
-      if (remoteRevision > Number(this.meta.revision || 0)) {
+      if (expectedRevision > Number(this.meta.revision || 0)) {
         await this.app.repo.replace(remote.state);
         local = await this.app.repo.read();
         this.app.state = local;
       }
-      this.meta.revision = remoteRevision;
+      this.meta.revision = expectedRevision;
       this.meta.household = remote.household;
       this.meta.member = remote.member;
       this.meta.dirty = false;
@@ -358,7 +358,7 @@ export class CloudSync {
 
     const base = (await this.loadBase()) || remote.state;
     let candidate =
-      remoteRevision === Number(this.meta.revision || 0)
+      expectedRevision === Number(this.meta.revision || 0)
         ? local
         : mergeValue(base, local, remote.state);
 
@@ -373,7 +373,7 @@ export class CloudSync {
         const pushed = await api({
           action: "push",
           sessionToken: this.meta.sessionToken,
-          expectedRevision: remoteRevision,
+          expectedRevision,
           state: candidate,
         });
         this.meta.revision = Number(pushed.revision);
@@ -394,6 +394,7 @@ export class CloudSync {
         await this.app.repo.replace(candidate);
         this.app.state = await this.app.repo.read();
         remote = { ...remote, state: newerState, revision: newerRevision };
+        expectedRevision = newerRevision;
       }
     }
     return null;
@@ -435,7 +436,7 @@ export class CloudSync {
         await this.saveBase(created.state);
         this.startRealtime();
         this.startFallbackPull();
-        this.renderIfSafe();
+        setTimeout(() => this.app.render(), 0);
         toast("우리집 공동가계부를 만들었어요.");
       },
       "공동가계부 만들기",
