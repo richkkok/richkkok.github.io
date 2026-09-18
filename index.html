@@ -11,7 +11,9 @@
       name="description"
       content="함께 쓰는 돈을 한눈에. 우리집 가용금액, 예산, 거래내역을 기기 안에서 안전하게 관리하는 리치콕."
     />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="리치콕" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta
       http-equiv="Content-Security-Policy"
@@ -23,6 +25,7 @@
     <link rel="stylesheet" href="css/tokens.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="css/responsive.css" />
+    <link rel="stylesheet" href="css/pwa-install.css" />
     <title>RichKkok · 리치콕</title>
   </head>
   <body>
@@ -44,6 +47,36 @@
       </div>
     </aside>
     <div class="workspace">
+      <div
+        id="install-banner"
+        class="install-banner"
+        role="region"
+        aria-label="리치콕 앱 설치"
+        hidden
+      >
+        <div class="install-banner-copy">
+          <img src="assets/icons/icon-192.png" alt="" />
+          <span
+            ><strong>리치콕을 앱으로 설치</strong
+            ><small id="install-banner-detail"
+              >홈 화면에서 바로 열고 오프라인에서도 사용할 수 있어요.</small
+            ></span
+          >
+        </div>
+        <div class="install-banner-actions">
+          <button id="install-app" class="btn primary install-banner-button" type="button">
+            설치
+          </button>
+          <button
+            id="dismiss-install"
+            class="install-banner-dismiss"
+            type="button"
+            aria-label="설치 안내 나중에 보기"
+          >
+            나중에
+          </button>
+        </div>
+      </div>
       <div id="demo-banner" class="demo-banner" hidden>
         <span>가상 데이터로 둘러보는 중 · 실제 기록과 분리되어 있어요</span
         ><button type="button" data-action="exit-sample">샘플 종료</button>
