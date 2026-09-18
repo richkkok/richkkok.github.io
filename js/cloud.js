@@ -208,7 +208,10 @@ export class CloudSync {
     await this.loadMeta();
 
     const params = new URLSearchParams(location.search);
-    const invite = params.get("invite");
+    const hashInvite = location.hash.startsWith("#invite=")
+      ? decodeURIComponent(location.hash.slice("#invite=".length))
+      : "";
+    const invite = params.get("invite") || hashInvite;
 
     if (this.connected) {
       try {
@@ -568,7 +571,7 @@ export class CloudSync {
   clearInviteFromUrl() {
     const url = new URL(location.href);
     url.searchParams.delete("invite");
-    history.replaceState(null, "", url.pathname + url.search + url.hash);
+    history.replaceState(null, "", url.pathname + url.search + "#home");
   }
 
   startFallbackPull() {
