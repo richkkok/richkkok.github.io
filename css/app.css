@@ -1873,3 +1873,73 @@ dialog > form {
   text-align: center;
   color: var(--muted);
 }
+
+.invite-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0 6px;
+}
+.invite-actions .btn {
+  flex: 1;
+  min-width: 150px;
+}
+.cloud-status-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 15px;
+  border: 1px solid #dce8dd;
+  background: #f7faf6;
+  border-radius: 13px;
+  margin-bottom: 14px;
+}
+.cloud-status-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cloud-status-card strong {
+  font-size: 13px;
+}
+.cloud-status-card small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.sync-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+  flex: none;
+}
+.cloud-member-list {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin: 4px 0 16px;
+}
+.cloud-member-row {
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #eff1ed;
+}
+.cloud-member-row:last-child {
+  border-bottom: 0;
+}
+.cloud-member-row > span:nth-child(2) {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.cloud-member-row strong {
+  font-size: 13px;
+}
+.cloud-member-row small {
+  color: var(--muted);
+  font-size: 10px;
+}
