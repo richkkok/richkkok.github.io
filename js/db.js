@@ -22,6 +22,37 @@ export class Repository {
     };
     return this.db;
   }
+  async readKey(key, fallback = null) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const r = db
+        .transaction("household")
+        .objectStore("household")
+        .get(key);
+      r.onsuccess = () => resolve(r.result ?? fallback);
+      r.onerror = () => reject(r.error);
+    });
+  }
+  async writeKey(key, value) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("household", "readwrite");
+      tx.objectStore("household").put(value, key);
+      tx.oncomplete = () => resolve(structuredClone(value));
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || Error("저장하지 못했어요."));
+    });
+  }
+  async deleteKey(key) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("household", "readwrite");
+      tx.objectStore("household").delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || Error("삭제하지 못했어요."));
+    });
+  }
   async read() {
     const db = await this.open();
     return new Promise((resolve, reject) => {
