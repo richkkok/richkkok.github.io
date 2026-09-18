@@ -94,6 +94,17 @@ export class Repository {
     const checked = validateState(state);
     return this.mutate(() => checked);
   }
+  async replaceExact(state) {
+    const checked = validateState(state);
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("household", "readwrite");
+      tx.objectStore("household").put(checked, "state");
+      tx.oncomplete = () => resolve(structuredClone(checked));
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || Error("저장하지 못했어요."));
+    });
+  }
   async clear() {
     return this.mutate(() => emptyState());
   }
