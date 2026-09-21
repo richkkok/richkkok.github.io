@@ -344,6 +344,7 @@ export class CloudSync {
         this.meta = accepted.meta;
         this.app.state = accepted.state;
         this.renderIfSafe();
+        this.broadcastRevision(Number(pushed.revision));
         return pushed;
       } catch (error) {
         if (error.code !== "revision_conflict" || attempt === 1) throw error;
@@ -536,6 +537,35 @@ export class CloudSync {
     const url = new URL(location.href);
     url.searchParams.delete("invite");
     history.replaceState(null, "", url.pathname + url.search + "#home");
+  }
+
+  broadcastRevision(revision) {
+    const ws = this.socket;
+    const topicName = this.meta?.household?.syncTopic;
+    const nextRevision = Number(revision);
+    if (
+      !ws ||
+      ws.readyState !== 1 ||
+      !topicName ||
+      !Number.isSafeInteger(nextRevision) ||
+      nextRevision < 1
+    )
+      return;
+    try {
+      ws.send(
+        JSON.stringify({
+          topic: `realtime:${topicName}`,
+          event: "broadcast",
+          payload: {
+            type: "broadcast",
+            event: "state_changed",
+            payload: { revision: nextRevision },
+          },
+          ref: null,
+          join_ref: "1",
+        }),
+      );
+    } catch {}
   }
 
   startFallbackPull() {
