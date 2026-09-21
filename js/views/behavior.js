@@ -33,7 +33,7 @@ function categorySharePanel(b) {
     .sort((a, b) => b.used - a.used);
   const total = rows.reduce((sum, c) => sum + c.used, 0);
   if (!total)
-    return `<section class="card category-share-panel full-width">${sectionTitle("카테고리별 소비 비중", "이번 운영월 변동소비 · 고정비 제외")}<div class="category-share-empty"><div class="category-donut empty"><div><strong>0원</strong><span>기록 대기</span></div></div><p>소비를 입력하면 어떤 항목이 가장 큰 비중을 차지하는지 바로 보여줄게.</p></div></section>`;
+    return `<section class="card category-share-panel full-width">${sectionTitle("카테고리별 소비 비중", "이번 운영월 변동소비 · 고정비 제외")}<div class="category-share-empty"><div class="category-donut empty" role="img" aria-label="변동소비 기록 없음"><div><strong>0원</strong><span>기록 대기</span></div></div><p>소비를 입력하면 어떤 항목이 가장 큰 비중을 차지하는지 바로 보여줄게.</p></div></section>`;
 
   const visible = rows.slice(0, 5).map((c) => ({
     name: c.name,
