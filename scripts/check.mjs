@@ -55,6 +55,10 @@ assert.ok(html.includes("connect-src 'self'"));
 assert.ok(html.includes("https://wjelumpbjklfrdjxbesj.supabase.co"));
 assert.ok(html.includes("wss://wjelumpbjklfrdjxbesj.supabase.co"));
 assert.ok(html.includes("viewport-fit=cover"));
+assert.ok(html.includes('id="household-status"'));
+const appSource = fs.readFileSync("js/app.js", "utf8");
+assert.ok(appSource.includes('"공동가계부 사용 중"'));
+assert.ok(appSource.includes('"공동가계부 미사용"'));
 
 const focusCss = fs.readFileSync("css/app.css", "utf8");
 const responsiveCss = fs.readFileSync("css/responsive.css", "utf8");
