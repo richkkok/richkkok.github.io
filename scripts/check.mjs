@@ -63,6 +63,8 @@ assert.ok(!focusCss.includes("var(--focus-ring)"));
 assert.ok(!focusCss.includes("var(--focus-halo)"));
 assert.ok(focusCss.includes("-webkit-tap-highlight-color: transparent"));
 assert.ok(focusCss.includes("outline: none !important"));
+assert.ok(focusCss.includes("#main:focus"));
+assert.ok(focusCss.includes("#main:focus-visible"));
 assert.ok(responsiveCss.includes("@media (hover: none) and (pointer: coarse)"));
 assert.ok(responsiveCss.includes("-webkit-tap-highlight-color: transparent !important"));
 
