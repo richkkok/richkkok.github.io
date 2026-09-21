@@ -6,6 +6,7 @@ import {
   parseDate,
   parseAmount,
   normalizeRow,
+  budgetIncomeValue,
 } from "../js/import/normalize.js";
 import { detectHeader } from "../js/import/mapper.js";
 import { previewRows, parseBytes, parseWorkbook } from "../js/import/parser.js";
@@ -395,3 +396,110 @@ test("Concentration excludes fixed payments and protected categories", () => {
     ),
   );
 });
+
+test("정기수입 시작월 이전은 0원 계획수입으로 계산", () => {
+  const s = emptyState();
+  s.settings.income = 6500000;
+  s.settings.incomeStartMonth = "2026-09";
+  assert.equal(monthBudget(s, "2026-06", "2026-06-30").income, 0);
+  assert.equal(monthBudget(s, "2026-08", "2026-08-31").income, 0);
+  assert.equal(monthBudget(s, "2026-09", "2026-09-30").income, 6500000);
+});
+
+test("보험금·가족이체·이자는 실제 생활수입에서 제외하고 급여는 포함", () => {
+  const members = { p1: "박태영", p2: "김은영" };
+  const bank = {
+    date: 0,
+    merchant: 1,
+    withdrawal: 2,
+    deposit: 3,
+    amount: -1,
+    note: 4,
+  };
+  const insurance = normalizeRow(
+    ["2026-06-15", "박태영 보험금", "", 421000, ""],
+    bank,
+    { members },
+  );
+  const selfTransfer = normalizeRow(
+    ["2026-06-23", "박태영", "", 1542000, ""],
+    bank,
+    { members },
+  );
+  const spouseTransfer = normalizeRow(
+    ["2026-08-07", "김은영", "", 50000, ""],
+    bank,
+    { members },
+  );
+  const interest = normalizeRow(
+    ["2026-08-29", "입출금통장 이자", "", 7, ""],
+    bank,
+    { members },
+  );
+  const salary = normalizeRow(
+    ["2026-09-10", "이앤엘 급여", "", 3000000, ""],
+    bank,
+    { members },
+  );
+  assert.equal(insurance.direction, "income");
+  assert.equal(budgetIncomeValue(insurance, members), 0);
+  assert.equal(selfTransfer.direction, "transfer");
+  assert.equal(spouseTransfer.direction, "transfer");
+  assert.equal(budgetIncomeValue(interest, members), 0);
+  assert.equal(budgetIncomeValue(salary, members), 3000000);
+});
+
+test("승인시간이 같으면 중복, 다르면 별도 거래로 유지", async () => {
+  const timedMap = {
+    date: 0,
+    merchant: 1,
+    amount: 2,
+    payment: 3,
+    type: 4,
+    time: 5,
+  };
+  const make = (time) =>
+    normalizeRow(
+      ["2026-09-21", "스타벅스", 5000, "우리카드", "지출", time],
+      timedMap,
+      { owner: "p1" },
+    );
+  const same = await identify([make("10:15:00"), make("10:15:00")]);
+  assert.equal(dedupe(same, []).added.length, 1);
+  const different = await identify([make("10:15:00"), make("10:16:00")]);
+  assert.equal(dedupe(different, []).added.length, 2);
+  const unknown = await identify([make(""), make("")]);
+  assert.equal(dedupe(unknown, []).added.length, 2);
+});
+
+test("수동 고정비와 가져온 같은 월 실제 결제는 자동 중복 제거", async () => {
+  const manual = {
+    ...tx(17000, {
+      sourceType: "manual",
+      costKind: "fixed",
+      merchantRaw: "넷플릭스",
+      merchantNormalized: "넷플릭스",
+      paymentMethod: "우리카드",
+      date: "2026-09-01",
+      datetime: "2026-09-01T09:00:00",
+    }),
+    id: "manual-fixed",
+    sourceId: "manual-fixed",
+  };
+  const imported = (
+    await identify([
+      {
+        ...manual,
+        id: "",
+        sourceId: "",
+        sourceType: "card-original",
+        date: "2026-09-15",
+        datetime: "2026-09-15T10:20:00",
+      },
+    ])
+  )[0];
+  const result = dedupe([imported], [manual]);
+  assert.equal(result.duplicates, 1);
+  assert.equal(result.added.length, 0);
+});
+
