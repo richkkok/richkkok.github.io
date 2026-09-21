@@ -6,7 +6,7 @@ const nonOperatingIncome =
 const earnedIncome =
   /급여|월급|상여|성과급|보너스|salary|payroll|wage/i;
 const internalMovement =
-  /네이버페이\s*충전|카카오페이\s*충전|토스(?:페이)?\s*충전|페이머니\s*충전|머니\s*충전|간편이체|생활비\s*(?:이체)?$/i;
+  /네이버페이\s*충전|카카오페이\s*충전|토스(?:페이)?\s*충전|페이머니\s*충전|머니\s*충전|간편이체|^생활비\s*(?:이체)?$/i;
 
 function householdMemberMovement(merchant, members = {}) {
   const merchantKey = keyText(merchant);
