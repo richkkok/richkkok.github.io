@@ -1,6 +1,37 @@
 import { normalizeText, keyText } from "../format.js";
 import { classify } from "../rules.js";
 import { matchRecurring } from "../recurring.js";
+const nonOperatingIncome =
+  /보험금|보험\s*환급|캐시백|포인트|리워드|입출금통장\s*이자|예금\s*이자|이자\s*입금|환급금|세금\s*환급/i;
+const earnedIncome =
+  /급여|월급|상여|성과급|보너스|salary|payroll|wage/i;
+
+export function incomeKind(tx, stateOrMembers = {}) {
+  if (tx?.direction !== "income") return "";
+  if (["earned", "other", "nonoperating", "transfer"].includes(tx.incomeKind))
+    return tx.incomeKind;
+  const members = stateOrMembers?.settings?.members || stateOrMembers || {};
+  const merchant = String(tx.merchantRaw || tx.merchantNormalized || "");
+  const note = String(tx.note || "");
+  const text = `${merchant} ${note}`;
+  if (nonOperatingIncome.test(text)) return "nonoperating";
+  const merchantKey = keyText(merchant);
+  if (
+    merchantKey &&
+    Object.values(members).some((name) => keyText(name) === merchantKey)
+  )
+    return "transfer";
+  if (earnedIncome.test(text)) return "earned";
+  return "other";
+}
+
+export function budgetIncomeValue(tx, stateOrMembers = {}) {
+  if (tx?.direction !== "income") return 0;
+  return ["nonoperating", "transfer"].includes(incomeKind(tx, stateOrMembers))
+    ? 0
+    : Number(tx.amount) || 0;
+}
+
 export function parseAmount(value) {
   if (value === null || value === undefined || String(value).trim() === "")
     return null;
@@ -101,6 +132,7 @@ export function normalizeRow(
     date1904 = false,
     defaultPayment = "",
     negativeMode = "refund",
+    members = {},
   } = {},
 ) {
   const cell = (field) => (map[field] >= 0 ? row[map[field]] : null);
@@ -192,6 +224,14 @@ export function normalizeRow(
           ? "fixed"
           : "variable";
   tx.costKindInferred = !kind;
+  if (tx.direction === "income") {
+    tx.incomeKind = incomeKind(tx, members);
+    if (tx.incomeKind === "transfer") {
+      tx.direction = "transfer";
+      tx.scope = "excluded";
+      tx.excluded = true;
+    }
+  }
   return matchRecurring(tx, recurring);
 }
 export function identityText(tx) {
