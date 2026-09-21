@@ -90,6 +90,14 @@ assert.ok(focusCss.includes("#main:focus"));
 assert.ok(focusCss.includes("#main:focus-visible"));
 assert.ok(responsiveCss.includes("@media (hover: none) and (pointer: coarse)"));
 assert.ok(responsiveCss.includes("-webkit-tap-highlight-color: transparent !important"));
+assert.ok(responsiveCss.includes("@media (max-width: 430px)"));
+assert.ok(
+  responsiveCss.includes("@media (min-width: 701px) and (max-width: 900px)"),
+);
+assert.ok(
+  responsiveCss.includes("@media (min-width: 901px) and (max-width: 1150px)"),
+);
+assert.ok(focusCss.includes("category-share-chevron"));
 
 console.log(
   `PASS syntax ${files.length} files, resources, manifest, isolated RichKkok sync only`,
