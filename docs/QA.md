@@ -4,7 +4,7 @@
 
 ## 코드·로컬 검증
 
-`npm test`: 56개 통과. 기존 23개 회귀검사에 운영월·행동 제어·동기화 검사를 추가했다. `node scripts/check.mjs`의 JS 구문/리소스/manifest/네트워크 경계 검사와 `node scripts/build.mjs`의 53파일 릴리스 생성이 통과했다.
+`npm test`: 57개 통과. 기존 23개 회귀검사에 운영월·행동 제어·동기화 검사를 추가했다. `node scripts/check.mjs`의 JS 구문/리소스/manifest/네트워크 경계 검사와 `node scripts/build.mjs`의 53파일 릴리스 생성이 통과했다.
 
 - CSV 한국어·인코딩·인용부호, 실제 바이너리 XLS/XLSX, 열 연결, 다중 파일/동일 파일 중복
 - 이체·카드대금 제외, 간편결제+실제 카드의 단일 집계, 고정·변동·일회성, 환불·음수 보정

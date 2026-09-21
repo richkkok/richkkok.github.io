@@ -61,3 +61,17 @@ test("Restore validates before replacing current state", async () => {
   assert.equal((await repo.read()).settings.income, 200);
   repo.close();
 });
+
+test("명시적 전체 로컬삭제는 마이그레이션·동기화 백업도 같은 공간에서 삭제", async () => {
+  const repo = new Repository("clear-with-backup", new IDBFactory());
+  await repo.mutate((s) => {
+    s.settings.income = 1;
+  });
+  await repo.writeKey("pre-v2-backup", { dummy: true });
+  await repo.writeKey("sync-conflict-backup", { dummy: true });
+  await repo.clear();
+  assert.equal(await repo.readKey("pre-v2-backup"), null);
+  assert.equal(await repo.readKey("sync-conflict-backup"), null);
+  assert.equal((await repo.read()).settings.income, 0);
+  repo.close();
+});

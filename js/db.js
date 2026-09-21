@@ -157,7 +157,17 @@ export class Repository {
     });
   }
   async clear() {
-    return this.mutate(() => emptyState());
+    const db = await this.open(),
+      state = migrate(emptyState());
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("household", "readwrite"),
+        store = tx.objectStore("household");
+      store.clear();
+      store.put(state, "state");
+      tx.oncomplete = () => resolve(structuredClone(state));
+      tx.onerror = tx.onabort = () =>
+        reject(tx.error || Error("초기화하지 못했어요."));
+    });
   }
   close() {
     this.db?.close();
