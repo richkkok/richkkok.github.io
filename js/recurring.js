@@ -1,3 +1,4 @@
+import { period, startDay, dayDiff } from "./period.js";
 import { keyText, daysInMonth } from "./format.js";
 export function occurrence(item, month) {
   const date = `${month}-${String(Math.min(item.day || 1, daysInMonth(month))).padStart(2, "0")}`;
@@ -29,33 +30,48 @@ export function matchRecurring(tx, items) {
     ? {
         ...tx,
         recurringId: matches[0].id,
+        costKind: "fixed",
         scope: matches[0].scope || tx.scope,
         category: matches[0].category || tx.category,
       }
     : tx;
 }
 export function recurringLedger(state, month, transactions) {
-  return state.recurring
-    .map((r) => occurrence(r, month))
-    .filter(Boolean)
-    .map((r) => {
-      const actual = transactions
-        .filter((t) => t.recurringId === r.id)
-        .reduce(
-          (n, t) =>
-            n +
-            (t.direction === "expense"
-              ? t.amount
-              : t.direction === "refund"
-                ? -t.amount
-                : 0),
-          0,
-        );
-      return {
-        ...r,
-        actual,
-        outstanding: Math.max(0, r.amount - actual),
-        paid: actual >= r.amount,
-      };
-    });
+  const p = period(month, startDay(state));
+  const months = [...new Set([p.start.slice(0, 7), p.end.slice(0, 7)])];
+  const scheduled = state.recurring.flatMap((r) =>
+    months
+      .map((m) => occurrence(r, m))
+      .filter((r) => r && r.date >= p.start && r.date <= p.end),
+  );
+  return scheduled.map((r) => {
+    const actual = transactions
+      .filter(
+        (t) =>
+          t.recurringId === r.id &&
+          scheduled
+            .filter((x) => x.id === r.id)
+            .sort(
+              (a, b) =>
+                Math.abs(dayDiff(a.date, t.date)) -
+                Math.abs(dayDiff(b.date, t.date)),
+            )[0]?.date === r.date,
+      )
+      .reduce(
+        (n, t) =>
+          n +
+          (t.direction === "expense"
+            ? t.amount
+            : t.direction === "refund"
+              ? -t.amount
+              : 0),
+        0,
+      );
+    return {
+      ...r,
+      actual,
+      outstanding: Math.max(0, r.amount - actual),
+      paid: actual >= r.amount,
+    };
+  });
 }

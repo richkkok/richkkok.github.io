@@ -494,3 +494,33 @@ test("추천 고정비 준비액은 실제·예정액과 중복되지 않고 누
   s.transactions[0].amount = 1200000;
   assert.equal(dashboard(s, "2026-09", "2026-09-10").fixed, 1200000);
 });
+test("반복비 연결은 수기 기본 변동비보다 우선해 이중 계상을 막음", () => {
+  const s = setup();
+  s.recurring = [
+    { id: "r", name: "가상고정", amount: 500000, day: 10, start: "2026-01-01" },
+  ];
+  s.transactions = [
+    tx(500000, "2026-09-10", { recurringId: "r", costKind: "variable" }),
+  ];
+  const b = dashboard(s, "2026-09", "2026-09-10");
+  assert.equal(b.actual, 0);
+  assert.equal(b.fixed, 500000);
+});
+test("31일 기준의 짧은 달은 실제 포함된 반복 예정일만 집계", () => {
+  const s = setup();
+  s.settings.periodStartDay = 31;
+  s.recurring = [
+    { id: "r", name: "가상반복", amount: 100000, day: 30, start: "2026-01-01" },
+  ];
+  assert.equal(monthBudget(s, "2026-03", "2026-04-29").recurring.length, 0);
+  let b = monthBudget(s, "2026-02", "2026-03-30");
+  assert.equal(b.recurring.length, 2);
+  assert.equal(b.fixed, 200000);
+  s.transactions = [
+    tx(100000, "2026-02-28", { recurringId: "r", scope: "fixed" }),
+    tx(100000, "2026-03-30", { recurringId: "r", scope: "fixed" }),
+  ];
+  b = monthBudget(s, "2026-02", "2026-03-30");
+  assert.equal(b.outstanding, 0);
+  assert.equal(b.fixed, 200000);
+});

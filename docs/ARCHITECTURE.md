@@ -1,33 +1,43 @@
-# RichKkok v1 architecture
+# RichKkok 2.0 architecture
 
-## Boundaries and privacy
+## 범위와 기존 데이터
 
-Vanilla ES modules render five routes: home, transactions, budget, analytics, settings. Import is a separate workflow. Pure modules (`budget`, `recurring`, `rules`, `analytics`, import normalization) do not depend on the DOM. `db.js` is the repository boundary for a future optional sync adapter; v1 has no server, analytics SDK, account login or financial network request.
+정적 ES module 앱 + IndexedDB + 기존 `richkkok-sync` Edge Function입니다. schemaVersion 1, 기존 DB 이름, PWA id/scope, 초대·세션 인증을 유지합니다. productVersion 2는 운영월 기준일, 급여일, 마감, 보정, 결제경로, 귀속월 등 선택 필드를 추가합니다. 거래 ID·날짜·금액은 변경하지 않습니다. 최초 마이그레이션은 동일 IndexedDB 트랜잭션 안에서 원본을 `pre-v2-backup`에 보관합니다. 초대 참여와 충돌 해결도 해당 이전 상태를 보관합니다.
 
-IndexedDB stores one versioned household document atomically. Read-modify-write transactions prevent lost updates across tabs; BroadcastChannel refreshes open views. Real and fictional demonstration data use separate databases. Original import files remain only in memory and are released after import. Backup contains normalized data, never original financial files. Public defaults contain generic member names and no actual household income. A private setup file can apply household settings without publishing them or replacing existing transactions.
+## 기간
 
-Personal-detail hiding suppresses merchants, notes and payment-method searching in shared views. It is a presentation preference, not encryption or PIN authentication. Anyone with device/browser access may access local data. Browsers and devices do not sync automatically; export an encrypted backup before changing browsers or clearing site data.
+실제 발생일 `date/datetime`와 선택적 `operatingMonth`는 별개입니다. 기본 기간은 10일~익월 9일이며 1~31일로 변경할 수 있습니다. 없는 날짜는 월말로 제한합니다. 조기 급여는 실제 날짜를 유지하고 귀속월만 지정합니다. 카드 실적인정액은 카드사 달력월로 별도 표시합니다.
 
-## Money model
+## 소비곡선과 금액
 
-All amounts are safe integer KRW. Direction (expense, income, refund, transfer), category and household scope are independent. Soft-deleted rows, split parents, transfers and excluded rows are omitted from expenditure. Refunds subtract once. Planned income and imported actual income are alternative modes, never added together.
+`baseline.js`는 사용자가 전체 자료를 확인한 과거 연속 3개월만 학습합니다. 이체·카드대금·삭제·제외·분할 부모는 소비에서 빠지고 환불은 차감합니다. 고정·변동·일회성은 분리합니다. 기준선이 없으면 균등 계획이며 학습했다고 표현하지 않습니다.
 
-Available = selected income − actual net expenditure − unmatched recurring remainder − monthly savings allocations. A recurring remainder is max(0, scheduled amount − linked actual net payment). Only an unambiguous configured merchant/payment/owner match auto-links a recurring charge; otherwise users link it manually. Future changes take effect on the occurrence's due date. Card eligible and unknown amounts are parallel metrics of existing rows, never additional expenditure. Eligibility is user-controlled rather than an assertion about a card contract.
+- 3개월 각 날짜의 순변동소비에서 주중/주말, 급여 전후, 운영월 주차별 상대 강도를 구합니다.
+- 작은 집단은 전체 평균 14일분과 섞어 극단값 영향을 낮춥니다. 이 14는 관측치가 아닌 공개된 모델 완화 상수입니다.
+- 세 강도를 곱해 양수 가중치를 만든 뒤 운영월의 전체 목표에 맞게 정규화합니다. 원 단위 잔여는 최대 나머지법으로 배정하여 계획선의 마지막 값이 예산과 정확히 일치합니다.
+- 실질 변동예산 = max(0, min(직접/추천 목표, 계획수입 − 실제·미결제 고정비 − 목표저축)).
+- 더/덜 쓸 돈 = 오늘까지 계획 누적 − 실제 변동·일회성 누적.
+- 오늘 허용액 = 오늘 계획 + 전날까지 이월 여유 − 오늘 소비, 전체 남은 예산을 상한으로 적용. 통장 잔액 또는 신용한도가 아닙니다.
+- 예상 총지출 = 실제+미결제 고정비 + 일반 변동소비/경과 가중비율 + 이미 발생한 일회성. 일회성은 확대하지 않습니다. 기록 관측이 없으면 목표 소비를 사용합니다.
+- 예상저축 = 수입 − 예상 총지출. 남은 변동소비를 0으로 해도 목표에 못 미치면 현재 불가능, 예상이 목표 미달이면 위험, 그 외 달성 가능입니다. 초기 7일 미만·미마감·관측 없음은 잠정 표시합니다.
+- 복귀액 = ceil(계획 대비 초과 / 내일부터 남은 날짜 수). 카테고리 절감 순위는 예상 초과액, 여유는 남은 카테고리 예산입니다. 보호 항목은 강제 절감 순위에서 제외합니다.
 
-Budgets use defaults plus monthly overrides. Insights require supporting records, use deterministic comparisons and suppress spending-reduction prompts for protected fixed-cost categories.
+## 목표 추천
 
-## Import and backup
+카테고리별 실제 3개월 평균과 최소월을 사용합니다. 여유형은 평균, 균형형은 평균과 최소의 중간, 절약형은 최소입니다. 육아·의료·주거·금융·교통 및 보호된 고정비는 유지합니다. 일회성 평균은 여유금으로 포함합니다. 추천 적용 시 과거 평균 고정비를 최소 준비액으로 함께 적용하고 실제+예정 고정비와 둘 중 큰 값만 사용해 중복 예약을 막습니다. 준비액은 계획의 고급항목에서 직접 낮출 수 있습니다. 최소월은 항목마다 다를 수 있으므로 동시 달성 가능성을 보장하지 않습니다. 사용자가 적용해야 목표가 바뀝니다.
 
-CSV handles quoted commas/newlines and common Korean encodings. A worker uses locally vendored, checksum-pinned SheetJS CE 0.20.3 for XLS/XLSX, with automatic header detection and manual sheet/column mapping. Explicit transaction types take precedence over signs. For files without a type column, the preview offers card/refund or signed-bank conventions. Debit/credit columns are supported. Limits: 20 MB/file, 50,000 rows/file, 100,000 stored transactions; malformed rows require explicit skip consent.
+## 기록과 마감
 
-SHA-256 identity combines owner, date/time, amount, normalized merchant, payment method, direction and identical-row occurrence. Reimports preserve same-file multiplicity and retain identities through edits, soft deletion and splitting. Overlapping exports lacking transaction identifiers cannot perfectly distinguish genuinely separate identical payments; preview remains essential.
+입력은 금액→소비처→저장이 기본이며 소비처 분류를 학습합니다. 결제경로와 실제 카드/계좌는 동일 거래의 속성입니다. 동일 입력은 경고와 확인을 거치며 반복 저장은 ID로 방어합니다. 여러 파일은 순서대로 미리보기·열 연결·중복 후보 확인 후 저장합니다. 자동분류/고정비 추론은 수정할 수 있습니다.
 
-Encrypted backups use WebCrypto PBKDF2-SHA256 (250,000 iterations, random 16-byte salt) and AES-256-GCM (random 12-byte IV). Wrong passwords and tampering fail before state replacement. Plain JSON export carries a privacy warning. Restore validates schema, safe amounts and hostile object keys before an atomic replacement.
+마감은 해당 날짜 거래 집합의 서명을 저장합니다. 추가·수정·삭제 후 서명이 달라지면 마감이 해제됩니다. 지출이 있는 날은 무지출 마감을 거절합니다. 주간 보정은 카드앱과 같은 날짜 범위의 승인 순금액을 비교하며, 사용자가 선택해야만 차이를 지출/환불 보정 거래로 남깁니다.
 
-## PWA and delivery
+## 공동사용과 서버 수정
 
-The build hashes shipped assets into a cache version. Installation precaches the complete shell and local spreadsheet parser; failed installs discard the partial cache. Navigation and allowlisted assets use the matching cached release for coherent offline execution. Updates wait for an explicit user action; activation deletes only older RichKkok caches. IndexedDB is independent of asset caches and retained through upgrades.
+동기화는 기존 revision compare-and-swap을 유지합니다. 세션 토큰은 기기의 IndexedDB에 보관됩니다. 로컬 저장은 네트워크 응답을 기다리지 않으며 dirty 표시와 거래를 같은 저장 트랜잭션에서 처리합니다. 서버 응답을 적용할 때 요청 당시 스냅샷과 최신 로컬 기록을 다시 병합해 요청 중 입력을 보존합니다. 다른 거래는 ID별 병합, 같은 거래 동시수정은 명시적 선택 전까지 보류합니다. 탭 간 동기화 큐는 Web Locks로 직렬화합니다.
 
-This repository already uses GitHub Pages `main / (root)`. Its built-in `pages build and deployment` workflow is the single deployment owner. The separate quality workflow checks syntax/security boundaries, tests, vendor integrity and that rebuilding produces exactly the committed `sw.js`, then retains a validated `dist` artifact. Before committing application changes, run the build and commit the generated service worker. The pinned parser is fully vendored. We deliberately do not issue a second deploy-pages request alongside the existing Pages deployment.
+운영 서버의 기존 JSON 이중 직렬화를 더미 검증으로 발견해 수정했습니다. Postgres.js의 명시적 `sql.json(object)`로 저장합니다. 기존 문자열 형태 JSON은 읽기 경로에서 해석하며 운영 데이터 일괄 UPDATE/삭제는 하지 않습니다. 새 필드는 기존 JSON 문서에 추가되므로 DB DDL 변경이 필요하지 않습니다.
 
-Responsive navigation adapts at tablet/mobile widths. Safe-area padding, 16px inputs, 44px targets, keyboard/native dialogs and reduced motion are part of the shared design. Browser viewport checks do not replace testing on physical iPhone/iPad Safari devices.
+## PWA
+
+자체 호스팅 아이콘·스프레드시트 파서와 전체 앱 파일의 내용 해시로 캐시를 교체합니다. 설치가 실패하면 부분 캐시를 폐기합니다. 새 버전은 입력창이 닫힌 뒤 사용자가 적용하며 IndexedDB 기록은 유지됩니다. manifest의 기존 id/scope를 유지해 설치 식별자를 바꾸지 않습니다.

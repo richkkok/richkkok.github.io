@@ -1,5 +1,8 @@
 import { keyText } from "../format.js";
 const aliases = {
+  channel: ["결제경로", "간편결제", "paymentchannel"],
+  operatingMonth: ["귀속운영월", "귀속월", "operatingmonth"],
+  costKind: ["지출성격", "고정변동", "costkind"],
   date: [
     "거래일시",
     "승인일시",

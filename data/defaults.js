@@ -1,4 +1,4 @@
-export const VERSION = "1.1.0";
+export const VERSION = "2.0.0";
 export const SCOPES = {
   shared: "공동생활비",
   fixed: "공동고정비",
@@ -19,7 +19,10 @@ export const PERFORMANCE = {
 };
 export const CATEGORIES = [
   ["groceries", "식비·마트", "basket"],
-  ["dining", "외식·배달", "dining"],
+  ["dining", "외식", "dining"],
+  ["delivery", "배달", "dining"],
+  ["cafe", "카페", "dining"],
+  ["living", "생활용품", "basket"],
   ["child", "육아", "heart"],
   ["housing", "주거·관리", "home"],
   ["transport", "차량·교통", "car"],
@@ -37,6 +40,9 @@ export function emptyState() {
     configured: false,
     demo: false,
     settings: {
+      periodStartDay: 10,
+      salaryDays: [10, 15],
+      paymentMethods: [],
       members: { p1: "구성원 1", p2: "구성원 2" },
       income: 0,
       incomeMode: "planned",
@@ -48,6 +54,8 @@ export function emptyState() {
       categoryBudgets: {},
       monthOverrides: {},
     },
+    dailyCloses: {},
+    reconciliations: [],
     categories: structuredClone(CATEGORIES),
     transactions: [],
     rules: [],

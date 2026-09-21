@@ -1,3 +1,6 @@
+import { periodKey, startDay, periodLabel, period } from "./period.js";
+import { behaviorAction, quickEntry } from "./behavior-actions.js";
+import { controlHome, controlAnalysis } from "./views/behavior.js";
 import { Repository } from "./db.js";
 import { sampleState } from "../data/sample.js";
 import {
@@ -7,10 +10,8 @@ import {
   amountInput,
 } from "./format.js";
 import { icon, toast, openDialog, button } from "./ui.js";
-import { homeView } from "./views/home.js";
 import { transactionsView } from "./views/transactions.js";
 import { budgetView } from "./views/budget.js";
-import { analyticsView } from "./views/analytics.js";
 import { settingsView } from "./views/settings.js";
 import { onboardingView } from "./views/onboarding.js";
 import {
@@ -34,10 +35,10 @@ import { CloudSync } from "./cloud.js";
 import { route, navigate, watchRoute } from "./router.js";
 const titles = {
   home: "홈",
-  transactions: "내역",
-  budget: "예산",
+  transactions: "기록",
+  budget: "계획",
   analytics: "분석",
-  settings: "설정",
+  settings: "가족·설정",
   import: "내역 가져오기",
 };
 const app = {
@@ -61,6 +62,10 @@ app.repo = new Repository(
 app.cloud = new CloudSync(app);
 app.load = async () => {
   app.state = await app.repo.read();
+  if (!app.periodInitialized) {
+    app.month = periodKey(undefined, startDay(app.state));
+    app.periodInitialized = true;
+  }
   app.render();
 };
 app.update = async (change) => {
@@ -90,10 +95,10 @@ app.render = () => {
   document.title = `${titles[current]} · RichKkok 리치콕`;
   const nav = [
     ["home", "home", "홈"],
-    ["transactions", "list", "내역"],
-    ["budget", "wallet", "예산"],
+    ["transactions", "list", "기록"],
     ["analytics", "chart", "분석"],
-    ["settings", "settings", "설정"],
+    ["budget", "wallet", "계획"],
+    ["settings", "settings", "가족·설정"],
   ];
   document.querySelector("#navigation").innerHTML = nav
     .map(
@@ -101,7 +106,13 @@ app.render = () => {
         `<a href="#${r}" class="nav-item ${current === r ? "active" : ""}" ${current === r ? 'aria-current="page"' : ""}>${icon(i)}<span>${label}</span></a>`,
     )
     .join("");
-  document.querySelector("#month-title").textContent = monthTitle(app.month);
+  document.querySelector("#month-title").textContent =
+    monthTitle(app.month) + " 운영월";
+  document.querySelector("#period-label").textContent = periodLabel(
+    period(app.month, startDay(app.state)),
+  );
+  document.querySelector("#storage-status").textContent =
+    app.cloud?.summary().status || "이 기기에 저장";
   document.querySelector("#month-picker").value = app.month;
   document.querySelector("#demo-banner").hidden = app.mode !== "demo";
   document.querySelector("#app-header").hidden = !app.state.configured;
@@ -113,10 +124,10 @@ app.render = () => {
     main.innerHTML = onboardingView(app.state, app.step);
   else
     main.innerHTML = {
-      home: () => homeView(app.state, app.month),
+      home: () => controlHome(app.state, app.month),
       transactions: () => transactionsView(app.state, app.month, app.filters),
       budget: () => budgetView(app.state, app.month),
-      analytics: () => analyticsView(app.state, app.month),
+      analytics: () => controlAnalysis(app.state, app.month),
       settings: () => settingsView(app.state, app.cloud?.summary()),
       import: () => importView(app.state, app.importSession),
     }[current]();
@@ -215,6 +226,7 @@ document.addEventListener("click", async (event) => {
       }
     const action = target.dataset.action;
     if (!action) return;
+    if (await behaviorAction(app, action, target)) return;
     if (action.startsWith("go-")) {
       document.querySelector("#dialog").close();
       navigate(action.slice(3));
@@ -228,9 +240,10 @@ document.addEventListener("click", async (event) => {
     } else if (action === "finish-onboarding") {
       await app.update((s) => {
         s.configured = true;
+        s.settings.trackingSince ||= new Date().toLocaleDateString("en-CA");
       });
       navigate("home");
-    } else if (action === "add-transaction") editTransaction(app);
+    } else if (action === "add-transaction") quickEntry(app);
     else if (action === "clear-filters") {
       app.filters = { query: "", limit: 100 };
       app.render();
@@ -297,6 +310,7 @@ document.addEventListener("submit", async (event) => {
     } else {
       await app.update((s) => {
         s.configured = true;
+        s.settings.trackingSince ||= new Date().toLocaleDateString("en-CA");
       });
       navigate("import");
     }

@@ -1,3 +1,4 @@
+import { possibleDuplicates } from "../import/duplicates.js";
 import { parseBytes, inspectSheets, previewRows } from "../import/parser.js";
 import { inferMapping } from "../import/mapper.js";
 import { sha256, dedupe } from "../import/dedupe.js";
@@ -8,7 +9,7 @@ export function importView(state, session) {
   const sheets = session.sheets,
     sheet = sheets?.[session.sheet || 0],
     preview = session.preview;
-  return `<div class="page-intro"><div><h1>내역 가져오기</h1><p>한 달에 파일 몇 개. 우리집 돈 흐름은 한눈에.</p></div><span class="status-pill">${icon("shield")}기기 안에서만 처리</span></div>${state.demo ? '<div class="notice">샘플 공간이에요. 실제 금융파일은 샘플을 종료한 뒤 가져와 주세요.</div>' : ""}<section class="card import-card"><div class="owner-choice">${["p1", "p2"].map((p) => `<button class="owner-button ${session.owner === p ? "selected" : ""}" data-import-owner="${p}" aria-pressed="${session.owner === p}"><span class="avatar">${e(state.settings.members[p].slice(0, 1))}</span><span>${e(state.settings.members[p])} 내역 가져오기</span>${icon("upload")}</button>`).join("")}</div><input id="import-file" type="file" accept=".csv,.xlsx,.xls" multiple hidden><div class="dropzone" tabindex="0" role="button" aria-label="거래파일 선택 또는 여기에 놓기"><span class="drop-icon">${icon("upload")}</span><h2>${session.busy ? "파일을 읽고 있어요…" : "파일을 여기에 놓아 주세요"}</h2><p>또는 눌러서 파일 선택 · XLSX, XLS, CSV · 최대 20MB</p><span class="small">원본 파일은 저장하지 않아요</span></div><p class="form-error" id="import-error" role="alert">${e(session.error || "")}</p>${session.fileName ? `<div class="import-file-info"><span>${icon("list")}${e(session.fileName)}</span><span>${session.queue?.length ? `뒤에 ${session.queue.length}개 대기` : ""}</span></div>` : ""}</section>${
+  return `<div class="page-intro"><div><h1>내역 가져오기</h1><p>처음 3개월 분석 또는 필요한 달의 정밀 확인에 사용해.</p></div><span class="status-pill">${icon("shield")}기기 안에서만 처리</span></div>${state.demo ? '<div class="notice">샘플 공간이에요. 실제 금융파일은 샘플을 종료한 뒤 가져와 주세요.</div>' : ""}<section class="card import-card"><div class="owner-choice">${["p1", "p2"].map((p) => `<button class="owner-button ${session.owner === p ? "selected" : ""}" data-import-owner="${p}" aria-pressed="${session.owner === p}"><span class="avatar">${e(state.settings.members[p].slice(0, 1))}</span><span>${e(state.settings.members[p])} 내역 가져오기</span>${icon("upload")}</button>`).join("")}</div><input id="import-file" type="file" accept=".csv,.xlsx,.xls" multiple hidden><div class="dropzone" tabindex="0" role="button" aria-label="거래파일 선택 또는 여기에 놓기"><span class="drop-icon">${icon("upload")}</span><h2>${session.busy ? "파일을 읽고 있어요…" : "파일을 여기에 놓아 주세요"}</h2><p>또는 눌러서 파일 선택 · XLSX, XLS, CSV · 최대 20MB</p><span class="small">원본 파일은 저장하지 않아요</span></div><p class="form-error" id="import-error" role="alert">${e(session.error || "")}</p>${session.fileName ? `<div class="import-file-info"><span>${icon("list")}${e(session.fileName)}</span><span>${session.queue?.length ? `뒤에 ${session.queue.length}개 대기` : ""}</span></div>` : ""}</section>${
     sheet
       ? `<section class="card mapping-card"><div class="section-heading"><div><h2>열 연결 확인</h2><p>실제 헤더가 다르면 행 번호와 열을 직접 고르세요.</p></div></div><div class="form-grid">${select(
           "시트",
@@ -25,6 +26,9 @@ export function importView(state, session) {
           ["deposit", "입금액"],
           ["withdrawal", "출금액"],
           ["note", "메모"],
+          ["channel", "결제경로"],
+          ["operatingMonth", "귀속 운영월"],
+          ["costKind", "고정·변동·일회성"],
         ]
           .map(([k, label]) =>
             select(
@@ -63,7 +67,7 @@ export function importView(state, session) {
                   "",
                 )}</ul><label class="check-field"><input id="skip-errors" type="checkbox">확인한 오류 ${preview.errors.length}행을 제외하고 저장</label></div>`
             : ""
-        }<div class="preview-table"><div class="preview-heading"><span>일자 / 가맹점</span><span>분류 / 결제수단</span><span>유형 / 금액</span></div>${
+        }${preview.possible?.length ? `<div class="notice warning"><strong>다른 파일·수기 기록과 중복 의심 ${preview.possible.length}건</strong><p>같은 날·사용자·금액·소비처가 겹쳐. 카드와 간편결제로 한 번 결제한 내역인지 확인해 줘.</p>${preview.possible.map((x) => `<label class="check-field"><input type="checkbox" data-skip-duplicate="${e(x.incoming.sourceId)}" checked><span>${e(x.incoming.date)} · ${e(x.incoming.merchantRaw)} · ${won(x.incoming.amount)}<br>${e(x.incoming.paymentMethod)} ↔ ${e(x.existing.paymentMethod)} · 체크하면 새 내역 제외</span></label>`).join("")}<label class="check-field"><input id="confirm-possible" type="checkbox">중복 의심 항목을 검토했어</label></div>` : ""}<div class="preview-table"><div class="preview-heading"><span>일자 / 가맹점</span><span>분류 / 결제수단</span><span>유형 / 금액</span></div>${
           preview.added
             .slice(0, 20)
             .map(
@@ -72,7 +76,7 @@ export function importView(state, session) {
             )
             .join("") ||
           '<p class="empty-inline">새로 저장할 내역이 없어요.</p>'
-        }</div><div class="import-commit"><p>${preview.added.filter((t) => t.direction === "transfer").length}건의 이체·카드대금은 지출 합계에서 제외해요.<br>처음 20건을 미리 보여드려요. 실적은 기본 ‘미확인’이에요.</p><button class="btn primary" data-action="commit-import" ${!preview.added.length || session.busy ? "disabled" : ""}>${preview.added.length}건 저장하기 ${icon("check")}</button></div></section>`
+        }</div><div class="import-commit"><p>${preview.added.filter((t) => t.direction === "transfer").length}건의 이체·카드대금은 지출 합계에서 제외해요.<br>처음 20건을 미리 보여드려요. 실적은 기본 ‘미확인’이에요.</p><button class="btn primary" data-action="commit-import" ${!preview.added.length || session.busy ? "disabled" : ""}>검토한 내역 저장 ${icon("check")}</button></div></section>`
       : ""
   }<section class="import-guide"><h2>안심하고 가져오는 방법</h2><ol><li><strong>거래내역 내보내기</strong><span>카카오페이·카드·은행 앱에서 원하는 기간을 선택해요.</span></li><li><strong>두 사람의 파일 따로 선택</strong><span>사용자를 고르면 저장할 내역에 자동 표시돼요.</span></li><li><strong>미리 보고 저장</strong><span>날짜와 금액을 확인해요. 계좌·카드대금은 두 번 더하지 않아요.</span></li></ol></section>`;
 }
@@ -233,6 +237,10 @@ export async function previewImport(app, readUI = true) {
     },
     app.state.transactions,
   );
+  s.preview.possible = possibleDuplicates(
+    s.preview.added,
+    app.state.transactions,
+  );
   s.error = "";
   if (readUI) app.render();
 }
@@ -244,11 +252,22 @@ export async function commitImport(app) {
     !document.querySelector("#skip-errors")?.checked
   )
     throw Error("확인 필요 행을 살펴보고 제외 여부를 선택해 주세요.");
+  if (
+    s.preview.possible?.length &&
+    !document.querySelector("#confirm-possible")?.checked
+  )
+    throw Error("중복 의심 항목을 검토해 주세요.");
+  const skip = new Set(
+    [...document.querySelectorAll("[data-skip-duplicate]:checked")].map(
+      (el) => el.dataset.skipDuplicate,
+    ),
+  );
+  const incoming = s.preview.valid.filter((t) => !skip.has(t.sourceId));
   s.busy = true;
   try {
     let count = 0;
     await app.update((state) => {
-      const result = dedupe(s.preview.valid, state.transactions);
+      const result = dedupe(incoming, state.transactions);
       count = result.added.length;
       if (state.transactions.length + count > 100000)
         throw Error("한 가계부는 100,000건까지 보관할 수 있어요.");
@@ -271,7 +290,7 @@ export async function commitImport(app) {
       await readImport(app, next);
     } else {
       s.busy = false;
-      app.navigate("transactions");
+      app.navigate("analytics");
     }
   } finally {
     s.busy = false;

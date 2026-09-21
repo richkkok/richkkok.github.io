@@ -1,30 +1,42 @@
-# Validation record
+# RichKkok 2.0 검증 기록
 
-Local validation: 2026-09-17–18. This record does not claim a production deployment or physical Safari testing.
+검증일: 2026-09-21. 기존 운영자료를 테스트용으로 바꾸거나 삭제하지 않았다. 테스트는 분리된 검증 경로/IndexedDB, 브라우저 샘플 공간, `QA-RICHKKOK-20260921-V2` 더미 가족 두 개에서 수행했다.
 
-## Automated
+## 코드·로컬 검증
 
-`pnpm run check`, `pnpm test`, `pnpm run build` pass. 23 tests cover CSV quoting/encodings, real XLS/XLSX binary round trips, header mapping, Korean/Excel dates, signs/refunds/zero, settlement exclusion, stable repeat-import identities, rule precedence, monthly budgets, recurring matching/future changes, card metrics, split/delete/restore, private search, protected-cost insights, IndexedDB isolation/concurrency, encrypted backup/wrong-password/tamper rejection, restore validation, offline shell/cache activation, UI escaping/labels and component boundaries.
+`npm test`: 56개 통과. 기존 23개 회귀검사에 운영월·행동 제어·동기화 검사를 추가했다. `node scripts/check.mjs`의 JS 구문/리소스/manifest/네트워크 경계 검사와 `node scripts/build.mjs`의 53파일 릴리스 생성이 통과했다.
 
-## Browser flows
+- CSV 한국어·인코딩·인용부호, 실제 바이너리 XLS/XLSX, 열 연결, 다중 파일/동일 파일 중복
+- 이체·카드대금 제외, 간편결제+실제 카드의 단일 집계, 고정·변동·일회성, 환불·음수 보정
+- 10일~9일, 기준일31, 윤년, 연말·연초, 실제 거래일과 조기 급여 귀속월 분리
+- 예산0/지출0/정확한 일치/초과, 원 단위 합계, 고정비 실제·예정·준비액 중복 방지
+- 3개월 완전성, 데이터 없는 상태의 균등선, 주중/주말 곡선, 관측치 기반 추천과 보호 항목
+- 하루 마감/무지출/미래 마감 거절/거래 변경 시 마감 해제, 카드 누적 보정
+- 원본 마이그레이션 백업 및 거래 ID·날짜·금액·인증정보 보존
+- 서로 다른 거래 병합, 동일 거래 충돌 보류, 서버 대기 중 입력 보존과 즉시 로컬 저장
+- 암호화 백업·변조/암호 오류 거절, UI HTML escaping·접근성 레이블·개인 가맹점 숨김
+- 서비스워커 오프라인 응답·명시적 업데이트·설치 실패 시 부분 캐시 폐기
 
-- Onboarding and fictional demo isolation; real workspace setup and navigation.
-- Synthetic XLSX imported 5 rows: expense 23,100 + expense 6,500 − refund 3,100 = net 26,500 KRW; settlement 23,100 excluded; zero row preserved.
-- Same content as CSV: 0 new / 5 duplicate. Changing owner: 5 new rows; household net 53,000 KRW.
-- Saved card eligibility and exact merchant rule; home shows eligible 23,100 without changing household expenditure.
-- Split a 6,500 KRW row into 3,250 shared + 3,250 personal: aggregate remains 53,000; personal merchant masked.
-- Soft delete, trash filter and restore; same XLS reimport after edits and split still reports 0 new / 5 duplicates.
-- Applied service-worker updates through the visible update button; transactions and settings retained.
-- Stopped the local HTTP server, reloaded the controlled app and navigated between transactions and home: shell and stored records remained usable offline. Server restarted afterwards.
-- Captured Chromium viewport checks of all five routes at 360×800, 390×844, 768×1024, 1024×768 and 1440×900. No document horizontal overflow. Visible action targets at least 44px; input font sizes at least 16px. Mobile long-form dialog scrolls internally with a visible footer.
-- Browser console: no application errors/warnings in tested flows. The desktop row chevron nesting, compact transaction text and tablet brand target were corrected during visual QA.
+## 실제 브라우저 검증
 
-## Actual limits
+Chrome의 실제 렌더링과 사용자 컨트롤로 확인했다. 데스크톱, 390/412/768px 검증 프레임에서 주요 5개 화면을 열었고 가로 넘침이 없었다. 프레임 스크롤바를 제외한 콘텐츠 폭은 각각 375/397/753px였다.
 
-No bank login, cloud sync, automatic shared account access, PIN authentication or external AI. Privacy mode is visual masking. Real production-bank exports were not supplied; representative synthetic exports and manual mapping were tested. Password-protected spreadsheets are not supported. Browser-based size checks are not physical iPhone/iPad Safari tests. Home-screen installation requires a browser supporting the platform's PWA flow.
+- 금액4,800원/소비처 입력 후 홈 누적 여유가 정확히4,800원 감소
+- 모바일 지출입력, 소비처 이전 분류 추천, 동일 날짜·소비처·금액 중복 저장 경고
+- 지출5,800원으로 수정·결제경로 추가·휴지통 이동, 새로고침 유지
+- 추천 목표 선택과 직접 목표 변경, 과소비 상태의 음수·초과 문구·복귀금액
+- 일일 마감과 변경 후 해제, 별도 빈 가계부의 무지출 확인 및 재접속 유지
+- 주간 누적400,000원 vs 기록322,500원 → 차이77,500원, 선택 후 단일 보정 거래 반영
+- 6월 CSV + 7월 XLSX + 8월 CSV를 동시에 선택, 각 파일의 간편결제 중복1건 제외, 이체 분리, 환불 차감
+- 초기분석 결과 월평균 수입4,000,000원/고정비1,000,000원/순변동47,900원/저축가능2,952,100원으로 손계산과 일치
+- 분석기간·전체자료 확인, 추천 활성화, 기존 캐시의 새 버전 적용 후 기록 유지
 
-## Production checks
+## 실제 서버 통합검증
 
-The app is reachable at https://richkkok.github.io. All 43 shipped resources, including the manifest, icons, service worker and local spreadsheet parser, returned HTTP 200 and matched the tested local build byte-for-byte (2026-09-18). A private setup file was applied through the visible restore workflow on the live origin; its settings and four recurring items survived reload. No actual household values or original files are included in this repository. Live tablet navigation across all five routes passed without horizontal overflow or undersized targets.
+리치콕 전용 Edge Function에 더미 가족을 생성하고 실제 요청으로 7개 시나리오가 통과했다: 생성, 초대 참여, 초대 재사용410, 두 구성원 동일 상태, 동시쓰기 한 건200/한 건409, 병합된 새 필드 재조회, 잘못된 세션401.
 
-The initial custom deploy-pages job competed with the repository's already-active main/root Pages deployment and timed out during CDN purging. Deployment now has one owner: GitHub's built-in Pages workflow. The separate quality workflow runs the tests and verifies the committed service-worker release, without issuing another deployment.
+첫 검사에서 기존 JSON 이중 직렬화가 드러나 `richkkok-sync` version4로 수정했다. 새 저장값이 DB의 JSON object임을 확인했다. 기존 문자열 상태는 읽기 호환성을 제공한다. 기존 운영행을 일괄 수정하지 않았다. 만든 가족 두 개는 정확한 UUID와 QA 이름을 함께 제한하여 삭제했다.
+
+## 한계
+
+실제 iPhone Safari, Android Chrome 단말, OS 홈화면 PWA 실행, 가상키보드·안전영역의 물리 기기 검증은 이 환경에서 수행하지 못했다. 반응형 Chrome 검사와 서비스워커 회귀검사를 해당 단말 검증으로 대체했다고 주장하지 않는다. 3~5초 입력은 설계 목표이며 실제 부부의 사용성 측정값이 아니다. 사용자의 실제 과거 금융파일은 제공되지 않아 추천의 가정별 정확도는 아직 평가하지 않았다.

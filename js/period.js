@@ -32,8 +32,3 @@ export const periodLabel = (p) =>
   `${Number(p.start.slice(5, 7))}.${Number(p.start.slice(8))} – ${Number(p.end.slice(5, 7))}.${Number(p.end.slice(8))}`;
 export const periodDates = (p) =>
   Array.from({ length: p.days }, (_, i) => addDays(p.start, i));
-export function periodOccurrence(item, month, day = 10) {
-  const p = period(month, day);
-  const m = item.day >= Number(p.start.slice(8)) ? month : shiftMonth(month, 1);
-  return m;
-}

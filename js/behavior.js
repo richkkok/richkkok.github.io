@@ -17,7 +17,7 @@ export const liveExpense = (t) =>
   t.scope !== "excluded" &&
   ["expense", "refund"].includes(t.direction);
 export const costKind = (t) =>
-  t.costKind || (t.scope === "fixed" || t.recurringId ? "fixed" : "variable");
+  t.scope === "fixed" || t.recurringId ? "fixed" : t.costKind || "variable";
 export function allocate(total, weights) {
   const sum = weights.reduce((n, v) => n + v, 0) || 1;
   const raw = weights.map((v) => (Math.max(0, total) * v) / sum),
@@ -232,7 +232,11 @@ export function dashboard(state, month, asOf = today()) {
     ratio,
     chart,
     missing,
-    provisional: elapsed < 7 || missing.length > 0 || !hasObservations,
+    provisional:
+      elapsed < 7 ||
+      missing.length > 0 ||
+      !hasObservations ||
+      (state.settings.trackingSince || p.start) > p.start,
     recovery: future ? Math.ceil(Math.max(0, -delta) / future) : 0,
     pace: planned ? Math.round((actual / planned - 1) * 100) : null,
     remaining: budget - actual,

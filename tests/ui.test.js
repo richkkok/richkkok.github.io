@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import { sampleState } from "../data/sample.js";
 import { currentMonth } from "../js/format.js";
-import { homeView } from "../js/views/home.js";
+import {
+  controlHome as homeView,
+  controlAnalysis as analyticsView,
+} from "../js/views/behavior.js";
 import { transactionsView } from "../js/views/transactions.js";
 import { budgetView } from "../js/views/budget.js";
-import { analyticsView } from "../js/views/analytics.js";
 import { settingsView } from "../js/views/settings.js";
 import { importView } from "../js/views/import.js";
 import { onboardingView } from "../js/views/onboarding.js";

@@ -47,6 +47,6 @@ await fs.writeFile(path.join(out, "sw.js"), sw);
 await fs.writeFile(path.join(root, "sw.js"), sw);
 await fs.writeFile(
   path.join(out, "build.json"),
-  JSON.stringify({ version: "1.0.0", commit: revision, cache }),
+  JSON.stringify({ version: "2.0.0", commit: revision, cache }),
 );
 console.log(JSON.stringify({ files: files.length, cache, commit: revision }));

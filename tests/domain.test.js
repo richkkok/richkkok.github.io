@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { emptyState } from "../data/defaults.js";
+import { emptyState as defaultState } from "../data/defaults.js";
 import { parseCSV } from "../js/import/csv.js";
 import {
   parseDate,
@@ -21,6 +21,12 @@ import vm from "node:vm";
 const context = {};
 vm.runInNewContext(fs.readFileSync("vendor/xlsx.full.min.js", "utf8"), context);
 const XLSX = context.XLSX;
+// Legacy calendar-month regression suite uses the supported day-1 setting.
+const emptyState = () => {
+  const s = defaultState();
+  s.settings.periodStartDay = 1;
+  return s;
+};
 const map = { date: 0, merchant: 1, amount: 2, payment: 3, type: 4 };
 const tx = (amount, extra = {}) => ({
   ...normalizeRow(["2026-09-05", "가상 가게", amount, "우리카드", "지출"], map),

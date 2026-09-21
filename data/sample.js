@@ -1,3 +1,5 @@
+import { periodKey, period, startDay } from "../js/period.js";
+import { defaultBaseline } from "../js/baseline.js";
 import { emptyState } from "./defaults.js";
 import { shiftMonth, daysInMonth, currentMonth, today } from "../js/format.js";
 /* Entirely fictional; stored in a separate demo database. */
@@ -9,6 +11,10 @@ export function sampleState() {
     ...s.settings,
     members: { p1: "나", p2: "파트너" },
     income: 5800000,
+    variableBudget: 2500000,
+    savingsTarget: 1500000,
+    baseline: { ...defaultBaseline(periodKey()), confirmed: true },
+    trackingSince: period(periodKey()).start,
     sharedBudget: 1900000,
     personalBudgets: { p1: 300000, p2: 300000 },
     categoryBudgets: {
@@ -18,6 +24,9 @@ export function sampleState() {
       transport: 200000,
       shopping: 200000,
       leisure: 150000,
+      cafe: 65000,
+      delivery: 100000,
+      living: 80000,
     },
   };
   s.recurring = [
@@ -85,7 +94,7 @@ export function sampleState() {
     "child",
     "shopping",
     "groceries",
-    "dining",
+    "cafe",
     "leisure",
   ];
   const merchants = [
@@ -135,7 +144,7 @@ export function sampleState() {
       ...extras,
     });
   };
-  for (const offset of [-2, -1, 0]) {
+  for (const offset of [-3, -2, -1, 0]) {
     const m = shiftMonth(currentMonth(), offset),
       end = offset === 0 ? Number(today().slice(8)) : daysInMonth(m);
     add(

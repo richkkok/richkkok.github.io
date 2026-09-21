@@ -2,7 +2,7 @@ import { shiftMonth, daysInMonth, keyText } from "./format.js";
 import { period, periodKey, periodDates, startDay, dayDiff } from "./period.js";
 import { expenseValue } from "./budget.js";
 const kind = (t) =>
-  t.costKind || (t.scope === "fixed" || t.recurringId ? "fixed" : "variable");
+  t.scope === "fixed" || t.recurringId ? "fixed" : t.costKind || "variable";
 const live = (t) =>
   !t.deletedAt &&
   !t.splitParent &&

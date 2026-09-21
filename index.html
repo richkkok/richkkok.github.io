@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#245b4b" />
+    <meta name="theme-color" content="#102c45" />
     <meta
       name="description"
       content="함께 쓰는 돈을 한눈에. 우리집 가용금액, 예산, 거래내역을 기기에서 관리하고 가족과 함께 동기화하는 리치콕."
@@ -64,7 +64,11 @@
           >
         </div>
         <div class="install-banner-actions">
-          <button id="install-app" class="btn primary install-banner-button" type="button">
+          <button
+            id="install-app"
+            class="btn primary install-banner-button"
+            type="button"
+          >
             설치
           </button>
           <button
@@ -87,8 +91,9 @@
       </div>
       <header class="app-header" id="app-header">
         <div class="header-title">
-          <span class="eyebrow">OUR HOUSEHOLD</span>
+          <span class="eyebrow">우리집 소비 흐름</span>
           <h1 id="month-title">우리집</h1>
+          <p id="period-label"></p>
         </div>
         <div class="header-actions">
           <label class="month-control"
@@ -100,10 +105,10 @@
           ><button
             class="btn primary import-entry"
             type="button"
-            data-action="go-import"
-            aria-label="내역 가져오기"
+            data-action="quick-expense"
+            aria-label="지출 입력"
           >
-            <span aria-hidden="true">↥</span><span>내역 가져오기</span>
+            <span aria-hidden="true">+</span><span>지출 입력</span>
           </button>
         </div>
       </header>
@@ -111,7 +116,7 @@
         <div class="loading-state">리치콕을 준비하고 있어요…</div>
       </main>
       <footer class="app-footer">
-        RichKkok <span>·</span> 조금씩, 함께 만드는 여유
+        RichKkok <span>·</span> 리치콕 2.0 · 오늘 기록이 내일의 소비를 바꿔
       </footer>
     </div>
     <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
