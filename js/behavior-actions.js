@@ -16,6 +16,35 @@ import { matchRecurring } from "./recurring.js";
 import { planFor } from "./budget.js";
 import { memberName } from "../data/defaults.js";
 
+export function resolveEntryOwner(app, state) {
+  const cloudMember = app.cloud?.meta?.member;
+  const profiles = ["p1", "p2"].map((id) => ({
+    id,
+    name: memberName(id, state),
+    key: keyText(memberName(id, state)),
+  }));
+
+  if (cloudMember) {
+    if (cloudMember.role === "owner") return "p1";
+    const deviceKey = keyText(cloudMember.displayName || "");
+    const exact = profiles.find((profile) => profile.key === deviceKey);
+    if (exact) return exact.id;
+
+    const aliases = profiles.filter((profile) => {
+      const hangul = profile.key.replace(/[^가-힣]/g, "");
+      const given = hangul.length >= 2 ? hangul.slice(-2) : hangul;
+      return given.length >= 2 && deviceKey.includes(given);
+    });
+    if (aliases.length === 1) return aliases[0].id;
+  }
+
+  try {
+    const saved = localStorage.getItem("richkkok-owner");
+    if (["p1", "p2", "joint"].includes(saved)) return saved;
+  } catch {}
+  return "p1";
+}
+
 export function quickEntry(app, date = today()) {
   const state = app.state,
     recent = state.transactions
@@ -26,10 +55,7 @@ export function quickEntry(app, date = today()) {
           (!state.settings.privacy || !["p1", "p2"].includes(t.scope)),
       )
       .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
-  let owner = app.cloud?.meta?.member?.role === "member" ? "p2" : "p1";
-  try {
-    owner = localStorage.getItem("richkkok-owner") || owner;
-  } catch {}
+  const owner = resolveEntryOwner(app, state);
   let payment =
     recent.find((t) => t.owner === owner)?.paymentMethod ||
     state.settings.paymentMethods?.[0] ||
