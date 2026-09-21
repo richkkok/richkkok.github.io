@@ -4,7 +4,6 @@ import {
   amountKeys,
   exactApprovalDuplicate,
   fixedManualDuplicate,
-  merchantEquivalent,
 } from "./duplicates.js";
 export async function sha256(text) {
   const bytes =
@@ -53,8 +52,15 @@ export function dedupe(incoming, existing) {
   const liveExisting = existing.filter((t) => !t.deletedAt && !t.splitParent);
   const seen = new Set(existing.map((t) => t.sourceId || t.id));
   const approvalSeen = new Set(liveExisting.flatMap(approvalKeys));
+  const approvalGroups = new Map();
   const fixedGroups = new Map();
   for (const tx of liveExisting) {
+    const moment = approvalMoment(tx);
+    if (moment) {
+      const approvalKey = [tx.owner, moment, tx.direction].join("|");
+      if (!approvalGroups.has(approvalKey)) approvalGroups.set(approvalKey, []);
+      approvalGroups.get(approvalKey).push(tx);
+    }
     const key = [tx.owner, String(tx.date || "").slice(0, 7), tx.direction].join("|");
     if (!fixedGroups.has(key)) fixedGroups.set(key, []);
     fixedGroups.get(key).push(tx);
@@ -72,7 +78,11 @@ export function dedupe(incoming, existing) {
       continue;
     }
     const exactKeyMatch = approvalKeys(tx).some((key) => approvalSeen.has(key));
-    if (exactKeyMatch) {
+    const moment = approvalMoment(tx);
+    const approvalGroup = moment
+      ? approvalGroups.get([tx.owner, moment, tx.direction].join("|")) || []
+      : [];
+    if (exactKeyMatch || approvalGroup.some((row) => exactApprovalDuplicate(row, tx))) {
       duplicates++;
       continue;
     }
@@ -93,6 +103,11 @@ export function dedupe(incoming, existing) {
     }
     seen.add(tx.sourceId);
     approvalKeys(tx).forEach((key) => approvalSeen.add(key));
+    if (moment) {
+      const approvalKey = [tx.owner, moment, tx.direction].join("|");
+      if (!approvalGroups.has(approvalKey)) approvalGroups.set(approvalKey, []);
+      approvalGroups.get(approvalKey).push(tx);
+    }
     if (!fixedGroups.has(fixedKey)) fixedGroups.set(fixedKey, []);
     fixedGroups.get(fixedKey).push(tx);
     added.push(tx);
