@@ -80,13 +80,26 @@ svg {
   vertical-align: middle;
   display: inline-block;
 }
+button:focus,
+a:focus,
+input:focus,
+select:focus,
+textarea:focus,
+summary:focus {
+  outline: none;
+}
 button:focus-visible,
 a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
 input:focus-visible,
 select:focus-visible,
-summary:focus-visible {
-  outline: 3px solid #2b86db;
-  outline-offset: 3px;
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 4px var(--focus-halo);
 }
 .sr-only {
   position: absolute;
@@ -1497,9 +1510,16 @@ dialog > form {
   font-size: 1rem;
 }
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   background: white;
-  border-color: #287dc1;
+  border-color: var(--focus-touch);
+}
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 4px var(--focus-halo);
 }
 .field input::placeholder {
   color: #738493;
