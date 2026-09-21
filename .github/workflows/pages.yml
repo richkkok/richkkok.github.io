@@ -1,7 +1,7 @@
 name: RichKkok quality checks
 on:
   push:
-    branches: [main]
+    branches: [main, fix/card-merchant-evidence-20260921]
   workflow_dispatch:
 permissions:
   contents: read
