@@ -306,6 +306,7 @@ export async function previewImport(app, readUI = true) {
       sourceType: s.fileName.split(".").at(-1),
       rules: app.state.rules,
       recurring: app.state.recurring,
+      members: app.state.settings.members,
       defaultPayment: s.defaultPayment,
       negativeMode: s.negativeMode,
     },
