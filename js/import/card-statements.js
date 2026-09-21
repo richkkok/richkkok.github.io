@@ -213,6 +213,11 @@ function yearForMonth(statement, month) {
 function lineItems(line) {
   return [...(line.items || [])].sort((a, b) => a.x - b.x);
 }
+function lineY(line) {
+  if (Number.isFinite(line?.y)) return line.y;
+  const itemY = Number(line?.items?.[0]?.y);
+  return Number.isFinite(itemY) ? itemY : 0;
+}
 function dateItem(line, allowShort) {
   return lineItems(line).find((item) => {
     const text = clean(item.text);
@@ -265,7 +270,7 @@ function extractLineTransaction(lines, index, { allowShort, statement, payment }
     const above = [];
     for (let offset = 1; offset <= 2; offset++) {
       const candidate = lines[index - offset];
-      if (!candidate || Math.abs(candidate.y - line.y) > 11) break;
+      if (!candidate || Math.abs(lineY(candidate) - lineY(line)) > 11) break;
       const value = continuationMerchant(candidate, dItem.x, aItem.x, allowShort);
       if (!value) break;
       above.unshift(value);
@@ -273,7 +278,7 @@ function extractLineTransaction(lines, index, { allowShort, statement, payment }
     const below = [];
     for (let offset = 1; offset <= 2; offset++) {
       const candidate = lines[index + offset];
-      if (!candidate || Math.abs(candidate.y - line.y) > 11) break;
+      if (!candidate || Math.abs(lineY(candidate) - lineY(line)) > 11) break;
       const value = continuationMerchant(candidate, dItem.x, aItem.x, allowShort);
       if (!value) break;
       below.push(value);
