@@ -1,6 +1,7 @@
 import { today, daysInMonth, keyText } from "./format.js";
 import { period, startDay, inPeriod, dayDiff } from "./period.js";
 import { recurringLedger } from "./recurring.js";
+import { budgetIncomeValue } from "./import/normalize.js";
 export const activeTransactions = (state, month) =>
   state.transactions.filter(
     (t) =>
@@ -21,10 +22,15 @@ export const sumExpense = (rows) =>
   rows.reduce((n, t) => n + expenseValue(t), 0);
 export function planFor(state, month) {
   const s = state.settings,
-    o = s.monthOverrides?.[month] || {};
+    o = s.monthOverrides?.[month] || {},
+    beforeIncomeStart =
+      /^\d{4}-\d{2}$/.test(s.incomeStartMonth || "") &&
+      month < s.incomeStartMonth &&
+      o.income === undefined;
   return {
     ...s,
     ...o,
+    income: beforeIncomeStart ? 0 : (o.income ?? s.income),
     personalBudgets: { ...s.personalBudgets, ...o.personalBudgets },
     categoryBudgets: { ...s.categoryBudgets, ...o.categoryBudgets },
   };
@@ -33,9 +39,10 @@ export function monthBudget(state, month, asOf = today()) {
   const plan = planFor(state, month),
     tx = activeTransactions(state, month).filter((t) => t.date <= asOf),
     recurring = recurringLedger(state, month, tx);
-  const actualIncome = tx
-    .filter((t) => t.direction === "income")
-    .reduce((n, t) => n + t.amount, 0);
+  const actualIncome = tx.reduce(
+    (n, t) => n + budgetIncomeValue(t, state),
+    0,
+  );
   const income = plan.incomeMode === "actual" ? actualIncome : plan.income;
   const spent = sumExpense(tx),
     fixedActual = sumExpense(

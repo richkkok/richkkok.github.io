@@ -138,7 +138,7 @@ export function controlAnalysis(state, month) {
   const line = (l, v) =>
     `<div class="between data-line"><span>${e(l)}</span><strong>${won(v)}</strong></div>`;
   return `<div class="page-intro"><div><h1>분석</h1><p>소비가 몰리는 때와 줄일 수 있는 항목을 찾아봐.</p></div>${button("3개월 기준 설정", "baseline-settings", "secondary")}</div><section class="card baseline-header"><div><span class="eyebrow">초기 소비패턴 분석</span><h2>${h.selected.start.replaceAll("-", ".")} – ${h.selected.end.replaceAll("-", ".")}</h2><p>${h.usable ? "전체 자료 확인 완료 · 실제 기록을 기준으로 분석했어." : "전체 3개월 자료를 확인해야 추천 목표와 소비곡선을 사용할 수 있어."}</p></div><div class="action-buttons">${button("파일 가져오기", "go-import", "secondary", "upload")}${button(h.usable ? "추천 목표 보기" : "자료 확인", "" + (h.usable ? "recommend-goals" : "baseline-settings"), "primary")}</div></section><div class="analysis-metrics">${[
-    ["월평균 실제수입", h.income],
+    ["월평균 실제 생활수입", h.income],
     ["평균 고정지출", h.fixed],
     ["평균 변동지출", h.variable],
     ["평균 저축 가능액", h.savings],
@@ -146,7 +146,7 @@ export function controlAnalysis(state, month) {
     .map(([l, v]) => `<div><span>${l}</span><strong>${won(v)}</strong></div>`)
     .join(
       "",
-    )}</div><p class="small muted">${h.usable ? "확인한 3개월" : "선택한 기간에 입력된 자료만"} 기준. 일회성 월평균 ${won(h.oneoff)} 포함 시 현재 패턴의 예상저축은 ${won(h.savings)}이야. 저축 이체 자체를 저축 실적으로 추정하지 않아.</p>
+    )}</div><p class="small muted">${h.usable ? "확인한 3개월" : "선택한 기간에 입력된 자료만"} 기준. 보험금·가족 간 이체·캐시백·예금이자는 생활수입에서 제외해. 일회성 월평균 ${won(h.oneoff)} 포함 시 당시 실제수입 기준 잔액은 ${won(h.savings)}이야. 저축 이체 자체를 저축 실적으로 추정하지 않아.</p>
     <div class="two-column"><section class="card">${sectionTitle("현재 운영월 소비곡선", b.history.usable ? "우리집 소비패턴 반영" : "분석자료 확인 전 임시 균등선")}${paceChart(b)}${line("이전 운영월 전체 지출", prev.b.spent)}${line("이번 운영월 현재 지출", b.b.spent)}<p class="small muted">서로 기간 길이가 달라 단순 증감률로 비교하지 않아.</p></section><section class="card">${sectionTitle("카테고리별 소비", "개인·공동 변동지출 합계")}<div class="category-bars">${
       b.categories
         .filter((c) => c.used)

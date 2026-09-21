@@ -243,3 +243,27 @@ test("Woori PDF refund uses actual payable refund and benefit metadata", async (
   assert.equal(preview.valid[0].grossAmount, 432300);
   assert.equal(preview.valid[0].cardBenefitAmount, 12104);
 });
+
+test("카드 원본의 승인시간을 실제 거래시각으로 보존", async () => {
+  const sheets = [
+    {
+      name: "Sheet1",
+      date1904: false,
+      rows: [
+        ["카드이용내역"],
+        ["이용일자", "승인시간", "이용카드", "구분", "이용가맹점", "이용금액"],
+        ["26.09.21", "14:32:11", "마스터823", "일시불", "스타벅스", 5000],
+        ["본인회원 님의 이용 소계 1 건", null, null, null, null, 5000],
+        ["합계 1 건", null, null, null, null, 5000],
+      ],
+    },
+  ];
+  const parsed = parseCardWorkbook(sheets);
+  assert.equal(parsed.entries[0].time, "14:32:11");
+  const preview = await previewCardEntries(parsed.entries, state(), {
+    primaryOwner: "p1",
+    sourceType: "card-original",
+  });
+  assert.equal(preview.valid[0].datetime, "2026-09-21T14:32:11");
+});
+

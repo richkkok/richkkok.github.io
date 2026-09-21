@@ -91,7 +91,7 @@ export function importView(state, session) {
                   "",
                 )}</ul><label class="check-field"><input id="skip-errors" type="checkbox">확인한 오류 ${preview.errors.length}행을 제외하고 저장</label></div>`
             : ""
-        }${preview.possible?.length ? `<div class="notice warning"><strong>다른 파일·수기 기록과 중복 의심 ${preview.possible.length}건</strong><p>같은 날·사용자·금액·소비처가 겹쳐. 카드와 간편결제로 한 번 결제한 내역인지 확인해 줘.</p>${preview.possible.map((x) => `<label class="check-field"><input type="checkbox" data-skip-duplicate="${e(x.incoming.sourceId)}" checked><span>${e(x.incoming.date)} · ${e(x.incoming.merchantRaw)} · ${won(x.incoming.amount)}<br>${e(x.incoming.paymentMethod)} ↔ ${e(x.existing.paymentMethod)} · 체크하면 새 내역 제외</span></label>`).join("")}<label class="check-field"><input id="confirm-possible" type="checkbox">중복 의심 항목을 검토했어</label></div>` : ""}<div class="preview-table"><div class="preview-heading"><span>일자 / 가맹점</span><span>분류 / 사용자·결제수단</span><span>유형 / 금액</span></div>${
+        }${preview.possible?.length ? `<div class="notice warning"><strong>승인시간이 없어 중복 확인이 필요한 항목 ${preview.possible.length}건</strong><p>승인시간이 같은 거래는 이미 자동 제외했어. 아래 항목은 시간이 없거나 한쪽에만 있어 같은 날·사용자·금액·소비처 기준으로 직접 확인해 줘. 승인시간이 서로 다르면 별도 거래로 유지해.</p>${preview.possible.map((x) => `<label class="check-field"><input type="checkbox" data-skip-duplicate="${e(x.incoming.sourceId)}" checked><span>${e(x.incoming.date)} · ${e(x.incoming.merchantRaw)} · ${won(x.incoming.amount)}<br>${e(x.incoming.paymentMethod)} ↔ ${e(x.existing.paymentMethod)} · 체크하면 새 내역 제외</span></label>`).join("")}<label class="check-field"><input id="confirm-possible" type="checkbox">중복 의심 항목을 검토했어</label></div>` : ""}<div class="preview-table"><div class="preview-heading"><span>일자 / 가맹점</span><span>분류 / 사용자·결제수단</span><span>유형 / 금액</span></div>${
           preview.added
             .slice(0, 20)
             .map(
@@ -306,6 +306,7 @@ export async function previewImport(app, readUI = true) {
       sourceType: s.fileName.split(".").at(-1),
       rules: app.state.rules,
       recurring: app.state.recurring,
+      members: app.state.settings.members,
       defaultPayment: s.defaultPayment,
       negativeMode: s.negativeMode,
     },

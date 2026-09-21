@@ -61,6 +61,12 @@ export function validateState(input) {
     ids.add(t.id);
   }
   if (
+    s.incomeStartMonth !== undefined &&
+    s.incomeStartMonth !== "" &&
+    !/^\d{4}-(0[1-9]|1[0-2])$/.test(s.incomeStartMonth)
+  )
+    throw Error("정기수입 적용 시작월을 확인해 주세요.");
+  if (
     s.periodStartDay !== undefined &&
     (!Number.isInteger(s.periodStartDay) ||
       s.periodStartDay < 1 ||

@@ -10,6 +10,7 @@ const CARD_MAP = {
   payment: 3,
   type: 4,
   note: 5,
+  time: 6,
 };
 const fullDateToken = /^\d{2,4}[./-]\d{1,2}[./-]\d{1,2}$/;
 const shortDateToken = /^\d{1,2}\/\d{1,2}$/;
@@ -186,6 +187,7 @@ export function parseCardWorkbook(sheets) {
       payment,
       type: parsedAmount < 0 || /취소|환불/.test(merchant) ? "환불" : "지출",
       note: kind,
+      time: mapping.time >= 0 ? clean(row[mapping.time]) : "",
       sourceRow: index + 1,
     });
   }
@@ -333,8 +335,12 @@ function extractLineTransaction(
     0,
     Math.abs(grossAmount) - Math.abs(payableAmount),
   );
+  const timeItem = lineItems(line).find((item) =>
+    /^(?:오전|오후)?\s*\d{1,2}:\d{2}(?::\d{2})?$/.test(clean(item.text)),
+  );
   return {
     date: transactionDate(clean(dItem.text), statement),
+    time: timeItem ? clean(timeItem.text) : "",
     merchant,
     amount: payableAmount,
     grossAmount,
@@ -453,6 +459,7 @@ export async function previewCardEntries(
           entry.payment,
           entry.type,
           entry.note,
+          entry.time || "",
         ],
         CARD_MAP,
         {
@@ -461,6 +468,7 @@ export async function previewCardEntries(
           rules: state.rules,
           recurring: state.recurring,
           negativeMode: "refund",
+          members: state.settings.members,
         },
       );
       rows.push({

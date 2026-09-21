@@ -15,6 +15,7 @@ import { classify } from "./rules.js";
 import { matchRecurring } from "./recurring.js";
 import { planFor } from "./budget.js";
 import { memberName } from "../data/defaults.js";
+import { exactApprovalDuplicate, fixedManualDuplicate } from "./import/duplicates.js";
 
 export function resolveEntryOwner(app, state) {
   const cloudMember = app.cloud?.meta?.member;
@@ -152,11 +153,7 @@ export function quickEntry(app, date = today()) {
           !t.deletedAt &&
           !t.splitParent &&
           t.id !== id &&
-          t.date === tx.date &&
-          t.amount === tx.amount &&
-          t.direction === tx.direction &&
-          keyText(t.merchantNormalized) === keyText(tx.merchantNormalized) &&
-          keyText(t.paymentMethod) === keyText(tx.paymentMethod),
+          (exactApprovalDuplicate(t, tx) || fixedManualDuplicate(t, tx)),
       );
       if (duplicate && !f.get("allowDuplicate")) {
         if (!dialog.querySelector("[name=allowDuplicate]"))
@@ -324,7 +321,7 @@ export async function behaviorAction(app, action, target) {
     }
     openDialog(
       "리치콕 추천 목표",
-      `<p>조절 가능 항목의 3개월 평균과 가장 적게 쓴 달을 기준으로 계산했어. 육아·의료·주거·금융·교통은 줄이지 않아. 일회성 지출 평균 ${won(h.oneoff)}은 별도 여유로 포함해. 평균 고정비 ${won(h.fixed)}도 최소 준비액으로 함께 반영해.</p><div class="recommend-options">${h.variants.map((v) => `<label class="recommend-option"><input type="radio" name="variant" value="${v.id}" ${v.id === "balanced" ? "checked" : ""}><span><strong>${v.name}</strong><small>변동비 ${won(v.variableBudget)} / 저축 ${won(v.savingsTarget)}</small><small>과거 평균보다 ${won(v.reduction)} 절감</small></span></label>`).join("")}</div><p class="small muted">여유형: 과거 평균 유지 · 균형형: 평균과 최소의 중간 · 절약형: 항목별 과거 최소. 각 항목의 최소 소비월은 서로 다를 수 있어, 절약형의 동시 달성은 보장하지 않아. 실수입 기록이 누락되면 먼저 보완해 줘.</p><label class="check-field"><input type="checkbox" name="future">다음 운영월 기본 목표에도 적용</label>`,
+      `<p>조절 가능 항목의 3개월 평균과 가장 적게 쓴 달을 기준으로 계산했어. 육아·의료·주거·금융·교통은 줄이지 않아. 일회성 지출 평균 ${won(h.oneoff)}은 별도 여유로 포함해. 평균 고정비 ${won(h.fixed)}도 최소 준비액으로 함께 반영해.</p>${h.recommendationIncome !== h.income ? `<div class="notice"><strong>과거 소비는 그대로, 현재 소득으로 목표 계산</strong><p class="small muted">분석기간은 정기수입 시작 전이라 월평균 실제 생활수입은 ${won(h.income)}이야. 현재 운영월 추천은 계획수입 ${won(h.recommendationIncome)}을 기준으로 계산해.</p></div>` : ""}<div class="recommend-options">${h.variants.map((v) => `<label class="recommend-option"><input type="radio" name="variant" value="${v.id}" ${v.id === "balanced" ? "checked" : ""}><span><strong>${v.name}</strong><small>변동비 ${won(v.variableBudget)} / 저축 ${won(v.savingsTarget)}</small><small>과거 평균보다 ${won(v.reduction)} 절감</small></span></label>`).join("")}</div><p class="small muted">여유형: 과거 평균 유지 · 균형형: 평균과 최소의 중간 · 절약형: 항목별 과거 최소. 각 항목의 최소 소비월은 서로 다를 수 있어, 절약형의 동시 달성은 보장하지 않아. 실수입 기록이 누락되면 먼저 보완해 줘.</p><label class="check-field"><input type="checkbox" name="future">다음 운영월 기본 목표에도 적용</label>`,
       async (f) => {
         const v = h.variants.find((v) => v.id === f.get("variant"));
         await app.update((st) => {
@@ -332,7 +329,7 @@ export async function behaviorAction(app, action, target) {
             variableBudget: v.variableBudget,
             savingsTarget: v.savingsTarget,
             categoryBudgets: v.categoryBudgets,
-            income: h.income,
+            income: h.recommendationIncome,
             fixedReserve: Math.max(0, h.fixed),
             recommendation: {
               variant: v.id,

@@ -1,6 +1,7 @@
 import { shiftMonth, daysInMonth, keyText } from "./format.js";
 import { period, periodKey, periodDates, startDay, dayDiff } from "./period.js";
-import { expenseValue } from "./budget.js";
+import { expenseValue, planFor } from "./budget.js";
+import { budgetIncomeValue } from "./import/normalize.js";
 const kind = (t) =>
   t.scope === "fixed" || t.recurringId ? "fixed" : t.costKind || "variable";
 const live = (t) =>
@@ -72,9 +73,10 @@ export function baselineAnalysis(state, month) {
     end < period(month, startDay(state)).start;
   const monthly = months.map((m) => {
     const tx = rows.filter((t) => t.date.startsWith(m));
-    const income = tx
-      .filter((t) => t.direction === "income")
-      .reduce((n, t) => n + t.amount, 0);
+    const income = tx.reduce(
+      (n, t) => n + budgetIncomeValue(t, state),
+      0,
+    );
     const fixed = tx
       .filter((t) => kind(t) === "fixed")
       .reduce((n, t) => n + expenseValue(t), 0);
@@ -94,6 +96,11 @@ export function baselineAnalysis(state, month) {
     };
   });
   const income = avg(monthly.map((m) => m.income)),
+    recommendationIncome =
+      /^\d{4}-\d{2}$/.test(state.settings.incomeStartMonth || "") &&
+      end.slice(0, 7) < state.settings.incomeStartMonth
+        ? planFor(state, month).income
+        : income,
     fixed = avg(monthly.map((m) => m.fixed)),
     variable = avg(monthly.map((m) => m.variable)),
     oneoff = avg(monthly.map((m) => m.oneoff)),
@@ -139,7 +146,7 @@ export function baselineAnalysis(state, month) {
       name,
       categoryBudgets,
       variableBudget: target,
-      savingsTarget: Math.max(0, income - fixed - target),
+      savingsTarget: Math.max(0, recommendationIncome - fixed - target),
       reduction: Math.max(0, variable + oneoff - target),
       oneoffReserve: reserve,
     };
@@ -251,6 +258,7 @@ export function baselineAnalysis(state, month) {
     rows,
     monthly,
     income,
+    recommendationIncome,
     fixed,
     variable,
     oneoff,
