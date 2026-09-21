@@ -7,6 +7,15 @@
   }
 }
 @media (max-width: 1150px) {
+  .household-status {
+    min-width: 160px;
+    max-width: 190px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .household-status-copy strong {
+    font-size: 0.79rem;
+  }
   .sidebar {
     width: 178px;
     padding: 30px 13px;
@@ -102,6 +111,13 @@
   }
 }
 @media (max-width: 900px) {
+  .household-status {
+    min-width: 126px;
+    max-width: 142px;
+  }
+  .household-status-copy small {
+    display: none;
+  }
   .sidebar {
     width: 86px;
     padding: 28px 9px;
@@ -205,6 +221,9 @@
 }
 
 @media (max-width: 700px) {
+  .household-status {
+    display: none;
+  }
   .sidebar {
     inset: auto 0 0;
     width: auto;
