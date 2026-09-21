@@ -176,6 +176,26 @@ test("Stable hashes dedupe repeat files, retain owner and same-file multiplicity
   ]);
   assert.equal(dedupe([identified[0]], split).duplicates, 1);
 });
+test("Expanded merchant rules classify imported card merchants", () => {
+  const cases = [
+    ["베스트내과", "health"],
+    ["트레이더스 동탄점", "groceries"],
+    ["연회비-(제휴)카드의정석2 EVERY DISCOUNT", "finance"],
+    ["마이리얼트립_마이리얼트립", "leisure"],
+    ["유니클로", "shopping"],
+    ["이케아 기흥", "living"],
+    ["동탄토이빌리지", "child"],
+    ["별미삼청수제비", "dining"],
+  ];
+  for (const [merchant, expected] of cases) {
+    const row = tx(100, {
+      merchantRaw: merchant,
+      merchantNormalized: merchant,
+    });
+    assert.equal(classify(row, []).category, expected, merchant);
+  }
+});
+
 test("Rules: exact > keyword > merchant > heuristic; payment field; removal", () => {
   const t = tx(100, { merchantNormalized: "가상 마트" }),
     rules = [
