@@ -207,6 +207,11 @@ test("Expanded merchant rules classify imported card merchants", () => {
     ["이케아 기흥", "living"],
     ["동탄토이빌리지", "child"],
     ["별미삼청수제비", "dining"],
+    ["도니1985", "dining"],
+    ["콩게미", "dining"],
+    ["카시아", "cafe"],
+    ["주식회사 오디엔", "cafe"],
+    ["(주)씨씨앤피", "leisure"],
   ];
   for (const [merchant, expected] of cases) {
     const row = tx(100, {
