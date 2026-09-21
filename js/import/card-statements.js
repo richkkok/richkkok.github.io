@@ -233,7 +233,7 @@ function inlineMerchant(line, dateX, amountX) {
     .trim();
 }
 const continuationStop =
-  /이용대금명세서|카드이용내역|상세내역|이용가맹점|이용금액|당월 결제|청구금액|결제 후|포인트|file:\/\/\/|COPYRIGHT|고객서비스센터|우리카드 홈페이지|인쇄하기|소계\(|청구합계|카드의정석/i;
+  /이용대금\s*명세서|카드이용내역|상세내역|이용가맹점|이용금액|당월 결제|청구금액|결제 후|포인트|file:\/\/\/|COPYRIGHT|고객서비스센터|우리카드 홈페이지|인쇄하기|소계\(|청구합계|카드의정석/i;
 function continuationMerchant(line, dateX, amountX, allowShort) {
   const text = clean(line.text);
   if (!text || continuationStop.test(text) || dateItem(line, allowShort)) return "";
@@ -300,7 +300,7 @@ function flattenPages(pages) {
 export function parseWooriPdf(pages) {
   const lines = flattenPages(pages);
   const whole = lines.map((line) => line.text).join(" ");
-  if (!/우리카드/.test(whole) || !/이용대금명세서/.test(whole)) return null;
+  if (!/우리카드/.test(whole) || !/이용대금\s*명세서/.test(whole)) return null;
   const statement = parseStatementPeriod(lines);
   const entries = [];
   let buffer = [];
