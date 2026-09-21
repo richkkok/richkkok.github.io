@@ -62,13 +62,16 @@ export async function settingsAction(app, action) {
           ["actual", "실제 수입 내역만"],
         ],
         s.incomeMode,
-      )}${field("공동생활비 목표 (원)", "sharedBudget", s.sharedBudget, "number", "required")}${field(`${s.members.p1} 용돈 (원)`, "p1Budget", s.personalBudgets.p1, "number", "required")}${field(`${s.members.p2} 용돈 (원)`, "p2Budget", s.personalBudgets.p2, "number", "required")}</div><p class="small muted">기본 월수입은 평소 정기수입 기준이에요. 상여·보너스처럼 월별로 달라지는 수입은 홈의 “수입”에서 이번 달만 따로 바꿀 수 있어요.</p>`,
+      )}${field("정기수입 적용 시작월", "incomeStartMonth", s.incomeStartMonth || "", "month")}${field("공동생활비 목표 (원)", "sharedBudget", s.sharedBudget, "number", "required")}${field(`${s.members.p1} 용돈 (원)`, "p1Budget", s.personalBudgets.p1, "number", "required")}${field(`${s.members.p2} 용돈 (원)`, "p2Budget", s.personalBudgets.p2, "number", "required")}</div><p class="small muted">기본 월수입은 평소 정기수입 기준이에요. 정기수입 적용 시작월 이전은 별도 월수입이 없으면 0원으로 계산해요. 상여·보너스처럼 월별로 달라지는 수입은 홈의 “수입”에서 이번 달만 따로 바꿀 수 있어요.</p>`,
       async (f) => {
         await app.update((st) => {
           st.settings = {
             ...st.settings,
             income: amountInput(f.get("income")),
             incomeMode: String(f.get("incomeMode")),
+            incomeStartMonth: /^\d{4}-(0[1-9]|1[0-2])$/.test(String(f.get("incomeStartMonth") || ""))
+              ? String(f.get("incomeStartMonth"))
+              : "",
             sharedBudget: amountInput(f.get("sharedBudget")),
             personalBudgets: {
               p1: amountInput(f.get("p1Budget")),
