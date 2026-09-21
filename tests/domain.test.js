@@ -160,6 +160,27 @@ test("Empty/invalid files and preview errors are reported, valid rows survive", 
   assert.equal(p.errors.length, 1);
   assert.equal(p.added[0].owner, "p2");
 });
+test("Card import dedupe survives gross-to-payable migration and preserves multiplicity", async () => {
+  const base = {
+    ...tx(1000, {
+      sourceType: "card-pdf",
+      grossAmount: 1000,
+      merchantRaw: "펀시티 수원점",
+      merchantNormalized: "펀시티 수원점",
+      paymentMethod: "우리카드 · M111",
+    }),
+    amount: 992,
+  };
+  const incoming = await identify([base, base, base]);
+  const legacy = [
+    { ...incoming[0], sourceId: "old-1", id: "old-1", amount: 1000 },
+    { ...incoming[1], sourceId: "old-2", id: "old-2", amount: 1000 },
+  ];
+  const result = dedupe(incoming, legacy);
+  assert.equal(result.duplicates, 2);
+  assert.equal(result.added.length, 1);
+});
+
 test("Stable hashes dedupe repeat files, retain owner and same-file multiplicity", async () => {
   const rows = [tx(100), tx(100)],
     identified = await identify(rows);
@@ -176,6 +197,26 @@ test("Stable hashes dedupe repeat files, retain owner and same-file multiplicity
   ]);
   assert.equal(dedupe([identified[0]], split).duplicates, 1);
 });
+test("Expanded merchant rules classify imported card merchants", () => {
+  const cases = [
+    ["베스트내과", "health"],
+    ["트레이더스 동탄점", "groceries"],
+    ["연회비-(제휴)카드의정석2 EVERY DISCOUNT", "finance"],
+    ["마이리얼트립_마이리얼트립", "leisure"],
+    ["유니클로", "shopping"],
+    ["이케아 기흥", "living"],
+    ["동탄토이빌리지", "child"],
+    ["별미삼청수제비", "dining"],
+  ];
+  for (const [merchant, expected] of cases) {
+    const row = tx(100, {
+      merchantRaw: merchant,
+      merchantNormalized: merchant,
+    });
+    assert.equal(classify(row, []).category, expected, merchant);
+  }
+});
+
 test("Rules: exact > keyword > merchant > heuristic; payment field; removal", () => {
   const t = tx(100, { merchantNormalized: "가상 마트" }),
     rules = [

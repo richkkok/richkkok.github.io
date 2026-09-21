@@ -232,10 +232,20 @@ function dateItem(line, allowShort) {
     return fullDateToken.test(text) || (allowShort && shortDateToken.test(text));
   });
 }
-function amountItemAfter(line, x) {
-  return lineItems(line).find(
+function amountItemsAfter(line, x) {
+  return lineItems(line).filter(
     (item) => item.x > x + 8 && amountToken.test(clean(item.text)),
   );
+}
+function amountItemAfter(line, x) {
+  return amountItemsAfter(line, x)[0];
+}
+function findColumnX(lines, pattern) {
+  for (const line of lines) {
+    const item = lineItems(line).find((candidate) => pattern.test(clean(candidate.text)));
+    if (item) return item.x + Number(item.width || 0) / 2;
+  }
+  return null;
 }
 function inlineMerchant(line, dateX, amountX) {
   return lineItems(line)
@@ -246,10 +256,16 @@ function inlineMerchant(line, dateX, amountX) {
     .trim();
 }
 const continuationStop =
-  /이용대금\s*명세서|카드이용내역|상세내역|이용가맹점|이용금액|당월 결제|청구금액|결제 후|포인트|file:\/\/\/|COPYRIGHT|고객서비스센터|우리카드 홈페이지|인쇄하기|소계\(|청구합계|카드의정석/i;
+  /이용대금\s*명세서|카드이용내역|상세내역|이용가맹점|이용금액|당월 결제|청구금액|결제 후|포인트|file:\/\/\/|COPYRIGHT|고객서비스센터|우리카드 홈페이지|인쇄하기|소계\(|청구합계/i;
 function continuationMerchant(line, dateX, amountX, allowShort) {
   const text = clean(line.text);
-  if (!text || continuationStop.test(text) || dateItem(line, allowShort)) return "";
+  if (
+    !text ||
+    continuationStop.test(text) ||
+    /^\([A-Z]+\d{2,4}\)\s*카드/i.test(text) ||
+    dateItem(line, allowShort)
+  )
+    return "";
   if (lineItems(line).some((item) => item.x >= amountX - 5 && amountToken.test(clean(item.text))))
     return "";
   const result = lineItems(line)
@@ -267,11 +283,16 @@ function transactionDate(raw, statement) {
   const year = yearForMonth(statement, month);
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
-function extractLineTransaction(lines, index, { allowShort, statement, payment }) {
+function extractLineTransaction(
+  lines,
+  index,
+  { allowShort, statement, payment, payableX = null },
+) {
   const line = lines[index];
   const dItem = dateItem(line, allowShort);
   if (!dItem) return null;
-  const aItem = amountItemAfter(line, dItem.x);
+  const amountItems = amountItemsAfter(line, dItem.x);
+  const aItem = amountItems[0];
   if (!aItem) return null;
   let merchant = inlineMerchant(line, dItem.x, aItem.x);
   if (!merchant) {
@@ -294,13 +315,34 @@ function extractLineTransaction(lines, index, { allowShort, statement, payment }
     merchant = [...above, ...below].join(" ").trim();
   }
   if (!merchant) return null;
-  const amount = parseAmount(clean(aItem.text));
+  const grossAmount = parseAmount(clean(aItem.text));
+  let payableAmount = grossAmount;
+  if (payableX !== null && amountItems.length > 1) {
+    const candidate = amountItems
+      .map((item) => ({
+        item,
+        distance: Math.abs(
+          item.x + Number(item.width || 0) / 2 - payableX,
+        ),
+      }))
+      .sort((a, b) => a.distance - b.distance)[0];
+    if (candidate && candidate.distance <= 70)
+      payableAmount = parseAmount(clean(candidate.item.text));
+  }
+  const cardBenefitAmount = Math.max(
+    0,
+    Math.abs(grossAmount) - Math.abs(payableAmount),
+  );
   return {
     date: transactionDate(clean(dItem.text), statement),
     merchant,
-    amount,
+    amount: payableAmount,
+    grossAmount,
+    payableAmount,
+    cardBenefitAmount,
     payment,
-    type: amount < 0 || /취소|환불/.test(merchant) ? "환불" : "지출",
+    type:
+      payableAmount < 0 || /취소|환불/.test(merchant) ? "환불" : "지출",
     note: "",
   };
 }
@@ -315,6 +357,7 @@ export function parseWooriPdf(pages) {
   const whole = lines.map((line) => line.text).join(" ");
   if (!/우리카드/.test(whole) || !/이용대금\s*명세서/.test(whole)) return null;
   const statement = parseStatementPeriod(lines);
+  const payableX = findColumnX(lines, /납부하실/);
   const entries = [];
   let buffer = [];
   let cardCode = "우리카드";
@@ -342,6 +385,7 @@ export function parseWooriPdf(pages) {
       allowShort: true,
       statement,
       payment: `우리카드 · ${cardCode}`,
+      payableX,
     });
     if (tx) buffer.push(tx);
   }
@@ -401,26 +445,30 @@ export async function previewCardEntries(
   for (let index = 0; index < resolved.entries.length; index++) {
     const entry = resolved.entries[index];
     try {
-      rows.push(
-        normalizeRow(
-          [
-            entry.date,
-            entry.merchant,
-            entry.amount,
-            entry.payment,
-            entry.type,
-            entry.note,
-          ],
-          CARD_MAP,
-          {
-            owner: entry.owner,
-            sourceType,
-            rules: state.rules,
-            recurring: state.recurring,
-            negativeMode: "refund",
-          },
-        ),
+      const tx = normalizeRow(
+        [
+          entry.date,
+          entry.merchant,
+          entry.amount,
+          entry.payment,
+          entry.type,
+          entry.note,
+        ],
+        CARD_MAP,
+        {
+          owner: entry.owner,
+          sourceType,
+          rules: state.rules,
+          recurring: state.recurring,
+          negativeMode: "refund",
+        },
       );
+      rows.push({
+        ...tx,
+        grossAmount: Math.abs(entry.grossAmount ?? entry.amount),
+        payableAmount: Math.abs(entry.payableAmount ?? entry.amount),
+        cardBenefitAmount: Math.abs(entry.cardBenefitAmount || 0),
+      });
     } catch (error) {
       errors.push({ row: entry.sourceRow || index + 1, message: error.message });
     }

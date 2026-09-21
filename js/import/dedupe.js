@@ -18,12 +18,37 @@ export async function identify(rows) {
     }),
   );
 }
+function cardLegacyKey(tx) {
+  if (!String(tx.sourceType || "").startsWith("card-")) return "";
+  const gross = Number(tx.grossAmount ?? tx.amount);
+  if (!Number.isSafeInteger(gross)) return "";
+  return [
+    tx.owner,
+    tx.date,
+    gross,
+    tx.merchantNormalized,
+    tx.paymentMethod,
+    tx.direction,
+  ].join("\u001f");
+}
 export function dedupe(incoming, existing) {
   const seen = new Set(existing.map((t) => t.sourceId || t.id));
+  const legacyCounts = new Map();
+  for (const tx of existing) {
+    const key = cardLegacyKey(tx);
+    if (key) legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
   let duplicates = 0;
   const added = [];
   for (const tx of incoming) {
     if (seen.has(tx.sourceId)) {
+      duplicates++;
+      continue;
+    }
+    const legacyKey = cardLegacyKey(tx);
+    const legacyCount = legacyKey ? legacyCounts.get(legacyKey) || 0 : 0;
+    if (legacyCount > 0) {
+      legacyCounts.set(legacyKey, legacyCount - 1);
       duplicates++;
       continue;
     }
