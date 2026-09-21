@@ -265,7 +265,7 @@ function extractLineTransaction(lines, index, { allowShort, statement, payment }
     const above = [];
     for (let offset = 1; offset <= 2; offset++) {
       const candidate = lines[index - offset];
-      if (!candidate) break;
+      if (!candidate || Math.abs(candidate.y - line.y) > 11) break;
       const value = continuationMerchant(candidate, dItem.x, aItem.x, allowShort);
       if (!value) break;
       above.unshift(value);
@@ -273,7 +273,7 @@ function extractLineTransaction(lines, index, { allowShort, statement, payment }
     const below = [];
     for (let offset = 1; offset <= 2; offset++) {
       const candidate = lines[index + offset];
-      if (!candidate) break;
+      if (!candidate || Math.abs(candidate.y - line.y) > 11) break;
       const value = continuationMerchant(candidate, dItem.x, aItem.x, allowShort);
       if (!value) break;
       below.push(value);
