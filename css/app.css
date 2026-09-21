@@ -203,7 +203,7 @@ summary:focus-visible {
   align-items: center;
 }
 .month-control input {
-  width: 150px;
+  width: 180px;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
