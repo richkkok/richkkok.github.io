@@ -160,6 +160,27 @@ test("Empty/invalid files and preview errors are reported, valid rows survive", 
   assert.equal(p.errors.length, 1);
   assert.equal(p.added[0].owner, "p2");
 });
+test("Card import dedupe survives gross-to-payable migration and preserves multiplicity", async () => {
+  const base = {
+    ...tx(1000, {
+      sourceType: "card-pdf",
+      grossAmount: 1000,
+      merchantRaw: "펀시티 수원점",
+      merchantNormalized: "펀시티 수원점",
+      paymentMethod: "우리카드 · M111",
+    }),
+    amount: 992,
+  };
+  const incoming = await identify([base, base, base]);
+  const legacy = [
+    { ...incoming[0], sourceId: "old-1", id: "old-1", amount: 1000 },
+    { ...incoming[1], sourceId: "old-2", id: "old-2", amount: 1000 },
+  ];
+  const result = dedupe(incoming, legacy);
+  assert.equal(result.duplicates, 2);
+  assert.equal(result.added.length, 1);
+});
+
 test("Stable hashes dedupe repeat files, retain owner and same-file multiplicity", async () => {
   const rows = [tx(100), tx(100)],
     identified = await identify(rows);
