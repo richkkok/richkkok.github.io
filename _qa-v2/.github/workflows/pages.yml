@@ -1,0 +1,36 @@
+name: RichKkok quality checks
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: richkkok-quality
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11'
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/vendor.mjs
+      - run: pnpm run check
+      - run: pnpm test
+      - run: pnpm run build
+      - name: Verify committed offline release matches source
+        run: git diff --exit-code -- sw.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validated-static-site
+          path: dist
+          retention-days: 7
+# Pages is already configured to publish main / (root). Its built-in
+# "pages build and deployment" workflow is the single deployment owner.
+# Do not also call deploy-pages here: simultaneous deployments compete.

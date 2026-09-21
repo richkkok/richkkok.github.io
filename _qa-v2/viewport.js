@@ -1,0 +1,1 @@
+document.querySelectorAll("[data-width]").forEach(b=>b.onclick=()=>{document.querySelector("iframe").style.width=b.dataset.width+"px";});

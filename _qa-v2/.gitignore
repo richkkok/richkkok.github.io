@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+test-results/
+*.private.json
+*.richkkok
+*.csv
+*.xlsx
+*.xls
+.env*
