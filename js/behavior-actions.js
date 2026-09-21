@@ -17,7 +17,16 @@ import { planFor } from "./budget.js";
 import { memberName } from "../data/defaults.js";
 import { exactApprovalDuplicate, fixedManualDuplicate } from "./import/duplicates.js";
 
-export function resolveEntryOwner(app, state) {
+export function resolveEntryOwner(
+  app,
+  state,
+  storage = globalThis.localStorage,
+) {
+  try {
+    const saved = storage?.getItem("richkkok-owner");
+    if (["p1", "p2", "joint"].includes(saved)) return saved;
+  } catch {}
+
   const cloudMember = app.cloud?.meta?.member;
   const profiles = ["p1", "p2"].map((id) => ({
     id,
@@ -38,12 +47,24 @@ export function resolveEntryOwner(app, state) {
     });
     if (aliases.length === 1) return aliases[0].id;
   }
-
-  try {
-    const saved = localStorage.getItem("richkkok-owner");
-    if (["p1", "p2", "joint"].includes(saved)) return saved;
-  } catch {}
   return "p1";
+}
+
+export function resolveEntryPayment(
+  state,
+  owner,
+  recent,
+  storage = globalThis.localStorage,
+) {
+  try {
+    const saved = storage?.getItem(`richkkok-payment-${owner}`);
+    if (saved) return saved;
+  } catch {}
+  return (
+    recent.find((t) => t.owner === owner && t.paymentMethod)?.paymentMethod ||
+    state.settings.paymentMethods?.[0] ||
+    "미지정"
+  );
 }
 
 export function quickEntry(app, date = today()) {
@@ -57,10 +78,7 @@ export function quickEntry(app, date = today()) {
       )
       .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
   const owner = resolveEntryOwner(app, state);
-  let payment =
-    recent.find((t) => t.owner === owner)?.paymentMethod ||
-    state.settings.paymentMethods?.[0] ||
-    "미지정";
+  let payment = resolveEntryPayment(state, owner, recent);
   const merchants = [...new Set(recent.map((t) => t.merchantRaw))].slice(0, 30);
   const cats = state.categories
     .filter((c) => !c.archived)
@@ -70,12 +88,12 @@ export function quickEntry(app, date = today()) {
   let touched = false;
   const dialog = openDialog(
     "지출 입력",
-    `<div class="quick-entry-primary"><div class="quick-amount">${field("금액", "amount", "", "number", 'required min="1" autofocus placeholder="0"')}</div>${field("사용처", "merchant", "", "text", 'required maxlength="300" list="recent-merchants" placeholder="예: 스타벅스, 이마트, 병원')}<datalist id="recent-merchants">${merchants.map((m) => `<option value="${e(m)}"></option>`).join("")}</datalist><div id="auto-entry-summary" class="auto-entry-summary"><span class="auto-dot"></span><span><strong>자동으로 분류할게</strong><small>${e(memberName(owner, state))} · ${e(payment)}</small></span></div></div><details class="advanced quick-adjust"><summary>날짜 · 사용자 · 분류 수정</summary><div class="form-grid">${field("거래일", "date", date, "date", "required")}${select(
-      "사용자",
+    `<div class="quick-entry-primary"><div class="form-grid quick-core-grid">${select(
+      "누가 썼어?",
       "owner",
       ["p1", "p2", "joint"].map((p) => [p, memberName(p, state)]),
       owner,
-    )}${field("결제수단", "paymentMethod", payment, "text", 'maxlength="100" list="payment-options"')}<datalist id="payment-options">${[...new Set([...(state.settings.paymentMethods || []), ...recent.map((t) => t.paymentMethod)])].map((p) => `<option value="${e(p)}"></option>`).join("")}</datalist>${select("카테고리", "category", cats, "other")}</div><details class="advanced secondary-advanced"><summary>고급 옵션</summary><div class="form-grid">${select(
+    )}${field("어디서 썼어?", "merchant", "", "text", 'required maxlength="300" list="recent-merchants" placeholder="예: 스타벅스, 이마트, 병원')}<datalist id="recent-merchants">${merchants.map((m) => `<option value="${e(m)}"></option>`).join("")}</datalist><div class="quick-amount">${field("얼마 썼어?", "amount", "", "number", 'required min="1" autofocus placeholder="0"')}</div>${field("어떻게 결제했어?", "paymentMethod", payment, "text", 'required maxlength="100" list="payment-options" placeholder="예: 우리카드, 현금, 네이버페이')}<datalist id="payment-options">${[...new Set([...(state.settings.paymentMethods || []), ...recent.map((t) => t.paymentMethod)])].map((p) => `<option value="${e(p)}"></option>`).join("")}</datalist></div><div id="auto-entry-summary" class="auto-entry-summary"><span class="auto-dot"></span><span><strong>자동으로 분류할게</strong><small>사용처를 입력하면 카테고리를 추천해.</small></span></div></div><details class="advanced quick-adjust"><summary>날짜 · 분류 수정</summary><div class="form-grid">${field("거래일", "date", date, "date", "required")}${select("카테고리", "category", cats, "other")}</div><details class="advanced secondary-advanced"><summary>고급 옵션</summary><div class="form-grid">${select(
       "거래 유형",
       "direction",
       [
@@ -189,14 +207,16 @@ export function quickEntry(app, date = today()) {
       });
       try {
         localStorage.setItem("richkkok-owner", tx.owner);
+        localStorage.setItem(`richkkok-payment-${tx.owner}`, tx.paymentMethod);
       } catch {}
-      toast("저장했어. 나머지는 리치콕이 정리할게.");
+      toast("저장했어. 다음 입력도 마지막 사용자로 유지할게.");
     },
     "저장",
   );
 
   const categoryName = (id) =>
     state.categories.find((c) => c.id === id)?.name || "기타";
+  let paymentTouched = false;
   const refreshAutoSummary = () => {
     const merchant = normalizeText(
       dialog.querySelector("[name=merchant]")?.value || "",
@@ -225,15 +245,27 @@ export function quickEntry(app, date = today()) {
     }
     const summary = dialog.querySelector("#auto-entry-summary");
     if (summary)
-      summary.innerHTML = `<span class="auto-dot"></span><span><strong>${merchant ? e(categoryName(category)) + " 자동분류" : "자동으로 분류할게"}</strong><small>${e(memberName(ownerValue, state))} · ${e(payment)}</small></span>`;
+      summary.innerHTML = `<span class="auto-dot"></span><span><strong>${merchant ? e(categoryName(category)) + " 자동분류" : "자동으로 분류할게"}</strong><small>${merchant ? "필요하면 아래에서 분류만 바꿔줘." : "사용처를 입력하면 카테고리를 추천해."}</small></span>`;
   };
   dialog.querySelector("[name=category]").onchange = () => {
     touched = true;
     refreshAutoSummary();
   };
   dialog.querySelector("[name=merchant]").oninput = refreshAutoSummary;
-  dialog.querySelector("[name=owner]").onchange = refreshAutoSummary;
-  dialog.querySelector("[name=paymentMethod]").oninput = refreshAutoSummary;
+  dialog.querySelector("[name=owner]").onchange = (event) => {
+    if (!paymentTouched) {
+      const nextOwner = event.target.value;
+      const paymentInput = dialog.querySelector("[name=paymentMethod]");
+      const nextPayment = resolveEntryPayment(state, nextOwner, recent);
+      if (paymentInput) paymentInput.value = nextPayment;
+      payment = nextPayment;
+    }
+    refreshAutoSummary();
+  };
+  dialog.querySelector("[name=paymentMethod]").oninput = () => {
+    paymentTouched = true;
+    refreshAutoSummary();
+  };
   refreshAutoSummary();
 }
 
