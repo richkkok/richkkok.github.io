@@ -127,6 +127,7 @@ export class CloudSync {
     this.initialized = true;
     this.stopped = false;
     await this.loadMeta();
+    this.renderIfSafe();
 
     const params = new URLSearchParams(location.search);
     const hashInvite = location.hash.startsWith("#invite=")
