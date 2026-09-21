@@ -503,3 +503,31 @@ test("수동 고정비와 가져온 같은 월 실제 결제는 자동 중복 �
   assert.equal(result.added.length, 0);
 });
 
+test("가족이체와 간편결제 충전은 소비에서 자동 제외", () => {
+  const bank = {
+    date: 0,
+    merchant: 1,
+    withdrawal: 2,
+    deposit: 3,
+    amount: -1,
+  };
+  const members = { p1: "박태영", p2: "김은영" };
+  for (const merchant of [
+    "김은영",
+    "박태영",
+    "생활비",
+    "네이버페이충전",
+    "카카오페이 충전",
+    "간편이체(김연수)",
+  ]) {
+    const tx = normalizeRow(
+      ["2026-09-01", merchant, 50000, ""],
+      bank,
+      { members },
+    );
+    assert.equal(tx.direction, "transfer", merchant);
+    assert.equal(tx.scope, "excluded", merchant);
+    assert.equal(tx.excluded, true, merchant);
+  }
+});
+
