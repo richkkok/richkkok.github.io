@@ -73,6 +73,10 @@ test("Woori PDF parser uses full-name subtotals and wrapped merchant text", () =
           text: "1지점",
           items: [{ text: "1지점", x: 120, y: 660 }],
         },
+        {
+          text: "다음 거래의 가맹점",
+          items: [{ text: "다음 거래의 가맹점", x: 120, y: 640 }],
+        },
         { text: "소계(박태영) 17,030", items: [] },
         { text: "(M057)카드의정석2 EVERY DISCOUNT", items: [] },
         {
