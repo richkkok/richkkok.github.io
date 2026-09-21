@@ -363,6 +363,26 @@ test("Privacy prevents merchant search leakage; no invented comparison without h
   );
   assert.equal(analyze(s, "2026-09").compared, false);
 });
+test("Dashboard category drill-down can filter one or grouped categories", () => {
+  const s = emptyState();
+  s.settings.periodStartDay = 1;
+  s.transactions = [
+    tx(1000, "2026-09-01", { category: "cafe" }),
+    tx(2000, "2026-09-02", { category: "dining" }),
+    tx(3000, "2026-09-03", { category: "shopping" }),
+  ];
+  assert.equal(
+    filteredTransactions(s, "2026-09", { category: "cafe" }).length,
+    1,
+  );
+  assert.equal(
+    filteredTransactions(s, "2026-09", {
+      categories: ["dining", "shopping"],
+    }).length,
+    2,
+  );
+});
+
 test("Backup state rejects invalid amounts and schema", () => {
   assert.throws(() => validateState({}));
   const s = emptyState();
