@@ -14,6 +14,8 @@ export function filteredTransactions(state, month, filter) {
         (!filter.scope || t.scope === filter.scope) &&
         (!filter.category ||
           (!hiddenPersonal(t, state) && t.category === filter.category)) &&
+        (!filter.categories?.length ||
+          (!hiddenPersonal(t, state) && filter.categories.includes(t.category))) &&
         (!filter.payment ||
           (!hiddenPersonal(t, state) &&
             keyText(t.paymentMethod).includes(keyText(filter.payment)))) &&
@@ -39,9 +41,14 @@ export function transactionsView(state, month, filter) {
       .reduce((n, t) => n + expenseValue(t), 0);
   let day = "";
   const active = Object.entries(filter).filter(
-    ([k, v]) => v && k !== "query" && k !== "limit",
+    ([k, v]) =>
+      v &&
+      k !== "query" &&
+      k !== "limit" &&
+      k !== "categoryLabel" &&
+      (k !== "categories" || v.length),
   );
-  return `<div class="page-intro compact-page-intro"><div><h1>기록</h1><p>검색하거나 눌러서 바로 수정해.</p></div>${button("지출 입력", "add-transaction", "primary", "plus")}</div><section class="card transaction-card"><div class="transaction-toolbar"><label class="search-field">${icon("search")}<input name="transaction-search" type="search" placeholder="가맹점, 금액, 메모 검색" aria-label="거래 검색" value="${e(filter.query || "")}"></label><button class="btn secondary" data-action="filters">${icon("filter")}필터 ${active.length ? `<span class="count-badge">${active.length}</span>` : ""}</button></div>${active.length ? `<div class="filter-summary"><span>${active.map(([k, v]) => e(k === "owner" ? memberName(v, state) : k === "scope" ? scopeName(v, state) : k === "category" ? state.categories.find((c) => c.id === v)?.name : k === "direction" ? DIRECTIONS[v] : k === "trash" ? "휴지통" : v)).join(" · ")}</span>${button("초기화", "clear-filters", "text")}</div>` : ""}<div class="list-summary"><span>${rows.length}건${filter.trash ? " · 삭제한 내역" : ""}</span><strong>순지출 ${won(net)}</strong></div><div class="transactions-list">${
+  return `<div class="page-intro compact-page-intro"><div><h1>기록</h1><p>검색하거나 눌러서 바로 수정해.</p></div>${button("지출 입력", "add-transaction", "primary", "plus")}</div><section class="card transaction-card"><div class="transaction-toolbar"><label class="search-field">${icon("search")}<input name="transaction-search" type="search" placeholder="가맹점, 금액, 메모 검색" aria-label="거래 검색" value="${e(filter.query || "")}"></label><button class="btn secondary" data-action="filters">${icon("filter")}필터 ${active.length ? `<span class="count-badge">${active.length}</span>` : ""}</button></div>${active.length ? `<div class="filter-summary"><span>${active.map(([k, v]) => e(k === "owner" ? memberName(v, state) : k === "scope" ? scopeName(v, state) : k === "category" ? state.categories.find((c) => c.id === v)?.name : k === "categories" ? filter.categoryLabel || "기타 카테고리" : k === "direction" ? DIRECTIONS[v] : k === "trash" ? "휴지통" : v)).join(" · ")}</span>${button("초기화", "clear-filters", "text")}</div>` : ""}<div class="list-summary"><span>${rows.length}건${filter.trash ? " · 삭제한 내역" : ""}</span><strong>순지출 ${won(net)}</strong></div><div class="transactions-list">${
     rows.length
       ? rows
           .slice(0, filter.limit || 100)

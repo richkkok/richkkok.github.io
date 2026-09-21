@@ -268,7 +268,20 @@ document.addEventListener("click", async (event) => {
       });
       navigate("home");
     } else if (action === "add-transaction") quickEntry(app);
-    else if (action === "clear-filters") {
+    else if (action === "category-transactions") {
+      const categories = String(target.dataset.filterCategories || "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+      app.filters = {
+        query: "",
+        limit: 100,
+        category: target.dataset.filterCategory || "",
+        categories,
+        categoryLabel: target.dataset.filterLabel || "",
+      };
+      navigate("transactions");
+    } else if (action === "clear-filters") {
       app.filters = { query: "", limit: 100 };
       app.render();
     } else if (action === "more-transactions") {
