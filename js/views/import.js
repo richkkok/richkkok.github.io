@@ -10,7 +10,7 @@ import {
 import { readPdfPages } from "../import/pdf-reader.js";
 import { escape as e, won } from "../format.js";
 import { icon, button, select, field, toast } from "../ui.js";
-import { memberName, DIRECTIONS, scopeName } from "../../data/defaults.js";
+import { memberName, DIRECTIONS } from "../../data/defaults.js";
 
 function cardOwnerSummary(state, preview) {
   const counts = Object.entries(preview?.ownerCounts || {});
