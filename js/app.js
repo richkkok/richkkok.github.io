@@ -97,8 +97,7 @@ app.render = () => {
     ["home", "home", "홈"],
     ["transactions", "list", "기록"],
     ["analytics", "chart", "분석"],
-    ["budget", "wallet", "계획"],
-    ["settings", "settings", "가족·설정"],
+    ["settings", "settings", "설정"],
   ];
   document.querySelector("#navigation").innerHTML = nav
     .map(
