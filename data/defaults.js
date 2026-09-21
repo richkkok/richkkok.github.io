@@ -46,6 +46,7 @@ export function emptyState() {
       members: { p1: "구성원 1", p2: "구성원 2" },
       income: 0,
       incomeMode: "planned",
+      incomeStartMonth: "",
       sharedBudget: 0,
       personalBudgets: { p1: 0, p2: 0 },
       cardName: "우리카드",
