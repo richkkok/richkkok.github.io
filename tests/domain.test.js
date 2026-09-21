@@ -531,3 +531,20 @@ test("가족이체와 간편결제 충전은 소비에서 자동 제외", () => 
   }
 });
 
+test("세금·기부·연회비 금융지출은 일회성으로 자동 분류", () => {
+  const map = { date: 0, merchant: 1, amount: 2, payment: 3, type: 4 };
+  for (const merchant of [
+    "박태영 재산세",
+    "주민세",
+    "대전광역시-고향사랑기부금",
+    "연회비-(제휴)카드의정석2 EVERY DISCOUNT",
+  ]) {
+    const tx = normalizeRow(
+      ["2026-09-01", merchant, 10000, "우리카드", "지출"],
+      map,
+    );
+    assert.equal(tx.category, "finance", merchant);
+    assert.equal(tx.costKind, "oneoff", merchant);
+  }
+});
+
