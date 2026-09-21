@@ -1,4 +1,11 @@
 import { identityText } from "./normalize.js";
+import {
+  approvalMoment,
+  amountKeys,
+  exactApprovalDuplicate,
+  fixedManualDuplicate,
+  merchantEquivalent,
+} from "./duplicates.js";
 export async function sha256(text) {
   const bytes =
     typeof text === "string" ? new TextEncoder().encode(text) : text;
@@ -22,17 +29,36 @@ function cardLegacyKey(tx) {
   if (!String(tx.sourceType || "").startsWith("card-")) return "";
   const gross = Number(tx.grossAmount ?? tx.amount);
   if (!Number.isSafeInteger(gross)) return "";
+  const moment = approvalMoment(tx);
   return [
     tx.owner,
-    tx.date,
+    moment || `${tx.date}T?`,
     gross,
     tx.merchantNormalized,
     tx.paymentMethod,
     tx.direction,
   ].join("\u001f");
 }
+
+function approvalKeys(tx) {
+  const moment = approvalMoment(tx);
+  if (!moment) return [];
+  const merchant = tx.merchantNormalized || tx.merchantRaw || "";
+  return amountKeys(tx).map((amount) =>
+    [tx.owner, moment, merchant, amount, tx.direction].join("\u001f"),
+  );
+}
+
 export function dedupe(incoming, existing) {
+  const liveExisting = existing.filter((t) => !t.deletedAt && !t.splitParent);
   const seen = new Set(existing.map((t) => t.sourceId || t.id));
+  const approvalSeen = new Set(liveExisting.flatMap(approvalKeys));
+  const fixedGroups = new Map();
+  for (const tx of liveExisting) {
+    const key = [tx.owner, String(tx.date || "").slice(0, 7), tx.direction].join("|");
+    if (!fixedGroups.has(key)) fixedGroups.set(key, []);
+    fixedGroups.get(key).push(tx);
+  }
   const legacyCounts = new Map();
   for (const tx of existing) {
     const key = cardLegacyKey(tx);
@@ -45,6 +71,19 @@ export function dedupe(incoming, existing) {
       duplicates++;
       continue;
     }
+    const exactKeyMatch = approvalKeys(tx).some((key) => approvalSeen.has(key));
+    if (exactKeyMatch) {
+      duplicates++;
+      continue;
+    }
+    const fixedKey = [tx.owner, String(tx.date || "").slice(0, 7), tx.direction].join("|");
+    const fixedMatch = (fixedGroups.get(fixedKey) || []).find((existingTx) =>
+      fixedManualDuplicate(existingTx, tx),
+    );
+    if (fixedMatch) {
+      duplicates++;
+      continue;
+    }
     const legacyKey = cardLegacyKey(tx);
     const legacyCount = legacyKey ? legacyCounts.get(legacyKey) || 0 : 0;
     if (legacyCount > 0) {
@@ -53,6 +92,9 @@ export function dedupe(incoming, existing) {
       continue;
     }
     seen.add(tx.sourceId);
+    approvalKeys(tx).forEach((key) => approvalSeen.add(key));
+    if (!fixedGroups.has(fixedKey)) fixedGroups.set(fixedKey, []);
+    fixedGroups.get(fixedKey).push(tx);
     added.push(tx);
   }
   return { added, duplicates };
