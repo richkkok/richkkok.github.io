@@ -67,9 +67,15 @@ export function quickEntry(app, date = today()) {
     .map((c) => [c.id, c.name]);
   const id = uid(),
     stamp = new Date();
+  let touched = false;
   const dialog = openDialog(
     "지출 입력",
-    `<div class="quick-amount">${field("얼마 썼어? (원)", "amount", "", "number", 'required min="1" autofocus placeholder="0"')}</div>${field("어디에 썼어?", "merchant", "", "text", 'required maxlength="300" list="recent-merchants" placeholder="가맹점 또는 내용"')}<datalist id="recent-merchants">${merchants.map((m) => `<option value="${e(m)}"></option>`).join("")}</datalist>${select("카테고리", "category", cats, "other")}<p id="category-hint" class="small muted">소비처를 입력하면 이전 분류를 추천해요.</p><details class="advanced"><summary>날짜 · 결제수단 · 사용자 · 더 보기</summary><div class="form-grid">${field("실제 거래일", "date", date, "date", "required")}${select(
+    `<div class="quick-entry-primary"><div class="quick-amount">${field("금액", "amount", "", "number", 'required min="1" autofocus placeholder="0"')}</div>${field("사용처", "merchant", "", "text", 'required maxlength="300" list="recent-merchants" placeholder="예: 스타벅스, 이마트, 병원')}<datalist id="recent-merchants">${merchants.map((m) => `<option value="${e(m)}"></option>`).join("")}</datalist><div id="auto-entry-summary" class="auto-entry-summary"><span class="auto-dot"></span><span><strong>자동으로 분류할게</strong><small>${e(memberName(owner, state))} · ${e(payment)}</small></span></div></div><details class="advanced quick-adjust"><summary>날짜 · 사용자 · 분류 수정</summary><div class="form-grid">${field("거래일", "date", date, "date", "required")}${select(
+      "사용자",
+      "owner",
+      ["p1", "p2", "joint"].map((p) => [p, memberName(p, state)]),
+      owner,
+    )}${field("결제수단", "paymentMethod", payment, "text", 'maxlength="100" list="payment-options"')}<datalist id="payment-options">${[...new Set([...(state.settings.paymentMethods || []), ...recent.map((t) => t.paymentMethod)])].map((p) => `<option value="${e(p)}"></option>`).join("")}</datalist>${select("카테고리", "category", cats, "other")}</div><details class="advanced secondary-advanced"><summary>고급 옵션</summary><div class="form-grid">${select(
       "거래 유형",
       "direction",
       [
@@ -79,11 +85,6 @@ export function quickEntry(app, date = today()) {
         ["transfer", "이체·카드대금"],
       ],
       "expense",
-    )}${field("실제 결제수단", "paymentMethod", payment, "text", 'maxlength="100" list="payment-options"')}<datalist id="payment-options">${[...new Set([...(state.settings.paymentMethods || []), ...recent.map((t) => t.paymentMethod)])].map((p) => `<option value="${e(p)}"></option>`).join("")}</datalist>${field("결제경로 (선택)", "paymentChannel", "", "text", 'placeholder="쿠팡페이·네이버페이 등" maxlength="100"')}${select(
-      "사용자",
-      "owner",
-      ["p1", "p2", "joint"].map((p) => [p, memberName(p, state)]),
-      owner,
     )}${select(
       "사용 범위",
       "scope",
@@ -103,7 +104,7 @@ export function quickEntry(app, date = today()) {
         ["oneoff", "일회성 지출"],
       ],
       "variable",
-    )}${field("귀속 운영월 (선택)", "operatingMonth", "", "month")}${field("메모", "note", "", "text", 'maxlength="1000"')}${field("태그 (쉼표 구분)", "tags", "", "text", 'maxlength="200"')}</div><p class="small muted">귀속 운영월이 비어 있으면 거래일과 기준일로 계산해요. 9월 9일 조기 급여를 9월 운영월에 넣으려면 9월을 선택해요. 결제경로와 카드는 한 건으로 저장돼요.</p></details>`,
+    )}${field("결제경로", "paymentChannel", "", "text", 'placeholder="네이버페이·쿠팡페이 등" maxlength="100"')}${field("귀속 운영월", "operatingMonth", "", "month")}${field("메모", "note", "", "text", 'maxlength="1000"')}${field("태그", "tags", "", "text", 'maxlength="200"')}</div></details></details>`,
     async (f) => {
       const actualDate = String(f.get("date"));
       if (!validDate(actualDate)) throw Error("실제 거래일을 확인해 주세요.");
@@ -161,7 +162,7 @@ export function quickEntry(app, date = today()) {
             .querySelector(".dialog-body")
             .insertAdjacentHTML(
               "beforeend",
-              '<label class="check-field"><input type="checkbox" name="allowDuplicate">같은 날 같은 소비처·금액의 기록이 있지만, 별도 결제가 맞아</label>',
+              '<label class="check-field"><input type="checkbox" name="allowDuplicate">별도 결제가 맞아</label>',
             );
         throw Error("같은 소비로 보이는 기록이 있어. 별도 결제인지 확인해 줘.");
       }
@@ -171,51 +172,69 @@ export function quickEntry(app, date = today()) {
         if (s.transactions.some((t) => t.id === id)) return;
         s.transactions.push(tx);
         s.settings.trackingSince ||= actualDate;
-        s.rules = s.rules.filter(
-          (r) => !(r.learned && r.pattern === tx.merchantNormalized),
-        );
-        s.rules.unshift({
-          id: "learn-" + uid(),
-          pattern: tx.merchantNormalized,
-          field: "merchant",
-          match: "exact",
-          category: tx.category,
-          enabled: true,
-          learned: true,
-        });
+        if (touched) {
+          s.rules = s.rules.filter(
+            (r) => !(r.learned && r.pattern === tx.merchantNormalized),
+          );
+          s.rules.unshift({
+            id: "learn-" + uid(),
+            pattern: tx.merchantNormalized,
+            field: "merchant",
+            match: "exact",
+            category: tx.category,
+            enabled: true,
+            learned: true,
+          });
+        }
       });
       try {
         localStorage.setItem("richkkok-owner", tx.owner);
       } catch {}
-      toast("저장했어. 소비속도를 다시 계산했어.");
+      toast("저장했어. 나머지는 리치콕이 정리할게.");
     },
     "저장",
   );
-  let touched = false;
-  dialog.querySelector("[name=category]").onchange = () => {
-    touched = true;
-  };
-  dialog.querySelector("[name=merchant]").oninput = (ev) => {
-    if (touched) return;
-    const merchant = normalizeText(ev.target.value),
-      prior = recent.find(
+
+  const categoryName = (id) =>
+    state.categories.find((c) => c.id === id)?.name || "기타";
+  const refreshAutoSummary = () => {
+    const merchant = normalizeText(
+      dialog.querySelector("[name=merchant]")?.value || "",
+    );
+    const ownerValue = dialog.querySelector("[name=owner]")?.value || owner;
+    payment =
+      dialog.querySelector("[name=paymentMethod]")?.value?.trim() ||
+      payment ||
+      "미지정";
+    let category = dialog.querySelector("[name=category]")?.value || "other";
+    if (!touched && merchant) {
+      const prior = recent.find(
         (t) => keyText(t.merchantNormalized) === keyText(merchant),
       );
-    const category =
-      prior?.category ||
-      classify(
-        { merchantNormalized: merchant, paymentMethod: payment },
-        state.rules,
-      ).category;
-    dialog.querySelector("[name=category]").value = cats.some(
-      (c) => c[0] === category,
-    )
-      ? category
-      : "other";
-    dialog.querySelector("#category-hint").textContent = prior
-      ? "이전에 기록한 소비처의 분류를 적용했어."
-      : "소비처 기준 자동추천 · 필요하면 바꿔줘.";
+      category =
+        prior?.category ||
+        classify(
+          { merchantNormalized: merchant, paymentMethod: payment },
+          state.rules,
+        ).category;
+      const selectEl = dialog.querySelector("[name=category]");
+      if (selectEl)
+        selectEl.value = cats.some((c) => c[0] === category)
+          ? category
+          : "other";
+    }
+    const summary = dialog.querySelector("#auto-entry-summary");
+    if (summary)
+      summary.innerHTML = `<span class="auto-dot"></span><span><strong>${merchant ? e(categoryName(category)) + " 자동분류" : "자동으로 분류할게"}</strong><small>${e(memberName(ownerValue, state))} · ${e(payment)}</small></span>`;
   };
+  dialog.querySelector("[name=category]").onchange = () => {
+    touched = true;
+    refreshAutoSummary();
+  };
+  dialog.querySelector("[name=merchant]").oninput = refreshAutoSummary;
+  dialog.querySelector("[name=owner]").onchange = refreshAutoSummary;
+  dialog.querySelector("[name=paymentMethod]").oninput = refreshAutoSummary;
+  refreshAutoSummary();
 }
 
 export async function behaviorAction(app, action, target) {
