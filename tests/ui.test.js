@@ -42,6 +42,13 @@ test("All views render meaningful accessible controls, escape user text and mask
     feed = transactionsView(s, month, {});
   assert.ok(!home.includes("가상 개인 서점"));
   assert.ok(!feed.includes("가상 개인 서점"));
+  const homeDoc = new JSDOM(home).window.document;
+  assert.ok(homeDoc.querySelector(".category-share-panel"));
+  assert.ok(homeDoc.querySelector(".category-donut[role=img]"));
+  assert.match(
+    homeDoc.querySelector(".category-share-panel").textContent,
+    /카테고리별 소비 비중/,
+  );
 });
 test("Transaction chevron and numeric input constraints keep their component boundaries", () => {
   const s = sampleState(),

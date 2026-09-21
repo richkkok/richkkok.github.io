@@ -85,3 +85,24 @@ test("공유 저장의 느린 서버 응답은 두 번째 로컬 입력을 막�
     dom.window.close();
   }
 });
+
+test("공동가계부 저장 revision을 배우자 기기에 즉시 broadcast", () => {
+  const app = { mode: "real" };
+  const cloud = new CloudSync(app);
+  cloud.meta = { household: { syncTopic: "richkkok:test-household" } };
+  let message = null;
+  cloud.socket = {
+    readyState: 1,
+    send(value) {
+      message = JSON.parse(value);
+    },
+  };
+
+  cloud.broadcastRevision(7);
+
+  assert.equal(message.topic, "realtime:richkkok:test-household");
+  assert.equal(message.event, "broadcast");
+  assert.equal(message.payload.event, "state_changed");
+  assert.equal(message.payload.payload.revision, 7);
+});
+

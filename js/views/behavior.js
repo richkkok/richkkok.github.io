@@ -18,6 +18,62 @@ export function paceChart(b) {
       .join(" ");
   return `<div class="pace-chart"><svg viewBox="0 0 666 226" role="img" aria-label="운영월 누적 소비. 실선은 실제, 점선은 계획"><g class="chart-grid">${[0, 0.5, 1].map((v) => `<line x1="88" x2="636" y1="${y(max * v)}" y2="${y(max * v)}"/><text x="80" y="${y(max * v) + 4}" text-anchor="end">${Math.round((max * v) / 10000)}만</text>`).join("")}</g><polyline class="plan-line" points="${points("planned")}"/><polyline class="actual-line ${b.delta < 0 ? "over" : ""}" points="${points("actual")}"/><text x="88" y="216">${b.p.start.slice(5).replace("-", ".")}</text><text x="636" y="216" text-anchor="end">${b.p.end.slice(5).replace("-", ".")}</text></svg><div class="chart-legend"><span><i class="actual-key"></i>실제 변동지출</span><span><i class="plan-key"></i>계획 누적</span></div></div>`;
 }
+const SHARE_COLORS = [
+  "#0b67b2",
+  "#12a18a",
+  "#e49a2f",
+  "#8268c9",
+  "#d86672",
+  "#607f96",
+];
+
+function categorySharePanel(b) {
+  const rows = b.categories
+    .filter((c) => c.used > 0)
+    .sort((a, b) => b.used - a.used);
+  const total = rows.reduce((sum, c) => sum + c.used, 0);
+  if (!total)
+    return `<section class="card category-share-panel full-width">${sectionTitle("카테고리별 소비 비중", "이번 운영월 변동소비 · 고정비 제외")}<div class="category-share-empty"><div class="category-donut empty" role="img" aria-label="변동소비 기록 없음"><div><strong>0원</strong><span>기록 대기</span></div></div><p>소비를 입력하면 어떤 항목이 가장 큰 비중을 차지하는지 바로 보여줄게.</p></div></section>`;
+
+  const visible = rows.slice(0, 5).map((c) => ({
+    name: c.name,
+    used: c.used,
+  }));
+  const other = rows.slice(5).reduce((sum, c) => sum + c.used, 0);
+  if (other > 0) visible.push({ name: "기타", used: other });
+
+  let cursor = 0;
+  const items = visible.map((item, index) => {
+    const percent = (item.used / total) * 100;
+    const start = cursor;
+    cursor += percent;
+    const end = index === visible.length - 1 ? 100 : cursor;
+    return {
+      ...item,
+      color: SHARE_COLORS[index % SHARE_COLORS.length],
+      percent,
+      start,
+      end,
+    };
+  });
+  const stops = items
+    .map(
+      (item) =>
+        `${item.color} ${item.start.toFixed(2)}% ${item.end.toFixed(2)}%`,
+    )
+    .join(", ");
+  const label = items
+    .map((item) => `${item.name} ${Math.round(item.percent)}%`)
+    .join(", ");
+
+  return `<section class="card category-share-panel full-width">${sectionTitle("카테고리별 소비 비중", "이번 운영월 변동소비 · 고정비 제외")}<div class="category-share-body"><div class="category-donut" style="--donut:${stops}" role="img" aria-label="${e(label)}"><div><strong>${won(total)}</strong><span>변동소비</span></div></div><div class="category-share-list">${items
+    .map(
+      (item) =>
+        `<div class="category-share-item"><i style="--slice:${item.color}"></i><span><strong>${e(item.name)}</strong><small>${won(item.used)}</small></span><b>${item.percent >= 10 ? Math.round(item.percent) : item.percent.toFixed(1)}%</b></div>`,
+    )
+    .join("")}</div></div><p class="small muted">비중이 큰 항목부터 보여줘. 고정·반복비는 소비통제 판단과 섞이지 않도록 제외했어.</p></section>`;
+}
+
 export function controlHome(state, month) {
   const b = dashboard(state, month),
     d = dayStatus(state, today()),
@@ -68,6 +124,7 @@ export function controlHome(state, month) {
             .join("")
         : '<p class="empty-inline">설정한 카테고리 예산 안에서 여유가 생기면 표시할게.</p>'
     }<div class="between budget-remaining"><span>변동지출 전체 잔여</span><strong>${won(b.remaining)}</strong></div><p class="small muted">항목별 잔여를 합쳐 더 쓰는 뜻은 아니야. 전체 잔여와 오늘 권장액을 함께 확인해 줘.</p></section>
+    ${categorySharePanel(b)}
     <section class="card curve-panel">${sectionTitle("우리집 소비곡선", b.history.usable ? "확인한 3개월 패턴 반영" : "자료 확인 전 · 날짜별 균등 계획", button("분석", "go-analytics", "text"))}${paceChart(b)}<div class="curve-summary"><span>운영월 예상 총지출 <strong>${won(b.forecast)}</strong></span><span>${b.future}일 남음</span></div></section>
     <section class="card close-panel">${sectionTitle("하루 마감", today().replaceAll("-", "."))}<div class="close-summary"><strong>${won(d.total)}</strong><span>${d.count}건 기록</span></div>${d.closed ? `<div class="closed-state">${icon("check")}오늘 기록 완료${d.record.mode === "zero" ? " · 무지출 확인" : ""}</div><p class="small muted">기록이 바뀌면 다시 확인할 수 있게 마감이 풀려.</p>` : `<p>오늘 두 사람의 소비, 빠진 건 없을까?</p><div class="close-actions">${button("오늘 기록 완료", "close-day", "primary", "check")}${button("빠진 소비 입력", "quick-expense", "secondary")}${!d.count ? button("오늘은 무지출", "zero-day", "text") : ""}</div>`}<button class="weekly-link" data-action="weekly-check">${icon("repeat")}주 1회 · 카드 누적액으로 누락 확인 ${icon("chevron")}</button></section>
     <section class="card recent-card full-width">${sectionTitle("최근 기록", "", button("전체 기록", "go-transactions", "text"))}${recent.map((t) => transactionRow(t, state)).join("") || '<p class="empty-inline">홈의 +지출을 눌러 첫 소비를 기록해 줘.</p>'}</section></div>`;
