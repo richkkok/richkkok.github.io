@@ -98,6 +98,9 @@ assert.ok(
   responsiveCss.includes("@media (min-width: 901px) and (max-width: 1150px)"),
 );
 assert.ok(focusCss.includes("category-share-chevron"));
+assert.ok(responsiveCss.includes(".simple-home {\n    align-items: stretch;"));
+assert.ok(responsiveCss.includes(".control-grid.simple-home > *"));
+assert.ok(responsiveCss.includes("align-self: stretch;"));
 
 console.log(
   `PASS syntax ${files.length} files, resources, manifest, isolated RichKkok sync only`,
