@@ -25,6 +25,7 @@ import { migrate } from "../js/migrate.js";
 import { Repository } from "../js/db.js";
 import { IDBFactory } from "fake-indexeddb";
 import { today } from "../js/format.js";
+import { resolveEntryOwner } from "../js/behavior-actions.js";
 const tx = (amount, date = "2026-09-10", extra = {}) => ({
   id: crypto.randomUUID(),
   sourceId: crypto.randomUUID(),
@@ -524,3 +525,42 @@ test("31일 기준의 짧은 달은 실제 포함된 반복 예정일만 집계"
   assert.equal(b.outstanding, 0);
   assert.equal(b.fixed, 200000);
 });
+
+test("공동가계부 기기 이름으로 지출 입력 사용자를 올바르게 판별", () => {
+  const state = emptyState();
+  state.settings.members = { p1: "박태영", p2: "김은영" };
+
+  assert.equal(
+    resolveEntryOwner(
+      { cloud: { meta: { member: { role: "owner", displayName: "박태영" } } } },
+      state,
+    ),
+    "p1",
+  );
+  assert.equal(
+    resolveEntryOwner(
+      { cloud: { meta: { member: { role: "member", displayName: "김은영" } } } },
+      state,
+    ),
+    "p2",
+  );
+  assert.equal(
+    resolveEntryOwner(
+      { cloud: { meta: { member: { role: "member", displayName: "태영-pc" } } } },
+      state,
+    ),
+    "p1",
+  );
+  assert.equal(
+    resolveEntryOwner(
+      {
+        cloud: {
+          meta: { member: { role: "member", displayName: "은영-iPhone" } },
+        },
+      },
+      state,
+    ),
+    "p2",
+  );
+});
+
