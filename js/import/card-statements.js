@@ -321,7 +321,10 @@ export function parseWooriPdf(pages) {
       flush({ kind: "name", label: subtotal[1].trim() });
       continue;
     }
-    if (/청구합계/.test(text)) continue;
+    if (/청구합계/.test(text)) {
+      flush({ kind: "primary", label: "본인회원" });
+      break;
+    }
     const tx = extractLineTransaction(lines, index, {
       allowShort: true,
       statement,
