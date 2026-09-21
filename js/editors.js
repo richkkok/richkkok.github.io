@@ -62,12 +62,12 @@ export function editTransaction(app, id) {
     );
     return;
   }
-  const body = `<div class="form-grid">${field("가맹점 / 적요", "merchantRaw", tx.merchantRaw, "text", 'required maxlength="300"')}${field("금액 (원)", "amount", tx.amount, "number", "required")}${field("날짜와 시간", "datetime", tx.datetime.slice(0, 16), "datetime-local", "required")}${select("거래 유형", "direction", Object.entries(DIRECTIONS), tx.direction)}${select(
+  const body = `<div class="form-grid editor-primary">${field("사용처", "merchantRaw", tx.merchantRaw, "text", 'required maxlength="300"')}${field("금액", "amount", tx.amount, "number", "required")}${field("날짜와 시간", "datetime", tx.datetime.slice(0, 16), "datetime-local", "required")}${select("카테고리", "category", categoryOptions(state), tx.category)}</div><p class="auto-learn-note">카테고리를 바꾸면 다음부터 같은 사용처는 자동으로 기억해.</p><details class="advanced editor-advanced"><summary>사용자 · 결제 · 고급 설정</summary><div class="form-grid">${select(
     "사용자",
     "owner",
     ["p1", "p2", "joint"].map((p) => [p, memberName(p, state)]),
     tx.owner,
-  )}${select("사용 범위", "scope", scopeOptions(state), tx.scope)}${select("카테고리", "category", categoryOptions(state), tx.category)}${field("결제수단", "paymentMethod", tx.paymentMethod, "text", 'required maxlength="100"')}${select("카드 실적인정", "performanceStatus", Object.entries(PERFORMANCE), tx.performanceStatus)}${select("고정·반복비 연결", "recurringId", [["", "연결하지 않음"], ...state.recurring.map((r) => [r.id, r.name])], tx.recurringId)}</div>${field("귀속 운영월 (선택)", "operatingMonth", tx.operatingMonth || "", "month")}${select(
+  )}${field("결제수단", "paymentMethod", tx.paymentMethod, "text", 'required maxlength="100"')}${select("거래 유형", "direction", Object.entries(DIRECTIONS), tx.direction)}${select("사용 범위", "scope", scopeOptions(state), tx.scope)}${select("카드 실적인정", "performanceStatus", Object.entries(PERFORMANCE), tx.performanceStatus)}${select("고정·반복비 연결", "recurringId", [["", "연결하지 않음"], ...state.recurring.map((r) => [r.id, r.name])], tx.recurringId)}${field("귀속 운영월", "operatingMonth", tx.operatingMonth || "", "month")}${select(
     "지출 성격",
     "costKind",
     [
@@ -77,7 +77,7 @@ export function editTransaction(app, id) {
     ],
     tx.costKind ||
       (tx.scope === "fixed" || tx.recurringId ? "fixed" : "variable"),
-  )}${field("결제경로 (선택)", "paymentChannel", tx.paymentChannel || "", "text", 'maxlength="100"')}${field("메모", "note", tx.note, "text", 'maxlength="1000"')}<label class="check-field"><input name="saveRule" type="checkbox">이 가맹점의 분류·범위·실적 상태를 앞으로도 적용</label>${existing ? `<div class="editor-secondary">${!tx.parentId ? `<button class="btn secondary" type="button" data-split="${e(tx.id)}">거래 분할</button>` : '<span class="small muted">분할된 내역이에요</span>'}<button class="btn danger-text" type="button" data-delete-transaction="${e(tx.id)}">휴지통으로 이동</button></div>` : ""}`;
+  )}${field("결제경로", "paymentChannel", tx.paymentChannel || "", "text", 'maxlength="100"')}${field("메모", "note", tx.note, "text", 'maxlength="1000"')}</div></details>${existing ? `<div class="editor-secondary">${!tx.parentId ? `<button class="btn secondary" type="button" data-split="${e(tx.id)}">거래 분할</button>` : '<span class="small muted">분할된 내역이에요</span>'}<button class="btn danger-text" type="button" data-delete-transaction="${e(tx.id)}">휴지통으로 이동</button></div>` : ""}`;
   openDialog(existing ? "내역 수정" : "내역 직접 입력", body, async (form) => {
     const datetime = String(form.get("datetime"));
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(datetime))
@@ -117,17 +117,29 @@ export function editTransaction(app, id) {
       const index = s.transactions.findIndex((t) => t.id === next.id);
       if (index < 0) s.transactions.push(next);
       else s.transactions[index] = next;
-      if (form.get("saveRule"))
+      const shouldLearn =
+        next.merchantNormalized &&
+        (!existing || existing.category !== next.category);
+      if (shouldLearn) {
+        s.rules = s.rules.filter(
+          (rule) =>
+            !(
+              rule.learned &&
+              rule.field === "merchant" &&
+              rule.match === "exact" &&
+              normalizeText(rule.pattern) === next.merchantNormalized
+            ),
+        );
         s.rules.unshift({
           id: uid(),
           match: "exact",
           field: "merchant",
           pattern: next.merchantNormalized,
           category: next.category,
-          scope: next.scope,
-          performanceStatus: next.performanceStatus,
           enabled: true,
+          learned: true,
         });
+      }
     });
     toast("내역을 저장했어요.");
   });
