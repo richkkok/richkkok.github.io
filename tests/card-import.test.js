@@ -89,6 +89,16 @@ test("Woori PDF parser uses full-name subtotals and wrapped merchant text", () =
           ],
         },
         { text: "소계(김은영) 91,920", items: [] },
+        { text: "청구합계-우리은행 100*******333 108,950", items: [] },
+        { text: "기환급내역", items: [] },
+        {
+          text: "08/14 5317-****-****-2057 할인캐시백 -40",
+          items: [
+            { text: "08/14", x: 50, y: 580 },
+            { text: "5317-****-****-2057 할인캐시백", x: 120, y: 580 },
+            { text: "-40", x: 320, y: 580 },
+          ],
+        },
       ],
     },
   ];
