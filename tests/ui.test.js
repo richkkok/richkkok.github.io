@@ -45,10 +45,15 @@ test("All views render meaningful accessible controls, escape user text and mask
   const homeDoc = new JSDOM(home).window.document;
   assert.ok(homeDoc.querySelector(".category-share-panel"));
   assert.ok(homeDoc.querySelector(".category-donut[role=img]"));
+  assert.ok(homeDoc.querySelector(".smart-home-panel"));
+  assert.ok(homeDoc.querySelector(".detail-disclosure"));
   assert.match(
     homeDoc.querySelector(".category-share-panel").textContent,
-    /카테고리별 소비 비중/,
+    /어디에 쓰고 있나/,
   );
+  const settingsDoc = new JSDOM(settingsView(s)).window.document;
+  assert.ok(settingsDoc.querySelector(".settings-simple-grid"));
+  assert.ok(settingsDoc.querySelector(".settings-disclosure"));
 });
 test("Transaction chevron and numeric input constraints keep their component boundaries", () => {
   const s = sampleState(),

@@ -69,7 +69,16 @@ export function transactionRow(tx, state) {
     title = hidden
       ? `${memberName(tx.scope, state)} 개인 지출`
       : tx.merchantRaw;
-  return `<button class="transaction-row ${tx.deletedAt ? "is-deleted" : ""}" data-edit="${e(tx.id)}"><span class="category-icon tone-${e(c?.id || "other")}">${icon(hidden ? "lock" : c?.icon || "dots")}</span><span class="transaction-description"><strong>${e(title)}</strong><span>${e(hidden ? "개인용돈 · 상세 숨김" : `${c?.name || "기타"} · ${memberName(tx.owner, state)} · ${tx.paymentMethod}${tx.cardBenefitAmount ? ` · 카드혜택 ${won(tx.cardBenefitAmount)}` : ""}`)}</span></span><span class="transaction-amount ${tx.direction === "income" || tx.direction === "refund" ? "positive" : ""}"><strong>${tx.direction === "income" || tx.direction === "refund" ? "+" : ""}${won(tx.amount)}</strong><span>${e(tx.direction === "transfer" ? "이체 · 합계 제외" : tx.scope === "excluded" ? "가계부 제외" : scopeName(tx.scope, state))}</span></span>${icon("chevron", "row-chevron")}</button>`;
+  const secondary = hidden
+    ? "개인용돈 · 상세 숨김"
+    : `${c?.name || "기타"} · ${memberName(tx.owner, state)}`;
+  const amountMeta =
+    tx.direction === "transfer"
+      ? "이체 · 합계 제외"
+      : tx.scope === "excluded"
+        ? "가계부 제외"
+        : `${tx.paymentMethod || "미지정"}${tx.scope === "fixed" || tx.costKind === "fixed" ? " · 고정비" : ""}`;
+  return `<button class="transaction-row ${tx.deletedAt ? "is-deleted" : ""}" data-edit="${e(tx.id)}"><span class="category-icon tone-${e(c?.id || "other")}">${icon(hidden ? "lock" : c?.icon || "dots")}</span><span class="transaction-description"><strong>${e(title)}</strong><span>${e(secondary)}</span></span><span class="transaction-amount ${tx.direction === "income" || tx.direction === "refund" ? "positive" : ""}"><strong>${tx.direction === "income" || tx.direction === "refund" ? "+" : ""}${won(tx.amount)}</strong><span>${e(amountMeta)}</span></span>${icon("chevron", "row-chevron")}</button>`;
 }
 export function openDialog(
   title,

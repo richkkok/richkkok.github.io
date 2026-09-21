@@ -5,6 +5,18 @@ const nonOperatingIncome =
   /보험금|보험\s*환급|캐시백|포인트|리워드|입출금통장\s*이자|예금\s*이자|이자\s*입금|환급금|세금\s*환급/i;
 const earnedIncome =
   /급여|월급|상여|성과급|보너스|salary|payroll|wage/i;
+const internalMovement =
+  /네이버페이\s*충전|카카오페이\s*충전|토스(?:페이)?\s*충전|페이머니\s*충전|머니\s*충전|간편이체|^생활비\s*(?:이체)?$/i;
+
+function householdMemberMovement(merchant, members = {}) {
+  const merchantKey = keyText(merchant);
+  return (
+    merchantKey &&
+    Object.values(members).some(
+      (name) => keyText(name) && keyText(name) === merchantKey,
+    )
+  );
+}
 
 export function incomeKind(tx, stateOrMembers = {}) {
   if (tx?.direction !== "income") return "";
@@ -176,7 +188,9 @@ export function normalizeRow(
   if (/환불|취소|refund|cancel/.test(type)) direction = "refund";
   if (
     settlement.test(`${merchantRaw} ${type}`) ||
-    /^(이체|transfer|settlement)$/.test(type)
+    /^(이체|transfer|settlement)$/.test(type) ||
+    internalMovement.test(merchantRaw) ||
+    householdMemberMovement(merchantRaw, members)
   )
     direction = "transfer";
   const stamp = new Date().toISOString();
