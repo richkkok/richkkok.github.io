@@ -372,7 +372,7 @@ export class CloudSync {
         : "";
     openDialog(
       "우리집 공동가계부 시작",
-      `<p>현재 이 기기의 가계부를 기준으로 공동가계부를 만들어요. 이후 아내를 초대하면 같은 내용을 함께 수정하고 거의 실시간으로 볼 수 있어요.</p><div class="form-grid">${field("내 이름", "displayName", suggested, "text", 'required maxlength="30"')}${field("가계부 이름", "householdName", "우리집 가계부", "text", 'required maxlength="40"')}</div><div class="notice"><strong>현재 기록은 그대로 유지돼요</strong><p class="small muted">금융파일 원본은 전송하지 않고, 리치콕에 저장된 정규화된 가계부 데이터만 공동 저장소와 동기화해요.</p></div>`,
+      `<p>현재 이 기기의 가계부를 기준으로 공동가계부를 만들어요. 이후 아내를 초대하면 같은 내용을 함께 수정하고 온라인에서 바로 반영해 볼 수 있어요.</p><div class="form-grid">${field("내 이름", "displayName", suggested, "text", 'required maxlength="30"')}${field("가계부 이름", "householdName", "우리집 가계부", "text", 'required maxlength="40"')}</div><div class="notice"><strong>현재 기록은 그대로 유지돼요</strong><p class="small muted">금융파일 원본은 전송하지 않고, 리치콕에 저장된 정규화된 가계부 데이터만 공동 저장소와 동기화해요.</p></div>`,
       async (form) => {
         const snapshot = await this.app.repo.read();
         const created = await api({
@@ -398,7 +398,10 @@ export class CloudSync {
         this.app.state = accepted.state;
         this.startRealtime();
         this.startFallbackPull();
-        setTimeout(() => this.app.render(), 0);
+        setTimeout(() => {
+          this.app.render();
+          this.createInvite().catch((error) => toast(error.message));
+        }, 0);
         toast("우리집 공동가계부를 만들었어요.");
       },
       "공동가계부 만들기",
