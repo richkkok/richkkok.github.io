@@ -367,9 +367,21 @@ test("Dashboard category drill-down can filter one or grouped categories", () =>
   const s = emptyState();
   s.settings.periodStartDay = 1;
   s.transactions = [
-    tx(1000, "2026-09-01", { category: "cafe" }),
-    tx(2000, "2026-09-02", { category: "dining" }),
-    tx(3000, "2026-09-03", { category: "shopping" }),
+    tx(1000, {
+      date: "2026-09-01",
+      datetime: "2026-09-01T12:00:00",
+      category: "cafe",
+    }),
+    tx(2000, {
+      date: "2026-09-02",
+      datetime: "2026-09-02T12:00:00",
+      category: "dining",
+    }),
+    tx(3000, {
+      date: "2026-09-03",
+      datetime: "2026-09-03T12:00:00",
+      category: "shopping",
+    }),
   ];
   assert.equal(
     filteredTransactions(s, "2026-09", { category: "cafe" }).length,
