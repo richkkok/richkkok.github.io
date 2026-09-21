@@ -20,6 +20,7 @@ function clean(value) {
 }
 function personKey(value) {
   return clean(value)
+    .replace(/[＊●○•]/g, "*")
     .replace(/(?:고객|회원|님)/g, "")
     .replace(/[^0-9A-Za-z가-힣*]/g, "")
     .toLowerCase();
@@ -28,14 +29,21 @@ function memberKeys(state) {
   return Object.entries(state.settings.members || {}).map(([id, name]) => ({
     id,
     name,
-    key: personKey(name),
+    key: personKey(name).replace(/\*/g, ""),
   }));
 }
+function maskedNameMatches(masked, member) {
+  const parts = masked.split("*").filter(Boolean);
+  if (parts.length < 2 || member.length < 2) return false;
+  return new RegExp(`^${parts.join(".*")}$`).test(member);
+}
 function matchMember(label, state) {
-  const source = personKey(label).replace(/\*/g, "");
+  const masked = personKey(label);
+  const source = masked.replace(/\*/g, "");
   if (!source) return null;
   const matches = memberKeys(state).filter(({ key }) => {
     if (!key || key.length < 2) return false;
+    if (masked.includes("*")) return maskedNameMatches(masked, key);
     return source.includes(key) || key.includes(source);
   });
   return matches.length === 1 ? matches[0].id : null;
@@ -321,9 +329,9 @@ export function parseWooriPdf(pages) {
     const text = clean(lines[index].text);
     const card = text.match(/\(([A-Z]+\d{2,4})\)\s*카드/i);
     if (card) cardCode = card[1];
-    const subtotal = text.match(/소계\s*\(([^)]+)\)/);
-    if (subtotal) {
-      flush({ kind: "name", label: subtotal[1].trim() });
+    const subtotalHint = ownerHintFromSubtotal(text);
+    if (subtotalHint) {
+      flush(subtotalHint);
       continue;
     }
     if (/청구합계/.test(text)) {
