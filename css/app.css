@@ -225,6 +225,65 @@ summary:focus-visible,
   gap: 12px;
   align-items: center;
 }
+.household-status {
+  min-height: 46px;
+  min-width: 190px;
+  max-width: 250px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border: 1px solid #c4d0da;
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  transition:
+    background 160ms var(--ease),
+    border-color 160ms var(--ease);
+}
+.household-status:hover {
+  background: #f7f9fb;
+}
+.household-status.is-connected {
+  border-color: #9fc8b8;
+  background: #f1faf6;
+}
+.household-status.is-connected:hover {
+  background: #eaf7f1;
+}
+.household-status-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-radius: 50%;
+  background: #9aa8b3;
+  box-shadow: 0 0 0 4px #9aa8b318;
+}
+.household-status.is-connected .household-status-dot {
+  background: #258a68;
+  box-shadow: 0 0 0 4px #258a6818;
+}
+.household-status-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.household-status-copy strong {
+  color: var(--ink);
+  font-size: 0.83rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.household-status-copy small {
+  color: var(--muted);
+  font-size: 0.73rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .month-control {
   display: block;
   position: relative;
