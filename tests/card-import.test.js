@@ -10,9 +10,32 @@ import {
 
 function state() {
   const s = emptyState();
-  s.settings.members = { p1: "태영", p2: "은영" };
+  s.settings.members = { p1: "박태영", p2: "김은영" };
   return s;
 }
+
+test("masked cardholder names map to the unique household member", () => {
+  for (const label of ["박*영", "박＊영", "박●영"]) {
+    const resolved = resolveCardEntries(
+      [
+        {
+          date: "2026-08-01",
+          merchant: "테스트",
+          amount: 1000,
+          payment: "우리카드",
+          type: "지출",
+          note: "",
+          ownerHint: { kind: "name", label },
+        },
+      ],
+      state(),
+      "p2",
+    );
+    assert.equal(resolved.entries[0].owner, "p1");
+    assert.equal(resolved.warnings.length, 0);
+  }
+});
+
 
 test("card workbook auto-splits primary/family and excludes subtotal/total rows", async () => {
   const sheets = [
@@ -77,7 +100,7 @@ test("Woori PDF parser uses full-name subtotals and wrapped merchant text", () =
           text: "다음 거래의 가맹점",
           items: [{ text: "다음 거래의 가맹점", x: 120, y: 650 }],
         },
-        { text: "소계(박태영) 17,030", items: [] },
+        { text: "소계(박*영) 17,030", items: [] },
         { text: "(M057)카드의정석2 EVERY DISCOUNT", items: [] },
         {
           text: "08/14 이마트 동탄점 91,920 91,920 할인 735 91,185",
@@ -106,7 +129,7 @@ test("Woori PDF parser uses full-name subtotals and wrapped merchant text", () =
   assert.equal(parsed.entries.length, 2);
   assert.equal(parsed.entries[0].merchant, "한농홈푸드 주식회사 동탄 1지점");
   assert.equal(parsed.entries[0].date, "2026-08-13");
-  assert.equal(parsed.entries[0].ownerHint.label, "박태영");
+  assert.equal(parsed.entries[0].ownerHint.label, "박*영");
   assert.equal(parsed.entries[1].ownerHint.label, "김은영");
   const resolved = resolveCardEntries(parsed.entries, state(), "p1");
   assert.deepEqual(
