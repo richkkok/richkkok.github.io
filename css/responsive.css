@@ -913,6 +913,13 @@
 }
 
 @media (min-width: 701px) and (max-width: 900px) {
+  .simple-home {
+    width: 100%;
+    align-items: stretch;
+  }
+  .simple-home > * {
+    min-width: 0;
+  }
   .workspace {
     padding-left: 18px;
     padding-right: 18px;
@@ -948,6 +955,19 @@
 }
 
 @media (max-width: 700px) {
+  .simple-home {
+    align-items: stretch;
+    width: 100%;
+  }
+  .simple-home > *,
+  .control-grid.simple-home > *,
+  .full-width {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    align-self: stretch;
+    box-sizing: border-box;
+  }
   .sidebar {
     height: calc(64px + env(safe-area-inset-bottom));
     padding-top: 4px;
