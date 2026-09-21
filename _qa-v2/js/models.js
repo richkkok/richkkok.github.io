@@ -60,17 +60,64 @@ export function validateState(input) {
       throw Error("복원할 거래의 형식이 올바르지 않아요.");
     ids.add(t.id);
   }
-  if (s.periodStartDay !== undefined && (!Number.isInteger(s.periodStartDay) || s.periodStartDay < 1 || s.periodStartDay > 31)) throw Error("운영월 시작일을 확인해 주세요.");
-  if (s.salaryDays !== undefined && (!Array.isArray(s.salaryDays) || s.salaryDays.some(n=>!Number.isInteger(n)||n<1||n>31))) throw Error("급여일을 확인해 주세요.");
-  for (const p of [s,...Object.values(s.monthOverrides || {})]) for(const k of ["variableBudget","savingsTarget"]) if(p[k]!==undefined&&!isMoney(p[k])) throw Error("소비·저축 목표 금액을 확인해 주세요.");
+  if (
+    s.periodStartDay !== undefined &&
+    (!Number.isInteger(s.periodStartDay) ||
+      s.periodStartDay < 1 ||
+      s.periodStartDay > 31)
+  )
+    throw Error("운영월 시작일을 확인해 주세요.");
+  if (
+    s.salaryDays !== undefined &&
+    (!Array.isArray(s.salaryDays) ||
+      s.salaryDays.some((n) => !Number.isInteger(n) || n < 1 || n > 31))
+  )
+    throw Error("급여일을 확인해 주세요.");
+  for (const p of [s, ...Object.values(s.monthOverrides || {})])
+    for (const k of ["variableBudget", "savingsTarget", "fixedReserve"])
+      if (p[k] !== undefined && !isMoney(p[k]))
+        throw Error("소비·저축 목표 금액을 확인해 주세요.");
   for (const t of state.transactions) {
-    if(t.operatingMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(t.operatingMonth)) throw Error("귀속 운영월을 확인해 주세요.");
-    if(t.costKind && !["fixed","variable","oneoff"].includes(t.costKind)) throw Error("지출 성격을 확인해 주세요.");
+    if (t.operatingMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(t.operatingMonth))
+      throw Error("귀속 운영월을 확인해 주세요.");
+    if (t.costKind && !["fixed", "variable", "oneoff"].includes(t.costKind))
+      throw Error("지출 성격을 확인해 주세요.");
   }
-  if(s.baseline && (!isDate(s.baseline.start)||!isDate(s.baseline.end)||s.baseline.start>s.baseline.end))throw Error("분석기간이 올바르지 않아요.");
-  if(state.dailyCloses && (Array.isArray(state.dailyCloses)||Object.entries(state.dailyCloses).some(([d,c])=>!isDate(d)||!c||typeof c.signature!=="string"||!["complete","zero"].includes(c.mode))))throw Error("하루 마감 자료를 확인해 주세요.");
-  if(state.reconciliations && (!Array.isArray(state.reconciliations)||state.reconciliations.some(r=>typeof r.id!=="string"||!isDate(r.start)||!isDate(r.end)||![r.actual,r.recorded,r.difference].every(Number.isSafeInteger))))throw Error("보정 자료를 확인해 주세요.");
-  if(!Number.isSafeInteger(state.transactions.reduce((n,t)=>n+t.amount,0)))throw Error("총 거래금액이 안전한 계산 범위를 넘었어요.");
+  if (
+    s.baseline &&
+    (!isDate(s.baseline.start) ||
+      !isDate(s.baseline.end) ||
+      s.baseline.start > s.baseline.end)
+  )
+    throw Error("분석기간이 올바르지 않아요.");
+  if (
+    state.dailyCloses &&
+    (Array.isArray(state.dailyCloses) ||
+      Object.entries(state.dailyCloses).some(
+        ([d, c]) =>
+          !isDate(d) ||
+          !c ||
+          typeof c.signature !== "string" ||
+          !["complete", "zero"].includes(c.mode),
+      ))
+  )
+    throw Error("하루 마감 자료를 확인해 주세요.");
+  if (
+    state.reconciliations &&
+    (!Array.isArray(state.reconciliations) ||
+      state.reconciliations.some(
+        (r) =>
+          typeof r.id !== "string" ||
+          !isDate(r.start) ||
+          !isDate(r.end) ||
+          ![r.actual, r.recorded, r.difference].every(Number.isSafeInteger),
+      ))
+  )
+    throw Error("보정 자료를 확인해 주세요.");
+  if (
+    !Number.isSafeInteger(state.transactions.reduce((n, t) => n + t.amount, 0))
+  )
+    throw Error("총 거래금액이 안전한 계산 범위를 넘었어요.");
   for (const r of state.recurring)
     if (
       !isMoney(r.amount) ||

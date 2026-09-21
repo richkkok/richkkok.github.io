@@ -1,1 +1,24 @@
-:root{--bg:#edf1f5;--surface:#fff;--ink:#10283e;--text:#20394e;--muted:#556777;--line:#ccd5df;--accent:#1167bb;--accent-dark:#0b4f96;--accent-soft:#e9f3ff;--mint:#b6e4d9;--gold:#e9ca6c;--danger:#b12f31;--radius-sm:10px;--radius:20px;--radius-lg:24px;--shadow:0 12px 35px #10283e17;--font:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;--layer-nav:20;--layer-toast:100;--ease:cubic-bezier(.2,.7,.2,1)}
+:root {
+  --bg: #edf1f5;
+  --surface: #fff;
+  --ink: #10283e;
+  --text: #20394e;
+  --muted: #556777;
+  --line: #ccd5df;
+  --accent: #1167bb;
+  --accent-dark: #0b4f96;
+  --accent-soft: #e9f3ff;
+  --mint: #b6e4d9;
+  --gold: #e9ca6c;
+  --danger: #b12f31;
+  --radius-sm: 10px;
+  --radius: 20px;
+  --radius-lg: 24px;
+  --shadow: 0 12px 35px #10283e17;
+  --font:
+    -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
+    system-ui, sans-serif;
+  --layer-nav: 20;
+  --layer-toast: 100;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}

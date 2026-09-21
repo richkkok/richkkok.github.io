@@ -162,7 +162,11 @@ export function normalizeRow(
     paymentMethod,
     sourceType,
     paymentChannel: String(cell("channel") || ""),
-    operatingMonth: /^\d{4}-(0[1-9]|1[0-2])$/.test(String(cell("operatingMonth")||"")) ? String(cell("operatingMonth")) : null,
+    operatingMonth: /^\d{4}-(0[1-9]|1[0-2])$/.test(
+      String(cell("operatingMonth") || ""),
+    )
+      ? String(cell("operatingMonth"))
+      : null,
     note,
     recurringId: null,
     performanceStatus: "unknown",
@@ -177,7 +181,15 @@ export function normalizeRow(
     tx.excluded = true;
   }
   const kind = String(cell("costKind") || "");
-  tx.costKind = /fixed|고정/i.test(kind) ? "fixed" : /oneoff|일회/i.test(kind) ? "oneoff" : /variable|변동/i.test(kind) ? "variable" : ["housing","finance","subscription"].includes(tx.category) ? "fixed" : "variable";
+  tx.costKind = /fixed|고정/i.test(kind)
+    ? "fixed"
+    : /oneoff|일회/i.test(kind)
+      ? "oneoff"
+      : /variable|변동/i.test(kind)
+        ? "variable"
+        : ["housing", "finance", "subscription"].includes(tx.category)
+          ? "fixed"
+          : "variable";
   tx.costKindInferred = !kind;
   return matchRecurring(tx, recurring);
 }

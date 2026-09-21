@@ -62,7 +62,10 @@ app.repo = new Repository(
 app.cloud = new CloudSync(app);
 app.load = async () => {
   app.state = await app.repo.read();
-  if (!app.periodInitialized) { app.month = periodKey(undefined, startDay(app.state)); app.periodInitialized = true; }
+  if (!app.periodInitialized) {
+    app.month = periodKey(undefined, startDay(app.state));
+    app.periodInitialized = true;
+  }
   app.render();
 };
 app.update = async (change) => {
@@ -103,9 +106,13 @@ app.render = () => {
         `<a href="#${r}" class="nav-item ${current === r ? "active" : ""}" ${current === r ? 'aria-current="page"' : ""}>${icon(i)}<span>${label}</span></a>`,
     )
     .join("");
-  document.querySelector("#month-title").textContent = monthTitle(app.month) + " 운영월";
-  document.querySelector("#period-label").textContent = periodLabel(period(app.month, startDay(app.state)));
-  document.querySelector("#storage-status").textContent = app.cloud?.summary().status || "이 기기에 저장";
+  document.querySelector("#month-title").textContent =
+    monthTitle(app.month) + " 운영월";
+  document.querySelector("#period-label").textContent = periodLabel(
+    period(app.month, startDay(app.state)),
+  );
+  document.querySelector("#storage-status").textContent =
+    app.cloud?.summary().status || "이 기기에 저장";
   document.querySelector("#month-picker").value = app.month;
   document.querySelector("#demo-banner").hidden = app.mode !== "demo";
   document.querySelector("#app-header").hidden = !app.state.configured;

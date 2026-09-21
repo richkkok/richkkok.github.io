@@ -7,7 +7,7 @@ import { memberName } from "../../data/defaults.js";
 
 export function paceChart(b) {
   const max = Math.max(1, b.budget, ...b.chart.map((x) => x.actual || 0));
-  const x = (i) => 56 + (i / (b.chart.length - 1 || 1)) * 584,
+  const x = (i) => 88 + (i / (b.chart.length - 1 || 1)) * 548,
     y = (v) => 190 - (Math.max(0, v) / max) * 154;
   const points = (key) =>
     b.chart
@@ -16,7 +16,7 @@ export function paceChart(b) {
       )
       .filter(Boolean)
       .join(" ");
-  return `<div class="pace-chart"><svg viewBox="0 0 666 226" role="img" aria-label="운영월 누적 소비. 실선은 실제, 점선은 계획"><g class="chart-grid">${[0, 0.5, 1].map((v) => `<line x1="56" x2="640" y1="${y(max * v)}" y2="${y(max * v)}"/><text x="48" y="${y(max * v) + 4}" text-anchor="end">${Math.round((max * v) / 10000)}만</text>`).join("")}</g><polyline class="plan-line" points="${points("planned")}"/><polyline class="actual-line ${b.delta < 0 ? "over" : ""}" points="${points("actual")}"/><text x="56" y="216">${b.p.start.slice(5).replace("-", ".")}</text><text x="640" y="216" text-anchor="end">${b.p.end.slice(5).replace("-", ".")}</text></svg><div class="chart-legend"><span><i class="actual-key"></i>실제 변동지출</span><span><i class="plan-key"></i>계획 누적</span></div></div>`;
+  return `<div class="pace-chart"><svg viewBox="0 0 666 226" role="img" aria-label="운영월 누적 소비. 실선은 실제, 점선은 계획"><g class="chart-grid">${[0, 0.5, 1].map((v) => `<line x1="88" x2="636" y1="${y(max * v)}" y2="${y(max * v)}"/><text x="80" y="${y(max * v) + 4}" text-anchor="end">${Math.round((max * v) / 10000)}만</text>`).join("")}</g><polyline class="plan-line" points="${points("planned")}"/><polyline class="actual-line ${b.delta < 0 ? "over" : ""}" points="${points("actual")}"/><text x="88" y="216">${b.p.start.slice(5).replace("-", ".")}</text><text x="636" y="216" text-anchor="end">${b.p.end.slice(5).replace("-", ".")}</text></svg><div class="chart-legend"><span><i class="actual-key"></i>실제 변동지출</span><span><i class="plan-key"></i>계획 누적</span></div></div>`;
 }
 export function controlHome(state, month) {
   const b = dashboard(state, month),
@@ -25,13 +25,24 @@ export function controlHome(state, month) {
     yd = dayStatus(state, yesterday);
   const unclosed =
     !yd.closed && yesterday >= (state.settings.trackingSince || today());
-  const planned = b.requested > 0 || b.savingsTarget > 0;
+  const planned =
+    b.plan.variableBudget !== undefined ||
+    b.plan.savingsTarget !== undefined ||
+    b.requested > 0 ||
+    b.savingsTarget > 0;
   const negative = b.delta < 0;
   const recent = [...b.b.tx]
     .sort((a, b) => (b.datetime || b.date).localeCompare(a.datetime || a.date))
     .slice(0, 3);
   return `<div class="control-grid">
-    <section class="control-hero ${negative ? "is-over" : ""}" aria-labelledby="control-title"><div class="between"><span class="eyebrow">${periodLabel(b.p)} · 소비 페이스</span><button class="icon-button light" data-action="pace-calculation" aria-label="소비속도 계산 근거">${icon("info")}</button></div><h2 id="control-title">${planned ? `이번 운영월 ${negative ? "덜" : "더"} 써도 되는 돈`.replace("덜 써도", "덜 써야") : "우리집 소비목표를 정해 줘"}</h2><div class="control-amount">${planned ? (negative ? "−" : "+") + won(Math.abs(b.delta)) : "목표 설정"}</div><p class="hero-meaning">${!planned ? "목표를 정하면 지금 소비속도를 바로 알려줄게." : b.pace === null ? "오늘부터 계획에 맞춰 기록해 보자." : b.pace === 0 ? "현재 계획한 소비속도와 같아." : `현재 계획보다 ${Math.abs(b.pace)}% ${b.pace > 0 ? "많이" : "적게"} 쓰고 있어.`}</p><div class="hero-today"><div><span>${b.todayAvailable < 0 ? "오늘 권장액 초과" : "오늘 추가로 쓸 수 있는 돈"}</span><strong>${won(Math.abs(b.todayAvailable))}</strong></div><div class="hero-today-side"><span>오늘 변동지출</span><b>${won(b.todaySpent)}</b></div></div><div class="hero-foot"><span>계획 누적 ${shortWon(b.planned)}</span><span>실제 ${shortWon(b.actual)}</span></div>${!planned ? button("소비·저축 목표 설정", "behavior-plan", "light-button") : ""}</section>
+    <section class="control-hero ${negative ? "is-over" : ""}" aria-labelledby="control-title"><div class="between"><span class="eyebrow">${periodLabel(b.p)} · 소비 페이스</span><button class="icon-button light" data-action="pace-calculation" aria-label="소비속도 계산 근거">${icon("info")}</button></div><h2 id="control-title">${planned ? `이번 운영월 ${negative ? "덜 써야 하는" : "더 써도 되는"} 돈` : "우리집 소비목표를 정해 줘"}</h2><div class="control-amount">${planned ? (negative ? "−" : "+") + won(Math.abs(b.delta)) : "목표 설정"}</div><p class="hero-meaning">${!planned ? "목표를 정하면 지금 소비속도를 바로 알려줄게." : b.pace === null ? "오늘부터 계획에 맞춰 기록해 보자." : b.pace === 0 ? "현재 계획한 소비속도와 같아." : `현재 계획보다 ${Math.abs(b.pace)}% ${b.pace > 0 ? "많이" : "적게"} 쓰고 있어.`}</p><div class="hero-today"><div><span>${b.todayAvailable < 0 ? "오늘 권장액 초과" : "오늘 추가로 쓸 수 있는 돈"}</span><strong>${won(Math.abs(b.todayAvailable))}</strong></div><div class="hero-today-side"><span>오늘 변동지출</span><b>${won(b.todaySpent)}</b></div></div><div class="hero-foot"><span>계획 누적 ${shortWon(b.planned)}</span><span>실제 ${shortWon(b.actual)}</span></div>${
+      b.cuts.length
+        ? `<div class="hero-priority">지금 먼저 조절할 소비<strong>${b.cuts
+            .slice(0, 2)
+            .map((c) => e(c.name))
+            .join(" · ")}</strong></div>`
+        : ""
+    }${!planned ? button("소비·저축 목표 설정", "behavior-plan", "light-button") : ""}</section>
     <section class="card saving-panel"><div class="section-heading"><div><span class="eyebrow">목표저축</span><h2>${won(b.savingsTarget)}</h2></div>${button("수정", "behavior-plan", "text")}</div><span class="saving-state ${b.status === "달성 가능" ? "on-track" : "at-risk"}">${b.status === "달성 가능" ? icon("check") : icon("info")}${planned ? b.status : "목표 설정 필요"}</span><div class="saving-projection"><span>현재 속도 기준 예상저축</span><strong>${won(b.projectedSavings)}</strong></div>${progress(Math.max(0, b.projectedSavings), b.savingsTarget)}<p class="small muted">${b.provisional ? "잠정 예상 · 초기 기록 또는 미마감일을 확인해 줘." : "입력한 거래가 모두 반영된 경우의 예상이야."}</p><div class="plan-summary"><button data-action="month-income"><span>운영월 수입</span><strong>${won(b.b.income)} ${icon("chevron")}</strong></button><button data-action="recurring-list"><span>고정·반복비</span><strong>${won(b.fixed)} ${icon("chevron")}</strong></button></div></section>
     ${b.requested > b.affordability ? `<div class="notice warning full-width"><strong>계획 합계가 수입보다 ${won(b.requested - b.affordability)} 많아.</strong><p>고정비와 목표저축을 남기기 위해 실제 변동비 한도는 ${won(b.budget)}으로 계산했어. 수입이나 목표를 조정해 줘.</p>${button("목표 조정", "behavior-plan", "secondary")}</div>` : ""}
     ${unclosed ? `<div class="unclosed-banner full-width"><div>${icon("calendar")}<span><strong>어제 소비기록이 아직 마감되지 않았어.</strong><small>${Number(yesterday.slice(5, 7))}월 ${Number(yesterday.slice(8))}일 · ${won(yd.total)} / ${yd.count}건</small></span></div><div><button class="btn secondary" data-action="quick-expense" data-date="${yesterday}">빠진 소비</button><button class="btn primary" data-action="close-day" data-date="${yesterday}">마감하기</button></div></div>` : ""}

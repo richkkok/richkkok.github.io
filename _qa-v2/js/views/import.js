@@ -67,7 +67,7 @@ export function importView(state, session) {
                   "",
                 )}</ul><label class="check-field"><input id="skip-errors" type="checkbox">확인한 오류 ${preview.errors.length}행을 제외하고 저장</label></div>`
             : ""
-        }${preview.possible?.length ? `<div class="notice warning"><strong>다른 파일·수기 기록과 중복 의심 ${preview.possible.length}건</strong><p>같은 날·사용자·금액·소비처가 겹쳐. 카드와 간편결제로 한 번 결제한 내역인지 확인해 줘.</p>${preview.possible.map(x=>`<label class="check-field"><input type="checkbox" data-skip-duplicate="${e(x.incoming.sourceId)}" checked><span>${e(x.incoming.date)} · ${e(x.incoming.merchantRaw)} · ${won(x.incoming.amount)}<br>${e(x.incoming.paymentMethod)} ↔ ${e(x.existing.paymentMethod)} · 체크하면 새 내역 제외</span></label>`).join("")}<label class="check-field"><input id="confirm-possible" type="checkbox">중복 의심 항목을 검토했어</label></div>` : ""}<div class="preview-table"><div class="preview-heading"><span>일자 / 가맹점</span><span>분류 / 결제수단</span><span>유형 / 금액</span></div>${
+        }${preview.possible?.length ? `<div class="notice warning"><strong>다른 파일·수기 기록과 중복 의심 ${preview.possible.length}건</strong><p>같은 날·사용자·금액·소비처가 겹쳐. 카드와 간편결제로 한 번 결제한 내역인지 확인해 줘.</p>${preview.possible.map((x) => `<label class="check-field"><input type="checkbox" data-skip-duplicate="${e(x.incoming.sourceId)}" checked><span>${e(x.incoming.date)} · ${e(x.incoming.merchantRaw)} · ${won(x.incoming.amount)}<br>${e(x.incoming.paymentMethod)} ↔ ${e(x.existing.paymentMethod)} · 체크하면 새 내역 제외</span></label>`).join("")}<label class="check-field"><input id="confirm-possible" type="checkbox">중복 의심 항목을 검토했어</label></div>` : ""}<div class="preview-table"><div class="preview-heading"><span>일자 / 가맹점</span><span>분류 / 결제수단</span><span>유형 / 금액</span></div>${
           preview.added
             .slice(0, 20)
             .map(
@@ -76,7 +76,7 @@ export function importView(state, session) {
             )
             .join("") ||
           '<p class="empty-inline">새로 저장할 내역이 없어요.</p>'
-        }</div><div class="import-commit"><p>${preview.added.filter((t) => t.direction === "transfer").length}건의 이체·카드대금은 지출 합계에서 제외해요.<br>처음 20건을 미리 보여드려요. 실적은 기본 ‘미확인’이에요.</p><button class="btn primary" data-action="commit-import" ${!preview.added.length || session.busy ? "disabled" : ""}>${preview.added.length}건 저장하기 ${icon("check")}</button></div></section>`
+        }</div><div class="import-commit"><p>${preview.added.filter((t) => t.direction === "transfer").length}건의 이체·카드대금은 지출 합계에서 제외해요.<br>처음 20건을 미리 보여드려요. 실적은 기본 ‘미확인’이에요.</p><button class="btn primary" data-action="commit-import" ${!preview.added.length || session.busy ? "disabled" : ""}>검토한 내역 저장 ${icon("check")}</button></div></section>`
       : ""
   }<section class="import-guide"><h2>안심하고 가져오는 방법</h2><ol><li><strong>거래내역 내보내기</strong><span>카카오페이·카드·은행 앱에서 원하는 기간을 선택해요.</span></li><li><strong>두 사람의 파일 따로 선택</strong><span>사용자를 고르면 저장할 내역에 자동 표시돼요.</span></li><li><strong>미리 보고 저장</strong><span>날짜와 금액을 확인해요. 계좌·카드대금은 두 번 더하지 않아요.</span></li></ol></section>`;
 }
@@ -237,7 +237,10 @@ export async function previewImport(app, readUI = true) {
     },
     app.state.transactions,
   );
-  s.preview.possible = possibleDuplicates(s.preview.added, app.state.transactions);
+  s.preview.possible = possibleDuplicates(
+    s.preview.added,
+    app.state.transactions,
+  );
   s.error = "";
   if (readUI) app.render();
 }
@@ -249,9 +252,17 @@ export async function commitImport(app) {
     !document.querySelector("#skip-errors")?.checked
   )
     throw Error("확인 필요 행을 살펴보고 제외 여부를 선택해 주세요.");
-  if (s.preview.possible?.length && !document.querySelector("#confirm-possible")?.checked) throw Error("중복 의심 항목을 검토해 주세요.");
-  const skip = new Set([...document.querySelectorAll("[data-skip-duplicate]:checked")].map(el=>el.dataset.skipDuplicate));
-  const incoming = s.preview.valid.filter(t=>!skip.has(t.sourceId));
+  if (
+    s.preview.possible?.length &&
+    !document.querySelector("#confirm-possible")?.checked
+  )
+    throw Error("중복 의심 항목을 검토해 주세요.");
+  const skip = new Set(
+    [...document.querySelectorAll("[data-skip-duplicate]:checked")].map(
+      (el) => el.dataset.skipDuplicate,
+    ),
+  );
+  const incoming = s.preview.valid.filter((t) => !skip.has(t.sourceId));
   s.busy = true;
   try {
     let count = 0;

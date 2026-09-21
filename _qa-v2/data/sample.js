@@ -13,7 +13,7 @@ export function sampleState() {
     income: 5800000,
     variableBudget: 2500000,
     savingsTarget: 1500000,
-    baseline: {...defaultBaseline(periodKey()), confirmed:true},
+    baseline: { ...defaultBaseline(periodKey()), confirmed: true },
     trackingSince: period(periodKey()).start,
     sharedBudget: 1900000,
     personalBudgets: { p1: 300000, p2: 300000 },

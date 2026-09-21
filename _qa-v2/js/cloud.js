@@ -4,14 +4,13 @@ import { escape as e } from "./format.js";
 
 const API =
   "https://wjelumpbjklfrdjxbesj.supabase.co/functions/v1/richkkok-sync";
-const REALTIME =
-  "wss://wjelumpbjklfrdjxbesj.supabase.co/realtime/v1/websocket";
+const REALTIME = "wss://wjelumpbjklfrdjxbesj.supabase.co/realtime/v1/websocket";
 const PUBLISHABLE_KEY = "sb_publishable_pT145ZSd7qC5L7QGl-P4AA_fg3mMlJA";
 const APP_HEADER = "richkkok-household-v1";
 const META_KEY = "cloudMeta";
 const BASE_KEY = "cloudBase";
 
-const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 function errorMessage(code) {
   return (
@@ -94,7 +93,11 @@ export class CloudSync {
       revision: this.meta.revision || 0,
       memberCount: this.meta.memberCount || 1,
       dirty: !!this.meta.dirty,
-      status: !navigator.onLine ? "오프라인 · 이 기기에 저장" : this.meta.dirty ? "동기화 대기" : "공동 기록 동기화됨",
+      status: !navigator.onLine
+        ? "오프라인 · 이 기기에 저장"
+        : this.meta.dirty
+          ? "동기화 대기"
+          : "공동 기록 동기화됨",
     };
   }
 
@@ -133,7 +136,7 @@ export class CloudSync {
 
     if (this.connected) {
       try {
-        await this.flushPending();
+        await this.enqueue(() => this.flushPending());
       } catch (error) {
         if (!error.offline) console.error(error);
       }
@@ -173,8 +176,7 @@ export class CloudSync {
   };
 
   onVisibility = () => {
-    if (!document.hidden && this.connected)
-      this.pullLatest().catch(() => {});
+    if (!document.hidden && this.connected) this.pullLatest().catch(() => {});
   };
 
   async setMode(mode) {
@@ -185,7 +187,7 @@ export class CloudSync {
     this.stopped = false;
     await this.loadMeta();
     if (this.connected) {
-      await this.flushPending().catch(() => {});
+      await this.enqueue(() => this.flushPending()).catch(() => {});
       this.startRealtime();
       this.startFallbackPull();
     }
@@ -196,7 +198,10 @@ export class CloudSync {
       await this.loadMeta();
       return task();
     };
-    const locked = () => globalThis.navigator?.locks ? navigator.locks.request("richkkok-cloud-" + this.app.repo.name, run) : run();
+    const locked = () =>
+      globalThis.navigator?.locks
+        ? navigator.locks.request("richkkok-cloud-" + this.app.repo.name, run)
+        : run();
     const next = this.queue.then(locked, locked);
     this.queue = next.catch(() => {});
     return next;
@@ -204,69 +209,85 @@ export class CloudSync {
 
   async mutate(change) {
     if (!this.connected) return this.app.repo.mutate(change);
-    const next = await this.enqueue(async () => {
-      const next = await this.app.repo.mutate(change);
-      this.meta.dirty = true;
-      await this.saveMeta();
-      return next;
+    const next = await this.app.repo.mutate(change);
+    await this.loadMeta();
+    this.enqueue(() => this.flushPending()).catch((error) => {
+      if (!error.offline) toast(error.message);
     });
-    this.enqueue(()=>this.flushPending()).catch(error=>{if(!error.offline)toast(error.message);});
     return next;
   }
 
   async resolveConflicts() {
-    if(!this.connected)return;
-    const remote=await api({action:"pull",sessionToken:this.meta.sessionToken});
-    const local=await this.app.repo.read(),base=await this.loadBase()||remote.state;
-    const result=mergeStates(base,local,remote.state);
-    if(!result.conflicts.length){await this.enqueue(()=>this.flushPending());toast("동기화 충돌이 없어요.");return;}
-    const display=v=>typeof v==="object"&&v?.merchantRaw ? `${v.merchantRaw} · ${v.amount}원 · ${v.deletedAt?"삭제됨":v.category}` : JSON.stringify(v??"삭제됨").slice(0,180);
-    openDialog("동시수정 확인",`<p>같은 기록을 두 기기에서 수정했어. 유지할 내용을 선택해 줘. 선택 전 두 버전은 이 기기에 보관해.</p>${result.conflicts.map((c,i)=>select(c.path.startsWith("transactions")?"거래 변경":c.path,"conflict-"+i,[["local","이 기기: "+display(c.local)],["remote","다른 기기: "+display(c.remote)]],"local")).join("")}`,async f=>{
-      await this.enqueue(async()=>{
-        const current=await this.app.repo.read();
-        if(!same(current,local))throw Error("그 사이 이 기기 기록이 바뀌었어. 닫고 다시 확인해 줘.");
-        const choices=Object.fromEntries(result.conflicts.map((c,i)=>[c.path,String(f.get("conflict-"+i))]));
-        await this.app.repo.writeKey("sync-conflict-backup",{local,remote:remote.state,at:new Date().toISOString()});
-        await this.app.repo.replaceExact(mergeStates(base,local,remote.state,choices).state);
-        this.meta.revision=Number(remote.revision);this.meta.dirty=true;
-        await this.saveBase(remote.state);await this.saveMeta();
-        await this.flushPending();this.app.state=await this.app.repo.read();this.app.render();
-      });
-    },"선택한 내용으로 동기화");
+    if (!this.connected) return;
+    const remote = await api({
+      action: "pull",
+      sessionToken: this.meta.sessionToken,
+    });
+    const local = await this.app.repo.read(),
+      base = (await this.loadBase()) || remote.state;
+    const result = mergeStates(base, local, remote.state);
+    if (!result.conflicts.length) {
+      await this.enqueue(() => this.flushPending());
+      toast("동기화 충돌이 없어요.");
+      return;
+    }
+    const display = (v) =>
+      typeof v === "object" && v?.merchantRaw
+        ? `${v.merchantRaw} · ${v.amount}원 · ${v.deletedAt ? "삭제됨" : v.category}`
+        : JSON.stringify(v ?? "삭제됨").slice(0, 180);
+    openDialog(
+      "동시수정 확인",
+      `<p>같은 기록을 두 기기에서 수정했어. 유지할 내용을 선택해 줘. 선택 전 두 버전은 이 기기에 보관해.</p>${result.conflicts
+        .map((c, i) =>
+          select(
+            c.path.startsWith("transactions") ? "거래 변경" : c.path,
+            "conflict-" + i,
+            [
+              ["local", "이 기기: " + display(c.local)],
+              ["remote", "다른 기기: " + display(c.remote)],
+            ],
+            "local",
+          ),
+        )
+        .join("")}`,
+      async (f) => {
+        await this.enqueue(async () => {
+          const current = await this.app.repo.read();
+          if (!same(current, local))
+            throw Error(
+              "그 사이 이 기기 기록이 바뀌었어. 닫고 다시 확인해 줘.",
+            );
+          const choices = Object.fromEntries(
+            result.conflicts.map((c, i) => [
+              c.path,
+              String(f.get("conflict-" + i)),
+            ]),
+          );
+          await this.app.repo.writeKey("sync-conflict-backup", {
+            local,
+            remote: remote.state,
+            at: new Date().toISOString(),
+          });
+          const accepted = await this.app.repo.acceptRemote(
+            local,
+            mergeStates(base, local, remote.state, choices).state,
+            { revision: Number(remote.revision) },
+            { base: remote.state, dirty: true },
+          );
+          this.meta = accepted.meta;
+          this.app.state = accepted.state;
+          await this.flushPending();
+          this.app.state = await this.app.repo.read();
+          this.app.render();
+        });
+      },
+      "선택한 내용으로 동기화",
+    );
   }
 
-  async pullLatest({ render = true } = {}) {
+  async pullLatest() {
     if (!this.connected || !navigator.onLine) return null;
-    return this.enqueue(async () => {
-      const remote = await api({
-        action: "pull",
-        sessionToken: this.meta.sessionToken,
-      });
-      this.meta.memberCount = remote.members?.length || this.meta.memberCount || 1;
-
-      if (this.meta.dirty) {
-        await this.flushWithRemote(remote);
-        return remote;
-      }
-
-      if (Number(remote.revision) > Number(this.meta.revision || 0)) {
-        await this.app.repo.replaceExact(remote.state);
-        this.app.state = await this.app.repo.read();
-        this.meta.revision = Number(remote.revision);
-        this.meta.household = remote.household;
-        this.meta.member = remote.member;
-        this.meta.dirty = false;
-        await this.saveMeta();
-        await this.saveBase(remote.state);
-        if (render) this.renderIfSafe();
-      } else {
-        this.meta.revision = Number(remote.revision);
-        this.meta.household = remote.household;
-        this.meta.member = remote.member;
-        await this.saveMeta();
-      }
-      return remote;
-    });
+    return this.enqueue(() => this.flushPending());
   }
 
   async flushPending() {
@@ -275,70 +296,63 @@ export class CloudSync {
       action: "pull",
       sessionToken: this.meta.sessionToken,
     });
-    this.meta.memberCount = remote.members?.length || this.meta.memberCount || 1;
-    return await this.flushWithRemote(remote);
+    return this.flushWithRemote(remote);
   }
 
   async flushWithRemote(remote) {
-    let local = await this.app.repo.read();
-    let expectedRevision = Number(remote.revision);
+    // Network never holds the local write path. Commit the response atomically
+    // against the snapshot, preserving edits made while the request was in flight.
+    await this.loadMeta();
+    const local = await this.app.repo.read();
+    const metadata = {
+      revision: Number(remote.revision),
+      household: remote.household,
+      member: remote.member,
+      memberCount: remote.members?.length || this.meta.memberCount || 1,
+    };
     if (!this.meta.dirty) {
-      if (expectedRevision > Number(this.meta.revision || 0)) {
-        await this.app.repo.replaceExact(remote.state);
-        local = await this.app.repo.read();
-        this.app.state = local;
-      }
-      this.meta.revision = expectedRevision;
-      this.meta.household = remote.household;
-      this.meta.member = remote.member;
-      this.meta.dirty = false;
-      await this.saveMeta();
-      await this.saveBase(remote.state);
+      if (Number(remote.revision) < Number(this.meta.revision || 0))
+        return remote;
+      const accepted = await this.app.repo.acceptRemote(
+        local,
+        remote.state,
+        metadata,
+      );
+      this.meta = accepted.meta;
+      this.app.state = accepted.state;
+      this.renderIfSafe();
       return remote;
     }
-
     const base = (await this.loadBase()) || remote.state;
     let candidate =
-      expectedRevision === Number(this.meta.revision || 0)
+      Number(remote.revision) === Number(this.meta.revision || 0)
         ? local
         : mergeValue(base, local, remote.state);
-
-    if (!same(candidate, local)) {
-      await this.app.repo.replaceExact(candidate);
-      candidate = await this.app.repo.read();
-      this.app.state = candidate;
-    }
-
+    let revision = Number(remote.revision);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const pushed = await api({
           action: "push",
           sessionToken: this.meta.sessionToken,
-          expectedRevision,
+          expectedRevision: revision,
           state: candidate,
         });
-        this.meta.revision = Number(pushed.revision);
-        this.meta.household = remote.household;
-        this.meta.member = remote.member;
-        this.meta.dirty = false;
-        await this.saveMeta();
-        await this.saveBase(candidate);
+        const accepted = await this.app.repo.acceptRemote(local, candidate, {
+          ...metadata,
+          revision: Number(pushed.revision),
+        });
+        this.meta = accepted.meta;
+        this.app.state = accepted.state;
         this.renderIfSafe();
         return pushed;
       } catch (error) {
         if (error.code !== "revision_conflict" || attempt === 1) throw error;
-        const newest = error.payload;
-        const newerState = newest?.state;
-        const newerRevision = Number(newest?.revision || 0);
-        if (!newerState || !newerRevision) throw error;
-        candidate = mergeValue(remote.state, candidate, newerState);
-        await this.app.repo.replaceExact(candidate);
-        this.app.state = await this.app.repo.read();
-        remote = { ...remote, state: newerState, revision: newerRevision };
-        expectedRevision = newerRevision;
+        const latest = error.payload;
+        candidate = mergeValue(remote.state, candidate, latest.state);
+        remote = { ...remote, state: latest.state };
+        revision = Number(latest.revision);
       }
     }
-    return null;
   }
 
   async startSharing() {
@@ -359,11 +373,12 @@ export class CloudSync {
       "우리집 공동가계부 시작",
       `<p>현재 이 기기의 가계부를 기준으로 공동가계부를 만들어요. 이후 아내를 초대하면 같은 내용을 함께 수정하고 거의 실시간으로 볼 수 있어요.</p><div class="form-grid">${field("내 이름", "displayName", suggested, "text", 'required maxlength="30"')}${field("가계부 이름", "householdName", "우리집 가계부", "text", 'required maxlength="40"')}</div><div class="notice"><strong>현재 기록은 그대로 유지돼요</strong><p class="small muted">금융파일 원본은 전송하지 않고, 리치콕에 저장된 정규화된 가계부 데이터만 공동 저장소와 동기화해요.</p></div>`,
       async (form) => {
+        const snapshot = await this.app.repo.read();
         const created = await api({
           action: "create_household",
           displayName: String(form.get("displayName") || "").trim(),
           householdName: String(form.get("householdName") || "").trim(),
-          state: this.app.state,
+          state: snapshot,
         });
         this.meta = {
           sessionToken: created.sessionToken,
@@ -373,8 +388,13 @@ export class CloudSync {
           memberCount: 1,
           dirty: false,
         };
-        await this.saveMeta();
-        await this.saveBase(created.state);
+        const accepted = await this.app.repo.acceptRemote(
+          snapshot,
+          created.state,
+          this.meta,
+        );
+        this.meta = accepted.meta;
+        this.app.state = accepted.state;
         this.startRealtime();
         this.startFallbackPull();
         setTimeout(() => this.app.render(), 0);
@@ -399,22 +419,24 @@ export class CloudSync {
       "아내 초대하기",
       `<p>아래 링크를 아내에게 보내면 같은 우리집 가계부에 참여할 수 있어요. 링크는 한 번만 사용할 수 있고 7일 뒤 만료돼요.</p><label class="field"><span>초대링크</span><input id="invite-url" value="${e(url)}" readonly></label><div class="invite-actions"><button class="btn primary" type="button" id="share-invite">${icon("heart")}카카오톡 · 공유하기</button><button class="btn secondary" type="button" id="copy-invite">링크 복사</button></div><p class="small muted">초대받은 기기에서 이름을 한 번 입력하면 바로 공동가계부가 열려요.</p>`,
     );
-    dialog.querySelector("#share-invite")?.addEventListener("click", async () => {
-      try {
-        if (navigator.share) {
-          await navigator.share({
-            title: "리치콕 우리집 가계부 초대",
-            text: "우리집 가계부 같이 쓰자.",
-            url,
-          });
-        } else {
-          await this.copyInvite(url);
-        }
-      } catch {}
-    });
-    dialog.querySelector("#copy-invite")?.addEventListener("click", () =>
-      this.copyInvite(url),
-    );
+    dialog
+      .querySelector("#share-invite")
+      ?.addEventListener("click", async () => {
+        try {
+          if (navigator.share) {
+            await navigator.share({
+              title: "리치콕 우리집 가계부 초대",
+              text: "우리집 가계부 같이 쓰자.",
+              url,
+            });
+          } else {
+            await this.copyInvite(url);
+          }
+        } catch {}
+      });
+    dialog
+      .querySelector("#copy-invite")
+      ?.addEventListener("click", () => this.copyInvite(url));
   }
 
   async copyInvite(url) {
@@ -484,7 +506,10 @@ export class CloudSync {
           inviteToken: token,
           displayName: String(form.get("displayName") || "").trim(),
         });
-        await this.app.repo.writeKey("before-household-join", await this.app.repo.read());
+        await this.app.repo.writeKey(
+          "before-household-join",
+          await this.app.repo.read(),
+        );
         await this.app.repo.replaceExact(joined.state);
         this.app.state = await this.app.repo.read();
         this.meta = {

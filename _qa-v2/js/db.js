@@ -1,3 +1,4 @@
+import { mergeValue } from "./sync-merge.js";
 import { migrate } from "./migrate.js";
 import { emptyState } from "../data/defaults.js";
 import { validateState } from "./models.js";
@@ -85,6 +86,11 @@ export class Repository {
           validateState(next);
           next.revision = (current.revision || 0) + 1;
           store.put(next, "state");
+          const metaRequest = store.get("cloudMeta");
+          metaRequest.onsuccess = () => {
+            if (metaRequest.result?.sessionToken)
+              store.put({ ...metaRequest.result, dirty: true }, "cloudMeta");
+          };
         } catch (e) {
           ownError = e;
           tx.abort();
@@ -94,6 +100,45 @@ export class Repository {
       tx.onerror = () => reject(ownError || tx.error);
       tx.onabort = () =>
         reject(ownError || tx.error || Error("저장하지 못했어요."));
+    });
+  }
+  async acceptRemote(snapshot, received, metadata, options = {}) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("household", "readwrite"),
+        store = tx.objectStore("household");
+      let result, ownError;
+      const r = store.get("state");
+      r.onsuccess = () => {
+        try {
+          const current = migrate(r.result || emptyState()),
+            remote = structuredClone(received);
+          if (remote.productVersion !== 2)
+            remote.settings.trackingSince ||= current.settings.trackingSince;
+          migrate(remote);
+          const next = mergeValue(snapshot, current, remote);
+          validateState(next);
+          const dirty = JSON.stringify(next) !== JSON.stringify(remote);
+          store.put(next, "state");
+          store.put(options.base || remote, "cloudBase");
+          const m = store.get("cloudMeta");
+          m.onsuccess = () => {
+            const meta = {
+              ...m.result,
+              ...metadata,
+              dirty: options.dirty ?? dirty,
+            };
+            store.put(meta, "cloudMeta");
+            result = { state: next, meta };
+          };
+        } catch (error) {
+          ownError = error;
+          tx.abort();
+        }
+      };
+      tx.oncomplete = () => resolve(structuredClone(result));
+      tx.onerror = tx.onabort = () =>
+        reject(ownError || tx.error || Error("공동 변경을 저장하지 못했어요."));
     });
   }
   async replace(state) {

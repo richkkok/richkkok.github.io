@@ -31,7 +31,7 @@ export function planFor(state, month) {
 }
 export function monthBudget(state, month, asOf = today()) {
   const plan = planFor(state, month),
-    tx = activeTransactions(state, month).filter(t=>t.date<=asOf),
+    tx = activeTransactions(state, month).filter((t) => t.date <= asOf),
     recurring = recurringLedger(state, month, tx);
   const actualIncome = tx
     .filter((t) => t.direction === "income")
@@ -39,10 +39,12 @@ export function monthBudget(state, month, asOf = today()) {
   const income = plan.incomeMode === "actual" ? actualIncome : plan.income;
   const spent = sumExpense(tx),
     fixedActual = sumExpense(
-      tx.filter((t) => t.costKind === "fixed" || t.scope === "fixed" || t.recurringId),
+      tx.filter(
+        (t) => t.costKind === "fixed" || t.scope === "fixed" || t.recurringId,
+      ),
     );
   const outstanding = recurring.reduce((n, r) => n + r.outstanding, 0),
-    fixed = fixedActual + outstanding;
+    fixed = Math.max(fixedActual + outstanding, plan.fixedReserve || 0);
   const goals = state.goals
     .filter((g) => (!g.start || g.start <= month) && (!g.end || g.end >= month))
     .reduce((n, g) => n + g.monthly, 0);
@@ -54,7 +56,8 @@ export function monthBudget(state, month, asOf = today()) {
     p1: sumExpense(tx.filter((t) => t.scope === "p1")),
     p2: sumExpense(tx.filter((t) => t.scope === "p2")),
   };
-  const p = period(month, startDay(state)), days = p.days,
+  const p = period(month, startDay(state)),
+    days = p.days,
     elapsed = Math.max(0, Math.min(days, dayDiff(p.start, asOf) + 1)),
     remaining = asOf > p.end ? 0 : Math.min(days, days - elapsed + 1);
   const available = income - spent - outstanding - goals,

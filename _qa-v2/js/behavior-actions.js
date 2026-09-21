@@ -225,11 +225,12 @@ export async function behaviorAction(app, action, target) {
     const p = planFor(s, app.month);
     openDialog(
       "소비·저축 목표",
-      `<p>${app.month} 운영월 목표야. 고정비를 제외한 공동생활비와 개인용돈을 합쳐 변동비로 관리해.</p><div class="form-grid">${field("변동지출 목표 (원)", "variableBudget", p.variableBudget ?? b.requested, "number", "required")}${field("목표저축 (원)", "savingsTarget", p.savingsTarget ?? b.savingsTarget, "number", "required")}</div><p class="notice">수입 ${won(b.b.income)} − 고정비 ${won(b.fixed)} 안에서 정해 줘. 목표 합계가 수입을 넘으면 홈에 계획 부족액을 표시해.</p><label class="check-field"><input name="future" type="checkbox">다음 운영월에도 기본 목표로 사용</label>`,
+      `<p>${app.month} 운영월 목표야. 고정비를 제외한 공동생활비와 개인용돈을 합쳐 변동비로 관리해.</p><div class="form-grid">${field("변동지출 목표 (원)", "variableBudget", p.variableBudget ?? b.requested, "number", "required")}${field("목표저축 (원)", "savingsTarget", p.savingsTarget ?? b.savingsTarget, "number", "required")}</div><details class="advanced"><summary>고정비 준비액 조정</summary>${field("고정비 최소 준비액 (원)", "fixedReserve", p.fixedReserve || 0, "number", "required")}<p>추천 적용 시 과거 평균 고정비를 준비해 둬. 실제·예정 고정비와 합산하지 않고 둘 중 큰 금액을 반영해. 고정비가 줄었다면 직접 낮출 수 있어.</p></details><p class="notice">수입 ${won(b.b.income)} − 고정비 ${won(b.fixed)} 안에서 정해 줘. 목표 합계가 수입을 넘으면 홈에 계획 부족액을 표시해.</p><label class="check-field"><input name="future" type="checkbox">다음 운영월에도 기본 목표로 사용</label>`,
       async (f) => {
         const values = {
           variableBudget: amountInput(f.get("variableBudget")),
           savingsTarget: amountInput(f.get("savingsTarget")),
+          fixedReserve: amountInput(f.get("fixedReserve")),
         };
         await app.update((st) => {
           st.settings.monthOverrides ||= {};
@@ -297,7 +298,7 @@ export async function behaviorAction(app, action, target) {
     }
     openDialog(
       "리치콕 추천 목표",
-      `<p>조절 가능 항목의 3개월 평균과 가장 적게 쓴 달을 기준으로 계산했어. 육아·의료·주거·금융·교통은 줄이지 않아. 일회성 지출 평균 ${won(h.oneoff)}은 별도 여유로 포함해.</p><div class="recommend-options">${h.variants.map((v) => `<label class="recommend-option"><input type="radio" name="variant" value="${v.id}" ${v.id === "balanced" ? "checked" : ""}><span><strong>${v.name}</strong><small>변동비 ${won(v.variableBudget)} / 저축 ${won(v.savingsTarget)}</small><small>과거 평균보다 ${won(v.reduction)} 절감</small></span></label>`).join("")}</div><p class="small muted">여유형: 과거 평균 유지 · 균형형: 평균과 최소의 중간 · 절약형: 항목별 과거 최소. 각 항목의 최소 소비월은 서로 다를 수 있어, 절약형의 동시 달성은 보장하지 않아. 실수입 기록이 누락되면 먼저 보완해 줘.</p><label class="check-field"><input type="checkbox" name="future">다음 운영월 기본 목표에도 적용</label>`,
+      `<p>조절 가능 항목의 3개월 평균과 가장 적게 쓴 달을 기준으로 계산했어. 육아·의료·주거·금융·교통은 줄이지 않아. 일회성 지출 평균 ${won(h.oneoff)}은 별도 여유로 포함해. 평균 고정비 ${won(h.fixed)}도 최소 준비액으로 함께 반영해.</p><div class="recommend-options">${h.variants.map((v) => `<label class="recommend-option"><input type="radio" name="variant" value="${v.id}" ${v.id === "balanced" ? "checked" : ""}><span><strong>${v.name}</strong><small>변동비 ${won(v.variableBudget)} / 저축 ${won(v.savingsTarget)}</small><small>과거 평균보다 ${won(v.reduction)} 절감</small></span></label>`).join("")}</div><p class="small muted">여유형: 과거 평균 유지 · 균형형: 평균과 최소의 중간 · 절약형: 항목별 과거 최소. 각 항목의 최소 소비월은 서로 다를 수 있어, 절약형의 동시 달성은 보장하지 않아. 실수입 기록이 누락되면 먼저 보완해 줘.</p><label class="check-field"><input type="checkbox" name="future">다음 운영월 기본 목표에도 적용</label>`,
       async (f) => {
         const v = h.variants.find((v) => v.id === f.get("variant"));
         await app.update((st) => {
@@ -306,6 +307,7 @@ export async function behaviorAction(app, action, target) {
             savingsTarget: v.savingsTarget,
             categoryBudgets: v.categoryBudgets,
             income: h.income,
+            fixedReserve: Math.max(0, h.fixed),
             recommendation: {
               variant: v.id,
               start: h.selected.start,

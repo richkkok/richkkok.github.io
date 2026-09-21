@@ -22,10 +22,18 @@ const median = (a) => {
 const weekend = (date) =>
   [0, 6].includes(new Date(date + "T12:00:00Z").getUTCDay());
 const salaryPhase = (date, days) => {
-  const n = Number(date.slice(8));
-  return days.some((d) => n >= d && n <= d + 3)
+  const distances = [-1, 0, 1].flatMap((offset) => {
+    const month = shiftMonth(date.slice(0, 7), offset);
+    return days.map((day) =>
+      dayDiff(
+        `${month}-${String(Math.min(day, daysInMonth(month))).padStart(2, "0")}`,
+        date,
+      ),
+    );
+  });
+  return distances.some((n) => n >= 0 && n <= 3)
     ? "after"
-    : days.some((d) => n >= d - 3 && n < d)
+    : distances.some((n) => n >= -3 && n < 0)
       ? "before"
       : "other";
 };

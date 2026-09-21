@@ -1,6 +1,9 @@
 export const merchantRules = [
-  {words:["스타벅스","투썸","카페","커피","메가커피","컴포즈"],category:"cafe"},
-  {words:["다이소","생활용품"],category:"living"},
+  {
+    words: ["스타벅스", "투썸", "카페", "커피", "메가커피", "컴포즈"],
+    category: "cafe",
+  },
+  { words: ["다이소", "생활용품"], category: "living" },
   {
     words: ["이마트", "홈플러스", "롯데마트", "농협하나로", "마켓컬리"],
     category: "groceries",

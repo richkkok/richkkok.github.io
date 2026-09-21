@@ -44,6 +44,10 @@ export function daySignature(state, date) {
         t.category,
         t.operatingMonth,
         t.paymentMethod,
+        t.costKind,
+        t.merchantRaw,
+        t.paymentChannel,
+        t.owner,
       ])
       .sort((a, b) => a[0].localeCompare(b[0])),
   );
@@ -89,7 +93,7 @@ export function dashboard(state, month, asOf = today()) {
   const fixedActual = b.tx
     .filter((t) => liveExpense(t) && costKind(t) === "fixed")
     .reduce((n, t) => n + expenseValue(t), 0);
-  const fixed = fixedActual + b.outstanding;
+  const fixed = b.fixed;
   const savingsTarget = plan.savingsTarget ?? b.goals;
   const requested =
     plan.variableBudget ??
@@ -118,7 +122,7 @@ export function dashboard(state, month, asOf = today()) {
     ? Math.min(budget - actual, todayPlan + carry - todaySpent)
     : 0;
   const hasObservations =
-    b.tx.some(liveExpense) ||
+    b.tx.some((t) => liveExpense(t) && costKind(t) !== "fixed") ||
     dates.slice(0, elapsed).some((d) => dayStatus(state, d).closed);
   const projectedVariable =
     elapsed === p.days

@@ -8,7 +8,7 @@ export function filteredTransactions(state, month, filter) {
     .filter(
       (t) =>
         !t.splitParent &&
-        inPeriod(t,state,month) &&
+        inPeriod(t, state, month) &&
         !!t.deletedAt === !!filter.trash &&
         (!filter.owner || t.owner === filter.owner) &&
         (!filter.scope || t.scope === filter.scope) &&
