@@ -35,11 +35,20 @@ function categorySharePanel(b) {
     return `<section class="card category-share-panel full-width">${sectionTitle("어디에 쓰고 있나", "이번 운영월 변동소비")}<div class="category-share-empty"><div class="category-donut empty" role="img" aria-label="변동소비 기록 없음"><div><strong>0원</strong><span>기록 대기</span></div></div><p>지출을 입력하면 카테고리 비중을 자동으로 정리해 줄게.</p></div></section>`;
 
   const visible = rows.slice(0, 4).map((c) => ({
+    id: c.id,
+    ids: [c.id],
     name: c.name,
     used: c.used,
   }));
-  const other = rows.slice(4).reduce((sum, c) => sum + c.used, 0);
-  if (other > 0) visible.push({ name: "기타", used: other });
+  const remainder = rows.slice(4);
+  const other = remainder.reduce((sum, c) => sum + c.used, 0);
+  if (other > 0)
+    visible.push({
+      id: "",
+      ids: remainder.map((c) => c.id),
+      name: "기타",
+      used: other,
+    });
 
   let cursor = 0;
   const items = visible.map((item, index) => {
@@ -67,7 +76,7 @@ function categorySharePanel(b) {
   return `<section class="card category-share-panel full-width">${sectionTitle("어디에 쓰고 있나", "이번 운영월 변동소비")}<div class="category-share-body"><div class="category-donut" style="--donut:${stops}" role="img" aria-label="${e(label)}"><div><strong>${won(total)}</strong><span>변동소비</span></div></div><div class="category-share-list">${items
     .map(
       (item) =>
-        `<div class="category-share-item"><i style="--slice:${item.color}"></i><span><strong>${e(item.name)}</strong><small>${won(item.used)}</small></span><b>${item.percent >= 10 ? Math.round(item.percent) : item.percent.toFixed(1)}%</b></div>`,
+        `<button type="button" class="category-share-item" data-action="category-transactions" ${item.id ? `data-filter-category="${e(item.id)}"` : `data-filter-categories="${e(item.ids.join(","))}"`} data-filter-label="${e(item.name)}" aria-label="${e(item.name)} 지출 상세내역 보기"><i style="--slice:${item.color}"></i><span><strong>${e(item.name)}</strong><small>${won(item.used)}</small></span><b>${item.percent >= 10 ? Math.round(item.percent) : item.percent.toFixed(1)}%</b>${icon("chevron", "category-share-chevron")}</button>`,
     )
     .join("")}</div></div></section>`;
 }
