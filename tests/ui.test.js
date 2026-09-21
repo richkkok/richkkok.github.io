@@ -45,6 +45,15 @@ test("All views render meaningful accessible controls, escape user text and mask
   const homeDoc = new JSDOM(home).window.document;
   assert.ok(homeDoc.querySelector(".category-share-panel"));
   assert.ok(homeDoc.querySelector(".category-donut[role=img]"));
+  const categoryLinks = homeDoc.querySelectorAll(
+    '.category-share-item[data-action="category-transactions"]',
+  );
+  assert.ok(categoryLinks.length > 0);
+  for (const item of categoryLinks)
+    assert.ok(
+      item.dataset.filterCategory || item.dataset.filterCategories,
+      "Category drill-down must carry a single or grouped category filter",
+    );
   assert.ok(homeDoc.querySelector(".smart-home-panel"));
   assert.ok(homeDoc.querySelector(".detail-disclosure"));
   assert.match(
