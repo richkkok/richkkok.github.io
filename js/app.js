@@ -111,8 +111,33 @@ app.render = () => {
   document.querySelector("#period-label").textContent = periodLabel(
     period(app.month, startDay(app.state)),
   );
-  document.querySelector("#storage-status").textContent =
-    app.cloud?.summary().status || "이 기기에 저장";
+  const cloudSummary = app.cloud?.summary() || {
+    connected: false,
+    status: "이 기기에만 저장 중",
+    memberCount: 1,
+  };
+  document.querySelector("#storage-status").textContent = cloudSummary.status;
+  const householdStatus = document.querySelector("#household-status");
+  if (householdStatus) {
+    householdStatus.classList.toggle("is-connected", !!cloudSummary.connected);
+    householdStatus.classList.toggle("is-local", !cloudSummary.connected);
+    householdStatus.dataset.action = cloudSummary.connected
+      ? "cloud-members"
+      : "cloud-start";
+    householdStatus.setAttribute(
+      "aria-label",
+      cloudSummary.connected
+        ? `공동가계부 사용 중. ${cloudSummary.memberCount || 1}명 참여. 구성원 보기`
+        : "공동가계부 미사용. 이 기기에만 저장 중. 공동가계부 시작하기",
+    );
+    householdStatus.innerHTML = `<span class="household-status-dot" aria-hidden="true"></span><span class="household-status-copy"><strong>${
+      cloudSummary.connected ? "공동가계부 사용 중" : "공동가계부 미사용"
+    }</strong><small>${
+      cloudSummary.connected
+        ? `${e(cloudSummary.householdName || "우리집 가계부")} · ${cloudSummary.memberCount || 1}명`
+        : "이 기기에만 저장"
+    }</small></span>`;
+  }
   document.querySelector("#month-picker").value = app.month;
   document.querySelector("#demo-banner").hidden = app.mode !== "demo";
   document.querySelector("#app-header").hidden = !app.state.configured;
