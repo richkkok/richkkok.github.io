@@ -2168,6 +2168,25 @@ dialog > form {
   display: grid;
   gap: 4px;
 }
+.quick-core-grid {
+  grid-template-columns: minmax(140px, 0.7fr) minmax(220px, 1.3fr);
+  gap: 10px 14px;
+  align-items: end;
+}
+.quick-core-grid > .field,
+.quick-core-grid > .quick-amount {
+  min-width: 0;
+}
+.quick-core-grid .field {
+  margin-bottom: 0;
+}
+.quick-core-grid .quick-amount .field {
+  margin-bottom: 0;
+}
+.quick-core-grid input,
+.quick-core-grid select {
+  min-height: 48px;
+}
 .quick-entry-primary .field {
   margin-bottom: 10px;
 }

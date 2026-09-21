@@ -25,7 +25,7 @@ import { migrate } from "../js/migrate.js";
 import { Repository } from "../js/db.js";
 import { IDBFactory } from "fake-indexeddb";
 import { today } from "../js/format.js";
-import { resolveEntryOwner } from "../js/behavior-actions.js";
+import { resolveEntryOwner, resolveEntryPayment } from "../js/behavior-actions.js";
 const tx = (amount, date = "2026-09-10", extra = {}) => ({
   id: crypto.randomUUID(),
   sourceId: crypto.randomUUID(),
@@ -524,6 +524,35 @@ test("31일 기준의 짧은 달은 실제 포함된 반복 예정일만 집계"
   b = monthBudget(s, "2026-02", "2026-03-30");
   assert.equal(b.outstanding, 0);
   assert.equal(b.fixed, 200000);
+});
+
+test("빠른입력은 마지막으로 저장한 사용자와 사람별 결제수단을 최우선 유지", () => {
+  const state = emptyState();
+  state.settings.members = { p1: "박태영", p2: "김은영" };
+  state.settings.paymentMethods = ["기본카드"];
+  const values = new Map([
+    ["richkkok-owner", "p2"],
+    ["richkkok-payment-p1", "태영 우리카드"],
+    ["richkkok-payment-p2", "은영 우리카드"],
+  ]);
+  const storage = {
+    getItem(key) {
+      return values.get(key) || null;
+    },
+  };
+  const app = {
+    cloud: {
+      meta: { member: { role: "owner", displayName: "박태영" } },
+    },
+  };
+  const recent = [
+    tx(1000, "2026-09-20", { owner: "p1", paymentMethod: "태영 최근카드" }),
+    tx(2000, "2026-09-20", { owner: "p2", paymentMethod: "은영 최근카드" }),
+  ];
+
+  assert.equal(resolveEntryOwner(app, state, storage), "p2");
+  assert.equal(resolveEntryPayment(state, "p1", recent, storage), "태영 우리카드");
+  assert.equal(resolveEntryPayment(state, "p2", recent, storage), "은영 우리카드");
 });
 
 test("공동가계부 기기 이름으로 지출 입력 사용자를 올바르게 판별", () => {
