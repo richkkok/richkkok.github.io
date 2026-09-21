@@ -228,15 +228,19 @@ export function normalizeRow(
     tx.excluded = true;
   }
   const kind = String(cell("costKind") || "");
+  const oneOffByMerchant =
+    /재산세|주민세|고향사랑기부|연회비|카드연회비/i.test(tx.merchantRaw);
   tx.costKind = /fixed|고정/i.test(kind)
     ? "fixed"
     : /oneoff|일회/i.test(kind)
       ? "oneoff"
       : /variable|변동/i.test(kind)
         ? "variable"
-        : ["housing", "finance", "subscription"].includes(tx.category)
-          ? "fixed"
-          : "variable";
+        : oneOffByMerchant
+          ? "oneoff"
+          : ["housing", "finance", "subscription"].includes(tx.category)
+            ? "fixed"
+            : "variable";
   tx.costKindInferred = !kind;
   if (tx.direction === "income") {
     tx.incomeKind = incomeKind(tx, members);
