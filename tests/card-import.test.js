@@ -58,7 +58,7 @@ test("Woori PDF parser uses full-name subtotals and wrapped merchant text", () =
         { text: "(M111)카드의정석2 EVERY DISCOUNT", items: [] },
         {
           text: "한농홈푸드 주식회사 동탄",
-          items: [{ text: "한농홈푸드 주식회사 동탄", x: 120, y: 700 }],
+          items: [{ text: "한농홈푸드 주식회사 동탄", x: 120, y: 685 }],
         },
         {
           text: "08/13 17,030 17,030 할인 136 16,894",
@@ -71,11 +71,11 @@ test("Woori PDF parser uses full-name subtotals and wrapped merchant text", () =
         },
         {
           text: "1지점",
-          items: [{ text: "1지점", x: 120, y: 660 }],
+          items: [{ text: "1지점", x: 120, y: 675 }],
         },
         {
           text: "다음 거래의 가맹점",
-          items: [{ text: "다음 거래의 가맹점", x: 120, y: 640 }],
+          items: [{ text: "다음 거래의 가맹점", x: 120, y: 650 }],
         },
         { text: "소계(박태영) 17,030", items: [] },
         { text: "(M057)카드의정석2 EVERY DISCOUNT", items: [] },
