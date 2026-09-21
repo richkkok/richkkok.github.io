@@ -58,6 +58,7 @@ test("Mapping finds actual header below a title; invalid header stays unconfiden
 });
 test("Korean/compact/Excel dates, 1904 dates, afternoon and validation", () => {
   assert.equal(parseDate("2026년 9월 7일").date, "2026-09-07");
+  assert.equal(parseDate("26.09.17").date, "2026-09-17");
   assert.equal(parseDate("20260917").date, "2026-09-17");
   assert.equal(parseDate(46282).date, "2026-09-17");
   assert.equal(parseDate(44820, "", true).date, "2026-09-17");

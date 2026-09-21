@@ -45,6 +45,24 @@ for (const f of ["js", "data"].flatMap(walk)) {
     );
     continue;
   }
+  if (f.replaceAll("\\", "/") === "js/import/pdf-reader.js") {
+    const allowed = [
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs",
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs",
+    ];
+    for (const url of allowed)
+      assert.ok(source.includes(url), "PDF.js URL must stay pinned: " + url);
+    assert.equal(
+      (source.match(/https:\/\/cdn\.jsdelivr\.net/g) || []).length,
+      allowed.length,
+      "PDF reader may only reference the two pinned jsDelivr resources",
+    );
+    assert.ok(
+      !/fetch\s*\(|XMLHttpRequest|sendBeacon/.test(source),
+      "PDF reader must not upload financial files",
+    );
+    continue;
+  }
   assert.ok(
     !/fetch\s*\(|XMLHttpRequest|sendBeacon|https?:\/\//.test(source),
     "Unexpected external/network behavior in " + f,
@@ -54,6 +72,7 @@ for (const f of ["js", "data"].flatMap(walk)) {
 assert.ok(html.includes("connect-src 'self'"));
 assert.ok(html.includes("https://wjelumpbjklfrdjxbesj.supabase.co"));
 assert.ok(html.includes("wss://wjelumpbjklfrdjxbesj.supabase.co"));
+assert.ok(html.includes("https://cdn.jsdelivr.net"));
 assert.ok(html.includes("viewport-fit=cover"));
 assert.ok(html.includes('id="household-status"'));
 const appSource = fs.readFileSync("js/app.js", "utf8");

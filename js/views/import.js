@@ -2,16 +2,40 @@ import { possibleDuplicates } from "../import/duplicates.js";
 import { parseBytes, inspectSheets, previewRows } from "../import/parser.js";
 import { inferMapping } from "../import/mapper.js";
 import { sha256, dedupe } from "../import/dedupe.js";
+import {
+  parseCardWorkbook,
+  parseCardPdf,
+  previewCardEntries,
+} from "../import/card-statements.js";
+import { readPdfPages } from "../import/pdf-reader.js";
 import { escape as e, won } from "../format.js";
 import { icon, button, select, field, toast } from "../ui.js";
-import { memberName, DIRECTIONS, scopeName } from "../../data/defaults.js";
+import { memberName, DIRECTIONS } from "../../data/defaults.js";
+
+function cardOwnerSummary(state, preview) {
+  const counts = Object.entries(preview?.ownerCounts || {});
+  if (!counts.length) return "";
+  return counts
+    .map(([owner, count]) => `${e(memberName(owner, state))} ${count}건`)
+    .join(" · ");
+}
+
 export function importView(state, session) {
   const sheets = session.sheets,
     sheet = sheets?.[session.sheet || 0],
-    preview = session.preview;
-  return `<div class="page-intro"><div><h1>내역 가져오기</h1><p>처음 3개월 분석 또는 필요한 달의 정밀 확인에 사용해.</p></div><span class="status-pill">${icon("shield")}기기 안에서만 처리</span></div>${state.demo ? '<div class="notice">샘플 공간이에요. 실제 금융파일은 샘플을 종료한 뒤 가져와 주세요.</div>' : ""}<section class="card import-card"><div class="owner-choice">${["p1", "p2"].map((p) => `<button class="owner-button ${session.owner === p ? "selected" : ""}" data-import-owner="${p}" aria-pressed="${session.owner === p}"><span class="avatar">${e(state.settings.members[p].slice(0, 1))}</span><span>${e(state.settings.members[p])} 내역 가져오기</span>${icon("upload")}</button>`).join("")}</div><input id="import-file" type="file" accept=".csv,.xlsx,.xls" multiple hidden><div class="dropzone" tabindex="0" role="button" aria-label="거래파일 선택 또는 여기에 놓기"><span class="drop-icon">${icon("upload")}</span><h2>${session.busy ? "파일을 읽고 있어요…" : "파일을 여기에 놓아 주세요"}</h2><p>또는 눌러서 파일 선택 · XLSX, XLS, CSV · 최대 20MB</p><span class="small">원본 파일은 저장하지 않아요</span></div><p class="form-error" id="import-error" role="alert">${e(session.error || "")}</p>${session.fileName ? `<div class="import-file-info"><span>${icon("list")}${e(session.fileName)}</span><span>${session.queue?.length ? `뒤에 ${session.queue.length}개 대기` : ""}</span></div>` : ""}</section>${
+    preview = session.preview,
+    cardMeta = session.cardMeta;
+  return `<div class="page-intro"><div><h1>내역 가져오기</h1><p>카드사 원본 PDF·엑셀도 자동으로 읽고, 일반 CSV·엑셀은 열을 연결해서 가져와.</p></div><span class="status-pill">${icon("shield")}원본은 기기 안에서 처리</span></div>${state.demo ? '<div class="notice">샘플 공간이에요. 실제 금융파일은 샘플을 종료한 뒤 가져와 주세요.</div>' : ""}<section class="card import-card"><div class="owner-choice">${["p1", "p2"].map((p) => `<button class="owner-button ${session.owner === p ? "selected" : ""}" data-import-owner="${p}" aria-pressed="${session.owner === p}"><span class="avatar">${e(state.settings.members[p].slice(0, 1))}</span><span>${e(state.settings.members[p])} 기준</span>${icon("upload")}</button>`).join("")}</div><p class="small muted">이름이 적힌 카드 명세서는 자동 연결해. ‘본인회원/가족회원’만 표시된 엑셀은 위에서 명세서의 본인회원을 선택하면 가족회원은 다른 구성원으로 자동 분리해.</p><input id="import-file" type="file" accept=".pdf,.csv,.xlsx,.xls" multiple hidden><div class="dropzone" tabindex="0" role="button" aria-label="거래파일 선택 또는 여기에 놓기"><span class="drop-icon">${icon("upload")}</span><h2>${session.busy ? "파일을 읽고 있어요…" : "카드사 원본 파일을 여기에 놓아 주세요"}</h2><p>또는 눌러서 파일 선택 · PDF, XLSX, XLS, CSV · 최대 20MB</p><span class="small">원본 파일은 저장·업로드하지 않아요</span></div><p class="form-error" id="import-error" role="alert">${e(session.error || "")}</p>${session.fileName ? `<div class="import-file-info"><span>${icon("list")}${e(session.fileName)}</span><span>${session.queue?.length ? `뒤에 ${session.queue.length}개 대기` : ""}</span></div>` : ""}</section>${
+    cardMeta
+      ? `<section class="card mapping-card"><div class="section-heading"><div><h2>${e(cardMeta.sourceLabel)} 자동 인식</h2><p>날짜·가맹점·이용금액·카드·사용자를 원본에서 자동 분리했어. 소계·합계 행은 저장하지 않아.</p></div><span class="status-pill">자동분류</span></div><div class="notice"><strong>${cardOwnerSummary(state, preview) || `${cardMeta.entriesCount || 0}건 인식`}</strong><p>${cardMeta.requiresPrimaryOwner ? `‘본인회원’은 현재 ${e(memberName(session.owner, state))} 기준으로 연결했어. 기준이 다르면 위 사용자만 바꾸면 미리보기가 다시 계산돼.` : "명세서에 적힌 이름을 현재 구성원과 자동으로 연결했어."}</p></div>${
+          preview?.ownerWarnings?.length
+            ? `<div class="notice warning"><strong>사용자 연결 확인</strong><ul>${preview.ownerWarnings.map((warning) => `<li>${e(warning)}</li>`).join("")}</ul></div>`
+            : ""
+        }${cardMeta.provider === "generic-pdf" ? '<p class="small muted">이 PDF는 일반 카드명세서 형식으로 인식했어. 저장 전 미리보기에서 날짜·금액을 꼭 확인해 줘.</p>' : ""}</section>`
+      : ""
+  }${
     sheet
-      ? `<section class="card mapping-card"><div class="section-heading"><div><h2>열 연결 확인</h2><p>실제 헤더가 다르면 행 번호와 열을 직접 고르세요.</p></div></div><div class="form-grid">${select(
+      ? `<section class="card mapping-card"><div class="section-heading"><div><h2>열 연결 확인</h2><p>일반 파일은 실제 헤더가 다르면 행 번호와 열을 직접 고르세요.</p></div></div><div class="form-grid">${select(
           "시트",
           "import-sheet",
           sheets.map((s, i) => [i, s.name]),
@@ -58,7 +82,7 @@ export function importView(state, session) {
       : ""
   }${
     preview
-      ? `<section class="card preview-card"><div class="section-heading"><div><h2>저장 전 미리보기</h2><p>${preview.total}행 중 새 내역 ${preview.added.length}건 · 중복 ${preview.duplicates}건 · 확인 필요 ${preview.errors.length}행</p></div><span class="status-pill">${e(memberName(session.owner, state))}</span></div>${
+      ? `<section class="card preview-card"><div class="section-heading"><div><h2>저장 전 미리보기</h2><p>${preview.total}행 중 새 내역 ${preview.added.length}건 · 중복 ${preview.duplicates}건 · 확인 필요 ${preview.errors.length}행</p></div><span class="status-pill">${cardMeta ? "자동분류" : e(memberName(session.owner, state))}</span></div>${
           preview.errors.length
             ? `<div class="notice warning"><strong>읽지 못한 행이 있어요</strong><ul>${preview.errors
                 .slice(0, 5)
@@ -67,19 +91,20 @@ export function importView(state, session) {
                   "",
                 )}</ul><label class="check-field"><input id="skip-errors" type="checkbox">확인한 오류 ${preview.errors.length}행을 제외하고 저장</label></div>`
             : ""
-        }${preview.possible?.length ? `<div class="notice warning"><strong>다른 파일·수기 기록과 중복 의심 ${preview.possible.length}건</strong><p>같은 날·사용자·금액·소비처가 겹쳐. 카드와 간편결제로 한 번 결제한 내역인지 확인해 줘.</p>${preview.possible.map((x) => `<label class="check-field"><input type="checkbox" data-skip-duplicate="${e(x.incoming.sourceId)}" checked><span>${e(x.incoming.date)} · ${e(x.incoming.merchantRaw)} · ${won(x.incoming.amount)}<br>${e(x.incoming.paymentMethod)} ↔ ${e(x.existing.paymentMethod)} · 체크하면 새 내역 제외</span></label>`).join("")}<label class="check-field"><input id="confirm-possible" type="checkbox">중복 의심 항목을 검토했어</label></div>` : ""}<div class="preview-table"><div class="preview-heading"><span>일자 / 가맹점</span><span>분류 / 결제수단</span><span>유형 / 금액</span></div>${
+        }${preview.possible?.length ? `<div class="notice warning"><strong>다른 파일·수기 기록과 중복 의심 ${preview.possible.length}건</strong><p>같은 날·사용자·금액·소비처가 겹쳐. 카드와 간편결제로 한 번 결제한 내역인지 확인해 줘.</p>${preview.possible.map((x) => `<label class="check-field"><input type="checkbox" data-skip-duplicate="${e(x.incoming.sourceId)}" checked><span>${e(x.incoming.date)} · ${e(x.incoming.merchantRaw)} · ${won(x.incoming.amount)}<br>${e(x.incoming.paymentMethod)} ↔ ${e(x.existing.paymentMethod)} · 체크하면 새 내역 제외</span></label>`).join("")}<label class="check-field"><input id="confirm-possible" type="checkbox">중복 의심 항목을 검토했어</label></div>` : ""}<div class="preview-table"><div class="preview-heading"><span>일자 / 가맹점</span><span>분류 / 사용자·결제수단</span><span>유형 / 금액</span></div>${
           preview.added
             .slice(0, 20)
             .map(
               (t) =>
-                `<div class="preview-row"><div><strong>${e(t.merchantRaw)}</strong><small>${t.date}</small></div><div><span>${e(state.categories.find((c) => c.id === t.category)?.name || "기타")} · ${e(scopeName(t.scope, state))}</span><small>${e(t.paymentMethod)}</small></div><div><strong>${won(t.amount)}</strong><small>${DIRECTIONS[t.direction]}</small></div></div>`,
+                `<div class="preview-row"><div><strong>${e(t.merchantRaw)}</strong><small>${t.date}</small></div><div><span>${e(state.categories.find((c) => c.id === t.category)?.name || "기타")} · ${e(memberName(t.owner, state))}</span><small>${e(t.paymentMethod)}</small></div><div><strong>${won(t.amount)}</strong><small>${DIRECTIONS[t.direction]}</small></div></div>`,
             )
             .join("") ||
           '<p class="empty-inline">새로 저장할 내역이 없어요.</p>'
         }</div><div class="import-commit"><p>${preview.added.filter((t) => t.direction === "transfer").length}건의 이체·카드대금은 지출 합계에서 제외해요.<br>처음 20건을 미리 보여드려요. 실적은 기본 ‘미확인’이에요.</p><button class="btn primary" data-action="commit-import" ${!preview.added.length || session.busy ? "disabled" : ""}>검토한 내역 저장 ${icon("check")}</button></div></section>`
       : ""
-  }<section class="import-guide"><h2>안심하고 가져오는 방법</h2><ol><li><strong>거래내역 내보내기</strong><span>카카오페이·카드·은행 앱에서 원하는 기간을 선택해요.</span></li><li><strong>두 사람의 파일 따로 선택</strong><span>사용자를 고르면 저장할 내역에 자동 표시돼요.</span></li><li><strong>미리 보고 저장</strong><span>날짜와 금액을 확인해요. 계좌·카드대금은 두 번 더하지 않아요.</span></li></ol></section>`;
+  }<section class="import-guide"><h2>안심하고 가져오는 방법</h2><ol><li><strong>카드사 원본 그대로 선택</strong><span>지원되는 PDF·엑셀은 사용자와 거래열을 자동으로 찾아요.</span></li><li><strong>자동분류 미리보기 확인</strong><span>소계·합계는 빼고 실제 이용내역만 보여줘요.</span></li><li><strong>검토 후 저장</strong><span>이미 가져온 거래와 중복 의심 거래는 다시 확인해요.</span></li></ol><p class="small muted">PDF 해석 모듈은 고정 버전으로 불러오며 금융파일 원본 자체는 외부 서버로 보내지 않아요. PDF 첫 사용에는 인터넷 연결이 필요할 수 있어요.</p></section>`;
 }
+
 export function mountImport(app) {
   const session = app.importSession,
     root = document.querySelector("#main"),
@@ -88,29 +113,33 @@ export function mountImport(app) {
   if (!input) return;
   root.querySelectorAll("[data-import-owner]").forEach(
     (b) =>
-      (b.onclick = () => {
+      (b.onclick = async () => {
         session.owner = b.dataset.importOwner;
-        if (session.sheets) {
+        if (session.cardEntries) {
+          session.preview = null;
+          await previewCardSource(app, false);
+          app.render();
+        } else if (session.sheets) {
           session.preview = null;
           app.render();
         } else input.click();
       }),
   );
   zone.onclick = () => input.click();
-  zone.onkeydown = (e) => {
-    if (["Enter", " "].includes(e.key)) {
-      e.preventDefault();
+  zone.onkeydown = (event) => {
+    if (["Enter", " "].includes(event.key)) {
+      event.preventDefault();
       input.click();
     }
   };
-  zone.ondragover = (e) => {
-    e.preventDefault();
+  zone.ondragover = (event) => {
+    event.preventDefault();
     zone.classList.add("dragging");
   };
   zone.ondragleave = () => zone.classList.remove("dragging");
-  zone.ondrop = (e) => {
-    e.preventDefault();
-    loadFiles([...e.dataTransfer.files]);
+  zone.ondrop = (event) => {
+    event.preventDefault();
+    loadFiles([...event.dataTransfer.files]);
   };
   input.onchange = () => loadFiles([...input.files]);
   const sheetSelect = root.querySelector("[name=import-sheet]");
@@ -149,48 +178,74 @@ export function mountImport(app) {
     await app.readImport(files[0]);
   }
 }
+
+async function readWorkbook(bytes) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL("../import/worker.js", import.meta.url));
+    const timer = setTimeout(() => {
+      worker.terminate();
+      reject(Error("파일 처리 시간이 길어요. 기간을 나눠 내보내 주세요."));
+    }, 20000);
+    worker.onmessage = (event) => {
+      clearTimeout(timer);
+      worker.terminate();
+      event.data.error ? reject(Error(event.data.error)) : resolve(event.data.sheets);
+    };
+    worker.onerror = () => {
+      clearTimeout(timer);
+      worker.terminate();
+      reject(
+        Error(
+          "엑셀 파서를 실행하지 못했어요. 새로고침 후 다시 시도해 주세요.",
+        ),
+      );
+    };
+    worker.postMessage(bytes, [bytes]);
+  });
+}
+
 export async function readImport(app, file) {
   const s = app.importSession;
   s.busy = true;
   s.error = "";
   s.preview = null;
   s.sheets = null;
+  s.cardEntries = null;
+  s.cardMeta = null;
   s.fileName = file.name;
   app.render();
   try {
-    if (!/\.(csv|xlsx|xls)$/i.test(file.name))
-      throw Error("CSV, XLS, XLSX 파일을 선택해 주세요.");
+    if (!/\.(pdf|csv|xlsx|xls)$/i.test(file.name))
+      throw Error("PDF, CSV, XLS, XLSX 파일을 선택해 주세요.");
     if (file.size > 20 * 1024 * 1024) throw Error("파일은 20MB까지 지원해요.");
     if (!file.size) throw Error("비어 있는 파일이에요.");
     const bytes = await file.arrayBuffer();
     s.fileHash = await sha256(bytes);
-    let sheets;
-    if (/\.csv$/i.test(file.name)) sheets = parseBytes(bytes, file.name);
-    else
-      sheets = await new Promise((resolve, reject) => {
-        const worker = new Worker(
-          new URL("../import/worker.js", import.meta.url),
+    const ext = file.name.split(".").at(-1).toLowerCase();
+    if (ext === "pdf") {
+      const pages = await readPdfPages(bytes);
+      const card = parseCardPdf(pages);
+      if (!card)
+        throw Error(
+          "이 PDF에서 카드 이용내역 표를 자동 인식하지 못했어요. 카드사 원본 엑셀을 사용하거나 텍스트가 선택되는 원본 PDF를 내려받아 주세요.",
         );
-        const timer = setTimeout(() => {
-          worker.terminate();
-          reject(Error("파일 처리 시간이 길어요. 기간을 나눠 내보내 주세요."));
-        }, 20000);
-        worker.onmessage = (e) => {
-          clearTimeout(timer);
-          worker.terminate();
-          e.data.error ? reject(Error(e.data.error)) : resolve(e.data.sheets);
-        };
-        worker.onerror = () => {
-          clearTimeout(timer);
-          worker.terminate();
-          reject(
-            Error(
-              "엑셀 파서를 실행하지 못했어요. 새로고침 후 다시 시도해 주세요.",
-            ),
-          );
-        };
-        worker.postMessage(bytes, [bytes]);
-      });
+      s.cardEntries = card.entries;
+      s.cardMeta = { ...card, entries: undefined, entriesCount: card.entries.length };
+      await previewCardSource(app, false);
+      return;
+    }
+    let sheets;
+    if (ext === "csv") sheets = parseBytes(bytes, file.name);
+    else sheets = await readWorkbook(bytes);
+    if (ext !== "csv") {
+      const card = parseCardWorkbook(sheets);
+      if (card) {
+        s.cardEntries = card.entries;
+        s.cardMeta = { ...card, entries: undefined, entriesCount: card.entries.length };
+        await previewCardSource(app, false);
+        return;
+      }
+    }
     s.sheets = inspectSheets(sheets);
     if (!s.sheets.some((x) => x.rows.length))
       throw Error("거래가 들어 있는 시트를 찾지 못했어요.");
@@ -208,8 +263,27 @@ export async function readImport(app, file) {
     app.render();
   }
 }
+
+export async function previewCardSource(app, render = true) {
+  const s = app.importSession;
+  if (!s.cardEntries) return;
+  s.preview = await previewCardEntries(
+    s.cardEntries,
+    app.state,
+    {
+      primaryOwner: s.owner,
+      sourceType: s.cardMeta?.provider === "woori-pdf" ? "card-pdf" : "card-original",
+    },
+    app.state.transactions,
+  );
+  s.preview.possible = possibleDuplicates(s.preview.added, app.state.transactions);
+  s.error = "";
+  if (render) app.render();
+}
+
 export async function previewImport(app, readUI = true) {
   const s = app.importSession;
+  if (s.cardEntries) return previewCardSource(app, readUI);
   if (!s.sheets) return;
   if (readUI) {
     s.mapping = Object.fromEntries(
@@ -244,6 +318,7 @@ export async function previewImport(app, readUI = true) {
   s.error = "";
   if (readUI) app.render();
 }
+
 export async function commitImport(app) {
   const s = app.importSession;
   if (!s.preview || s.busy) return;
@@ -284,6 +359,8 @@ export async function commitImport(app) {
     const next = s.queue?.shift();
     s.preview = null;
     s.sheets = null;
+    s.cardEntries = null;
+    s.cardMeta = null;
     s.fileName = "";
     if (next) {
       s.busy = false;
