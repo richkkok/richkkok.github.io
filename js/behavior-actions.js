@@ -15,6 +15,7 @@ import { classify } from "./rules.js";
 import { matchRecurring } from "./recurring.js";
 import { planFor } from "./budget.js";
 import { memberName } from "../data/defaults.js";
+import { exactApprovalDuplicate, fixedManualDuplicate } from "./import/duplicates.js";
 
 export function resolveEntryOwner(app, state) {
   const cloudMember = app.cloud?.meta?.member;
@@ -152,11 +153,7 @@ export function quickEntry(app, date = today()) {
           !t.deletedAt &&
           !t.splitParent &&
           t.id !== id &&
-          t.date === tx.date &&
-          t.amount === tx.amount &&
-          t.direction === tx.direction &&
-          keyText(t.merchantNormalized) === keyText(tx.merchantNormalized) &&
-          keyText(t.paymentMethod) === keyText(tx.paymentMethod),
+          (exactApprovalDuplicate(t, tx) || fixedManualDuplicate(t, tx)),
       );
       if (duplicate && !f.get("allowDuplicate")) {
         if (!dialog.querySelector("[name=allowDuplicate]"))
@@ -332,7 +329,7 @@ export async function behaviorAction(app, action, target) {
             variableBudget: v.variableBudget,
             savingsTarget: v.savingsTarget,
             categoryBudgets: v.categoryBudgets,
-            income: h.income,
+            income: h.recommendationIncome,
             fixedReserve: Math.max(0, h.fixed),
             recommendation: {
               variant: v.id,
