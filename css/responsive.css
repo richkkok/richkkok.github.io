@@ -221,6 +221,102 @@
 }
 
 @media (max-width: 700px) {
+  .settings-simple-grid,
+  .detail-grid,
+  .analysis-detail-grid,
+  .settings-advanced-grid,
+  .analysis-brief-list,
+  .smart-mini-grid,
+  .snapshot-grid {
+    grid-template-columns: 1fr;
+  }
+  .snapshot-grid > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 0;
+    border-right: 0;
+    border-bottom: 1px solid #e4eaf0;
+  }
+  .snapshot-grid > div:first-child {
+    padding-top: 0;
+  }
+  .snapshot-grid > div:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+  .snapshot-grid strong {
+    margin-top: 0;
+    text-align: right;
+    font-size: 1.08rem;
+  }
+  .snapshot-actions {
+    flex-wrap: wrap;
+  }
+  .snapshot-actions button {
+    flex: 1;
+    min-width: 76px;
+  }
+  .smart-home-panel > h2 {
+    font-size: 1.08rem;
+  }
+  .smart-home-panel > p {
+    font-size: 0.86rem;
+  }
+  .smart-mini-grid {
+    gap: 8px;
+  }
+  .smart-mini-grid > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 10px;
+    align-items: center;
+    padding: 11px 12px;
+  }
+  .smart-mini-grid > div span,
+  .smart-mini-grid > div small {
+    grid-column: 1;
+  }
+  .smart-mini-grid > div strong {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    text-align: right;
+  }
+  .smart-actions .btn {
+    flex: 1;
+  }
+  .detail-disclosure {
+    border-radius: 16px;
+  }
+  .detail-disclosure > summary {
+    min-height: 58px;
+    padding: 13px 15px;
+  }
+  .detail-grid,
+  .analysis-detail-grid,
+  .settings-advanced-grid {
+    padding: 12px;
+  }
+  .analysis-brief-list {
+    gap: 8px;
+  }
+  .analysis-brief-list > div {
+    padding: 12px;
+  }
+  .compact-notice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .compact-notice .btn {
+    align-self: stretch;
+  }
+  .quick-entry-primary .quick-amount input {
+    font-size: 1.9rem;
+  }
+  .auto-entry-summary {
+    min-height: 50px;
+  }
   .household-status {
     display: none;
   }
