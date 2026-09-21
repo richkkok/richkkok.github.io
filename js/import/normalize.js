@@ -40,7 +40,7 @@ export function parseDate(value, timeValue = "", date1904 = false) {
   } else {
     const raw = String(value ?? "").trim();
     const match = raw.match(
-      /^(\d{2}|\d{4})\s*(?:[년./-]\s*)?(\d{1,2})\s*(?:[월./-]\s*)?(\d{1,2})/,
+      /^(\d{4}|\d{2})\s*(?:[년./-]\s*)?(\d{1,2})\s*(?:[월./-]\s*)?(\d{1,2})/,
     );
     if (!match) throw Error("날짜를 읽을 수 없어요.");
     [y, m, d] = match.slice(1).map(Number);
