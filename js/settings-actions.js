@@ -151,6 +151,8 @@ export async function settingsAction(app, action) {
             ]),
           ),
           trash: !!data.get("trash"),
+          categories: [],
+          categoryLabel: "",
           limit: 100,
         };
         app.render();
