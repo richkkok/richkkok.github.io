@@ -80,26 +80,31 @@ svg {
   vertical-align: middle;
   display: inline-block;
 }
+button,
+a,
+input,
+select,
+textarea,
+summary,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
 button:focus,
-a:focus,
-input:focus,
-select:focus,
-textarea:focus,
-summary:focus {
-  outline: none;
-}
 button:focus-visible,
+a:focus,
 a:focus-visible,
-summary:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
+input:focus,
 input:focus-visible,
+select:focus,
 select:focus-visible,
-textarea:focus-visible {
-  outline: none;
-  border-color: var(--focus-ring);
-  box-shadow: 0 0 0 4px var(--focus-halo);
+textarea:focus,
+textarea:focus-visible,
+summary:focus,
+summary:focus-visible,
+[role="button"]:focus,
+[role="button"]:focus-visible {
+  outline: none !important;
+  box-shadow: none;
 }
 .sr-only {
   position: absolute;
@@ -1510,16 +1515,15 @@ dialog > form {
   font-size: 1rem;
 }
 .field input:focus,
-.field select:focus,
-.field textarea:focus {
-  background: white;
-  border-color: var(--focus-touch);
-}
 .field input:focus-visible,
+.field select:focus,
 .field select:focus-visible,
+.field textarea:focus,
 .field textarea:focus-visible {
-  border-color: var(--focus-ring);
-  box-shadow: 0 0 0 4px var(--focus-halo);
+  background: white;
+  border-color: #aabccc;
+  outline: none !important;
+  box-shadow: none;
 }
 .field input::placeholder {
   color: #738493;

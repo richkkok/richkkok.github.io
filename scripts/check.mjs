@@ -59,9 +59,12 @@ assert.ok(html.includes("viewport-fit=cover"));
 const focusCss = fs.readFileSync("css/app.css", "utf8");
 const responsiveCss = fs.readFileSync("css/responsive.css", "utf8");
 assert.ok(!focusCss.includes("outline: 3px solid #2b86db"));
-assert.ok(focusCss.includes("outline: 2px solid var(--focus-ring)"));
-assert.ok(focusCss.includes("box-shadow: 0 0 0 4px var(--focus-halo)"));
+assert.ok(!focusCss.includes("var(--focus-ring)"));
+assert.ok(!focusCss.includes("var(--focus-halo)"));
+assert.ok(focusCss.includes("-webkit-tap-highlight-color: transparent"));
+assert.ok(focusCss.includes("outline: none !important"));
 assert.ok(responsiveCss.includes("@media (hover: none) and (pointer: coarse)"));
+assert.ok(responsiveCss.includes("-webkit-tap-highlight-color: transparent !important"));
 
 console.log(
   `PASS syntax ${files.length} files, resources, manifest, isolated RichKkok sync only`,

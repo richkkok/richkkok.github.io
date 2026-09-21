@@ -176,17 +176,31 @@
   }
 }
 @media (hover: none) and (pointer: coarse) {
-  button:focus-visible,
-  a:focus-visible,
-  summary:focus-visible {
-    outline: none;
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent !important;
   }
+  button:focus,
+  button:focus-visible,
+  a:focus,
+  a:focus-visible,
+  input:focus,
   input:focus-visible,
+  select:focus,
   select:focus-visible,
-  textarea:focus-visible {
-    outline: none;
-    border-color: var(--focus-touch);
-    box-shadow: none;
+  textarea:focus,
+  textarea:focus-visible,
+  summary:focus,
+  summary:focus-visible,
+  [role="button"]:focus,
+  [role="button"]:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
   }
 }
 
