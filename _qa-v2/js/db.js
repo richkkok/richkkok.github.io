@@ -26,10 +26,7 @@ export class Repository {
   async readKey(key, fallback = null) {
     const db = await this.open();
     return new Promise((resolve, reject) => {
-      const r = db
-        .transaction("household")
-        .objectStore("household")
-        .get(key);
+      const r = db.transaction("household").objectStore("household").get(key);
       r.onsuccess = () => resolve(r.result ?? fallback);
       r.onerror = () => reject(r.error);
     });
@@ -61,7 +58,11 @@ export class Repository {
         .transaction("household")
         .objectStore("household")
         .get("state");
-      r.onsuccess = () => resolve(migrate(r.result || emptyState()));
+      r.onsuccess = () => {
+        if (r.result && r.result.productVersion !== 2)
+          this.mutate(() => {}).then(resolve, reject);
+        else resolve(migrate(r.result || emptyState()));
+      };
       r.onerror = () => reject(r.error);
     });
   }
@@ -75,7 +76,8 @@ export class Repository {
       r.onsuccess = () => {
         try {
           const current = r.result || emptyState();
-          if (current.productVersion !== 2) store.put(structuredClone(current), "pre-v2-backup");
+          if (current.productVersion !== 2)
+            store.put(structuredClone(current), "pre-v2-backup");
           migrate(current);
           next = change(current) || current;
           if (next instanceof Promise)
