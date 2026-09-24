@@ -11,6 +11,7 @@ import { readPdfPages } from "../import/pdf-reader.js";
 import { escape as e, won } from "../format.js";
 import { icon, button, select, field, toast } from "../ui.js";
 import { memberName, DIRECTIONS } from "../../data/defaults.js";
+import { syncAutoRecurring } from "../recurring.js";
 
 function cardOwnerSummary(state, preview) {
   const counts = Object.entries(preview?.ownerCounts || {});
@@ -348,6 +349,7 @@ export async function commitImport(app) {
       if (state.transactions.length + count > 100000)
         throw Error("한 가계부는 100,000건까지 보관할 수 있어요.");
       state.transactions.push(...result.added);
+      syncAutoRecurring(state);
       state.imports.push({
         id: crypto.randomUUID(),
         fileHash: s.fileHash,
