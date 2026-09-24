@@ -119,7 +119,7 @@ export async function settingsAction(app, action) {
   } else if (action === "recurring-list") {
     openDialog(
       "고정비 · 반복결제",
-      `<div class="dialog-list">${state.recurring.map((r) => `<button class="settings-row" data-recurring="${e(r.id)}"><span><strong>${e(r.name)}</strong><small>매월 ${r.day}일 · ${won(r.amount)}</small></span>${icon("chevron")}</button>`).join("") || "<p>등록된 반복비가 없어요.</p>"}</div>${button("반복비 추가", "add-recurring", "primary", "plus")}`,
+      `<div class="dialog-list">${state.recurring.map((r) => `<button class="settings-row" data-recurring="${e(r.id)}"><span><strong>${e(r.name)}</strong><small>매월 ${r.day}일 · ${won(r.amount)}${r.autoDetected ? " · 자동 감지" : ""}</small></span>${icon("chevron")}</button>`).join("") || "<p>등록된 반복비가 없어요.</p>"}</div>${button("반복비 추가", "add-recurring", "primary", "plus")}`,
     );
   } else if (action === "add-recurring") recurringEditor(app);
   else if (action === "add-goal") goalEditor(app);
