@@ -13,7 +13,11 @@ import { previewRows, parseBytes, parseWorkbook } from "../js/import/parser.js";
 import { identify, dedupe } from "../js/import/dedupe.js";
 import { classify } from "../js/rules.js";
 import { monthBudget } from "../js/budget.js";
-import { occurrence, matchRecurring } from "../js/recurring.js";
+import {
+  occurrence,
+  matchRecurring,
+  syncAutoRecurring,
+} from "../js/recurring.js";
 import { splitTransaction, validateState } from "../js/models.js";
 import { analyze } from "../js/analytics.js";
 import { filteredTransactions } from "../js/views/transactions.js";
@@ -310,6 +314,111 @@ test("Recurring: partial match, overpayment, future effective date, refund, one 
   );
   assert.equal(monthBudget(s, "2026-09").outstanding, 50);
 });
+test("반복 고정비는 3개월 패턴만 자동 등록하고 일반 반복소비는 제외", () => {
+  const s = emptyState();
+  const recurringTx = (date, merchant, amount, extra = {}) =>
+    tx(amount, {
+      date,
+      datetime: date + "T12:00:00",
+      merchantRaw: merchant,
+      merchantNormalized: merchant,
+      ...extra,
+    });
+  s.transactions = [
+    ...["2026-06-15", "2026-07-15", "2026-08-18"].map((date) =>
+      recurringTx(date, "01055668580SKT", 95510, {
+        owner: "p1",
+        category: "subscription",
+        costKind: "fixed",
+        paymentMethod: "미지정",
+      }),
+    ),
+    ...[
+      ["2026-06-25", 327840],
+      ["2026-07-27", 350050],
+      ["2026-08-25", 400070],
+    ].map(([date, amount]) =>
+      recurringTx(date, `아파트관리비-${date.slice(0, 7)}-1101호`, amount, {
+        owner: "p2",
+        category: "housing",
+        costKind: "fixed",
+        paymentMethod: "우리카드",
+      }),
+    ),
+    ...[
+      ["2026-06-03", 69440],
+      ["2026-07-03", 69440],
+      ["2026-08-03", 69440],
+    ].map(([date, amount]) =>
+      recurringTx(date, "현대주유소", amount, {
+        owner: "p2",
+        category: "transport",
+        costKind: "variable",
+        paymentMethod: "우리카드",
+      }),
+    ),
+  ];
+
+  const first = syncAutoRecurring(s);
+  assert.equal(first.added, 2);
+  assert(s.recurring.some((r) => r.name === "SKT 통신비"));
+  assert(s.recurring.some((r) => r.name === "아파트 관리비"));
+  assert(
+    s.transactions
+      .filter((t) => t.merchantRaw.includes("SKT"))
+      .every((t) => t.recurringId),
+  );
+  assert(
+    s.transactions
+      .filter((t) => t.merchantRaw === "현대주유소")
+      .every((t) => !t.recurringId),
+  );
+  assert.equal(
+    s.recurring.find((r) => r.name === "아파트 관리비").amount,
+    400070,
+  );
+
+  const second = syncAutoRecurring(s);
+  assert.equal(second.added, 0);
+  assert.equal(s.recurring.length, 2);
+});
+
+test("월별 표기가 바뀌는 보험료도 금액으로 안전하게 구분해 연결", () => {
+  const s = emptyState();
+  const recurringTx = (date, merchant, amount) =>
+    tx(amount, {
+      date,
+      datetime: date + "T12:00:00",
+      merchantRaw: merchant,
+      merchantNormalized: merchant,
+      owner: "p1",
+      category: "finance",
+      costKind: "fixed",
+      paymentMethod: "미지정",
+    });
+  s.transactions = [
+    recurringTx("2026-06-17", "ACE 202606", 26470),
+    recurringTx("2026-07-20", "ACE 202607", 26470),
+    recurringTx("2026-08-18", "ACE 202608", 26470),
+    recurringTx("2026-06-22", "현대해06038", 14360),
+    recurringTx("2026-07-20", "현대해07039", 14360),
+    recurringTx("2026-08-20", "현대해08040", 14360),
+  ];
+
+  const result = syncAutoRecurring(s);
+  assert.equal(result.added, 2);
+  assert(s.recurring.some((r) => r.name === "ACE 보험"));
+  assert(s.recurring.some((r) => r.name.startsWith("현대해상 보험")));
+
+  const future = recurringTx("2026-09-20", "현대해09041", 14360);
+  const matched = matchRecurring(future, s.recurring);
+  assert(matched.recurringId);
+  assert.equal(matched.costKind, "fixed");
+
+  const differentPremium = recurringTx("2026-09-20", "현대해09041", 151500);
+  assert.equal(matchRecurring(differentPremium, s.recurring).recurringId, undefined);
+});
+
 test("Card eligible/unknown/excluded are parallel metrics, never extra expenditure", () => {
   const s = emptyState();
   s.settings.income = 1000;
