@@ -1,7 +1,7 @@
 name: RichKkok quality checks
 on:
   push:
-    branches: [main]
+    branches: [main, feat/auto-recurring-fixed-costs-20260925]
   workflow_dispatch:
 permissions:
   contents: read
