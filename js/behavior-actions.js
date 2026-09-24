@@ -12,7 +12,7 @@ import { period, periodKey, startDay, addDays, validDate } from "./period.js";
 import { dashboard, closeDay, dayStatus, reconcile } from "./behavior.js";
 import { baselineAnalysis, defaultBaseline } from "./baseline.js";
 import { classify } from "./rules.js";
-import { matchRecurring } from "./recurring.js";
+import { matchRecurring, syncAutoRecurring } from "./recurring.js";
 import { planFor } from "./budget.js";
 import { memberName } from "../data/defaults.js";
 import { exactApprovalDuplicate, fixedManualDuplicate } from "./import/duplicates.js";
@@ -204,6 +204,7 @@ export function quickEntry(app, date = today()) {
             learned: true,
           });
         }
+        syncAutoRecurring(s);
       });
       try {
         localStorage.setItem("richkkok-owner", tx.owner);

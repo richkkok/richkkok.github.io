@@ -32,6 +32,7 @@ import {
 import { settingsAction, restoreFile } from "./settings-actions.js";
 import { setupPWA } from "./pwa.js";
 import { CloudSync } from "./cloud.js";
+import { syncAutoRecurring } from "./recurring.js";
 import { route, navigate, watchRoute } from "./router.js";
 const titles = {
   home: "홈",
@@ -77,6 +78,15 @@ app.update = async (change) => {
   try {
     channel?.postMessage("changed");
   } catch {}
+};
+app.applyAutoRecurring = async () => {
+  const preview = structuredClone(app.state);
+  const result = syncAutoRecurring(preview);
+  if (!result.changed) return result;
+  await app.update((state) => {
+    syncAutoRecurring(state);
+  });
+  return result;
 };
 const channel =
   typeof BroadcastChannel !== "undefined"
@@ -373,7 +383,10 @@ watchRoute(() => {
 app.pwa = setupPWA();
 app
   .load()
-  .then(() => app.cloud.init())
+  .then(async () => {
+    await app.cloud.init();
+    await app.applyAutoRecurring();
+  })
   .catch((error) => {
     document.querySelector("#main").innerHTML =
       '<section class="card"><h1>저장소를 열지 못했어요</h1><p>브라우저의 일반 창에서 다시 열어 주세요. 기존 데이터는 삭제하지 않았어요.</p><button class="btn primary" type="button" id="retry-storage">다시 시도</button></section>';
