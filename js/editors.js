@@ -23,7 +23,7 @@ import {
 } from "./format.js";
 import { splitTransaction } from "./models.js";
 import { classify, applyRules } from "./rules.js";
-import { matchRecurring } from "./recurring.js";
+import { matchRecurring, syncAutoRecurring } from "./recurring.js";
 import { planFor } from "./budget.js";
 const categoryOptions = (s) =>
   s.categories.filter((c) => !c.archived).map((c) => [c.id, c.name]);
@@ -140,6 +140,7 @@ export function editTransaction(app, id) {
           learned: true,
         });
       }
+      syncAutoRecurring(s);
     });
     toast("내역을 저장했어요.");
   });
