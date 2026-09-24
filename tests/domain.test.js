@@ -416,7 +416,7 @@ test("월별 표기가 바뀌는 보험료도 금액으로 안전하게 구분�
   assert.equal(matched.costKind, "fixed");
 
   const differentPremium = recurringTx("2026-09-20", "현대해09041", 151500);
-  assert.equal(matchRecurring(differentPremium, s.recurring).recurringId, undefined);
+  assert.equal(matchRecurring(differentPremium, s.recurring).recurringId, null);
 });
 
 test("Card eligible/unknown/excluded are parallel metrics, never extra expenditure", () => {
