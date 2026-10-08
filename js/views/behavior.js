@@ -1,3 +1,4 @@
+import { moneyHome } from "./money.js";
 import { dashboard, dayStatus } from "../behavior.js";
 import { periodLabel, addDays } from "../period.js";
 import { won, shortWon, escape as e, today, shiftMonth } from "../format.js";
@@ -81,77 +82,16 @@ function categorySharePanel(b) {
     .join("")}</div></div></section>`;
 }
 
-function homeSnapshot(b) {
-  return `<section class="card home-snapshot"><div class="snapshot-grid"><div><span>이번달 지출</span><strong>${won(b.b.spent)}</strong></div><div><span>예상 저축</span><strong class="${b.projectedSavings < b.savingsTarget ? "negative" : ""}">${won(b.projectedSavings)}</strong></div><div><span>남은 변동예산</span><strong class="${b.remaining < 0 ? "negative" : ""}">${won(b.remaining)}</strong></div></div><div class="snapshot-actions"><button data-action="month-income">수입</button><button data-action="behavior-plan">목표</button><button data-action="go-budget">상세 계획</button></div></section>`;
-}
-
-function smartHomePanel(b, planned) {
-  const topCut = b.cuts[0],
-    topRoom = b.room[0];
-  let title = "현재 흐름은 안정적이야",
-    body = "지금 속도라면 설정한 계획 범위 안에서 갈 수 있어.";
-  if (!planned) {
-    title = "목표만 정하면 자동 분석을 시작할게";
-    body = "수입과 목표저축을 기준으로 오늘 얼마까지 써도 되는지 계산해 줄게.";
-  } else if (b.delta < 0 && topCut) {
-    title = `${topCut.name}부터 줄이는 게 가장 효과적이야`;
-    body = `현재 속도라면 목표보다 약 ${won(topCut.reduce)} 더 쓸 가능성이 있어.`;
-  } else if (b.pace !== null && b.pace > 10) {
-    title = `계획보다 ${b.pace}% 빠르게 쓰는 중이야`;
-    body = b.recovery
-      ? `내일부터 하루 약 ${won(b.recovery)}만 줄이면 계획선으로 돌아올 수 있어.`
-      : "이번 운영월 소비속도를 조금 낮추는 게 좋아.";
-  } else if (b.pace !== null && b.pace < -10) {
-    title = "계획보다 여유 있게 쓰고 있어";
-    body = "남은 예산을 한 번에 쓰기보다 지금 페이스를 유지하는 게 좋아.";
-  }
-  return `<section class="card smart-home-panel full-width"><div class="smart-badge">자동 분석</div><h2>${e(title)}</h2><p>${e(body)}</p><div class="smart-mini-grid">${topCut ? `<div><span>우선 조절</span><strong>${e(topCut.name)}</strong><small>예상 초과 ${won(topCut.reduce)}</small></div>` : ""}${topRoom ? `<div><span>여유 있는 항목</span><strong>${e(topRoom.name)}</strong><small>${won(topRoom.remaining)} 남음</small></div>` : ""}<div><span>저축 목표</span><strong>${e(b.status)}</strong><small>${won(b.savingsTarget)} 목표</small></div></div><div class="smart-actions">${button("분석 보기", "go-analytics", "secondary")}${!planned ? button("목표 설정", "behavior-plan", "primary") : ""}</div></section>`;
-}
-
 function closePanel(state, d) {
   return `<section class="card close-panel">${sectionTitle("오늘 기록", today().replaceAll("-", "."))}<div class="close-summary"><strong>${won(d.total)}</strong><span>${d.count}건</span></div>${d.closed ? `<div class="closed-state">${icon("check")}기록 완료</div>` : `<p>오늘 소비를 다 적었으면 마감해 줘.</p><div class="close-actions">${button("기록 완료", "close-day", "primary", "check")}${button("빠진 소비", "quick-expense", "secondary")}${!d.count ? button("무지출", "zero-day", "text") : ""}</div>`}<button class="weekly-link" data-action="weekly-check">${icon("repeat")}주간 누락 확인 ${icon("chevron")}</button></section>`;
 }
 
 export function controlHome(state, month) {
-  const b = dashboard(state, month),
-    d = dayStatus(state, today()),
-    yesterday = addDays(today(), -1),
-    yd = dayStatus(state, yesterday);
-  const unclosed =
-    !yd.closed && yesterday >= (state.settings.trackingSince || today());
-  const planned =
-    b.plan.variableBudget !== undefined ||
-    b.plan.savingsTarget !== undefined ||
-    b.requested > 0 ||
-    b.savingsTarget > 0;
-  const negative = b.delta < 0;
-  const recent = [...b.b.tx]
-    .sort((a, b) => (b.datetime || b.date).localeCompare(a.datetime || a.date))
-    .slice(0, 3);
-
-  return `<div class="control-grid simple-home">
-    <section class="control-hero ${negative ? "is-over" : ""}" aria-labelledby="control-title">
-      <div class="between"><span class="eyebrow">${periodLabel(b.p)}</span><button class="icon-button light" data-action="pace-calculation" aria-label="계산 근거">${icon("info")}</button></div>
-      <h2 id="control-title">${planned ? `이번 운영월 ${negative ? "덜 써야 하는 돈" : "더 써도 되는 돈"}` : "우리집 소비목표를 정해 줘"}</h2>
-      <div class="control-amount">${planned ? (negative ? "−" : "+") + won(Math.abs(b.delta)) : "목표 설정"}</div>
-      <p class="hero-meaning">${!planned ? "목표를 정하면 소비속도를 자동 계산해." : b.pace === null ? "기록이 쌓이면 소비속도를 바로 알려줄게." : b.pace === 0 ? "지금 계획한 속도와 같아." : `계획보다 ${Math.abs(b.pace)}% ${b.pace > 0 ? "빠르게" : "천천히"} 쓰는 중이야.`}</p>
-      <div class="hero-today"><div><span>${b.todayAvailable < 0 ? "오늘 권장액 초과" : "오늘 더 써도 되는 돈"}</span><strong>${won(Math.abs(b.todayAvailable))}</strong></div><div class="hero-today-side"><span>오늘 사용</span><b>${won(b.todaySpent)}</b></div></div>
-    </section>
-    ${homeSnapshot(b)}
-    ${b.requested > b.affordability ? `<div class="notice warning full-width compact-notice"><strong>현재 목표가 수입보다 ${won(b.requested - b.affordability)} 많아.</strong>${button("목표 조정", "behavior-plan", "text")}</div>` : ""}
-    ${unclosed ? `<div class="unclosed-banner full-width compact-unclosed"><div>${icon("calendar")}<span><strong>어제 기록을 아직 마감하지 않았어.</strong><small>${won(yd.total)} · ${yd.count}건</small></span></div><div><button class="btn secondary" data-action="quick-expense" data-date="${yesterday}">빠진 소비</button><button class="btn primary" data-action="close-day" data-date="${yesterday}">마감</button></div></div>` : ""}
-    ${smartHomePanel(b, planned)}
-    ${categorySharePanel(b)}
-    <section class="card recent-card full-width">${sectionTitle("최근 기록", "", button("전체 보기", "go-transactions", "text"))}${recent.map((t) => transactionRow(t, state)).join("") || '<p class="empty-inline">+ 지출 입력으로 첫 기록을 남겨봐.</p>'}</section>
-    <details class="detail-disclosure full-width">
-      <summary><span><strong>상세 지표 보기</strong><small>저축 · 소비곡선 · 하루마감</small></span>${icon("chevron")}</summary>
-      <div class="detail-grid">
-        <section class="card saving-panel"><div class="section-heading"><div><span class="eyebrow">목표저축</span><h2>${won(b.savingsTarget)}</h2></div>${button("수정", "behavior-plan", "text")}</div><div class="saving-projection"><span>현재 속도 예상</span><strong>${won(b.projectedSavings)}</strong></div>${progress(Math.max(0, b.projectedSavings), b.savingsTarget)}<div class="plan-summary"><button data-action="month-income"><span>수입</span><strong>${won(b.b.income)} ${icon("chevron")}</strong></button><button data-action="recurring-list"><span>고정비</span><strong>${won(b.fixed)} ${icon("chevron")}</strong></button></div></section>
-        <section class="card curve-panel">${sectionTitle("소비곡선", b.history.usable ? "3개월 패턴 반영" : "임시 계획선")}${paceChart(b)}<div class="curve-summary"><span>예상 총지출 <strong>${won(b.forecast)}</strong></span><span>${b.future}일 남음</span></div></section>
-        ${closePanel(state, d)}
-      </div>
-    </details>
-  </div>`;
+  return moneyHome(state, month, {
+    categoryPanel: categorySharePanel,
+    paceChart,
+    closePanel: s => closePanel(s, dayStatus(s, today())),
+  });
 }
 
 function analysisBrief(state, b, h) {

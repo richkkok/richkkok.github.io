@@ -97,6 +97,7 @@ export function editTransaction(app, id) {
       costKind: scope === "fixed" ? "fixed" : String(form.get("costKind")),
       paymentChannel: String(form.get("paymentChannel") || ""),
       category: String(form.get("category")),
+      categoryConfirmed: tx.categoryConfirmed || (existing ? existing.category !== String(form.get("category")) : String(form.get("category")) !== "other"),
       scope,
       owner: String(form.get("owner")),
       paymentMethod: String(form.get("paymentMethod")).trim(),
@@ -195,6 +196,7 @@ export function budgetEditor(app) {
             .map((c) => [c.id, amountInput(form.get(`category-${c.id}`) || 0)]),
         ),
       };
+      values.variableBudget = values.sharedBudget + values.personalBudgets.p1 + values.personalBudgets.p2;
       await app.update((s) => {
         s.settings.monthOverrides ||= {};
         s.settings.monthOverrides[app.month] = {
@@ -223,10 +225,11 @@ export function recurringEditor(app, id) {
       changes: [],
       protected: false,
     };
-  const next = r.changes.filter((c) => c.effective >= today()).at(-1);
+  const amountToday = [...(r.changes || [])].filter(c => c.effective <= today()).sort((a,b) => a.effective.localeCompare(b.effective)).at(-1)?.amount ?? r.amount;
+  const next = (r.changes || []).filter((c) => c.effective > today()).at(-1);
   openDialog(
     id ? "고정·반복비 수정" : "고정·반복비 추가",
-    `<div class="form-grid">${field("이름", "name", r.name, "text", 'required maxlength="80"')}${field("월 금액 (원)", "amount", r.amount, "number", "required")}${field("매월 결제일", "day", r.day, "number", 'required min="1" max="31"')}${select("카테고리", "category", categoryOptions(s), r.category)}${field("결제수단", "paymentMethod", r.paymentMethod, "text", 'maxlength="100"')}${select(
+    `<div class="form-grid">${field("이름", "name", r.name, "text", 'required maxlength="80"')}${field("현재 월 금액 (원)", "amount", amountToday, "number", "required")}${field("매월 결제일", "day", r.day, "number", 'required min="1" max="31"')}${select("카테고리", "category", categoryOptions(s), r.category)}${field("결제수단", "paymentMethod", r.paymentMethod, "text", 'maxlength="100"')}${select(
       "사용자",
       "owner",
       ["joint", "p1", "p2"].map((p) => [p, memberName(p, s)]),
@@ -236,9 +239,9 @@ export function recurringEditor(app, id) {
       "scope",
       scopeOptions(s).filter(([id]) => id !== "excluded"),
       r.scope,
-    )}${field("시작일", "start", r.start, "date", "required")}${field("종료일 (선택)", "end", r.end, "date")}${field("가맹점 포함 문구 (자동 연결)", "merchantPattern", r.merchantPattern, "text", 'maxlength="100"')}</div><label class="check-field"><input name="protected" type="checkbox" ${r.protected ? "checked" : ""}>유지할 고정비 · 절약 권고 대상에서 제외</label><h3>앞으로 금액이 바뀌나요?</h3><div class="form-grid">${field("변경 적용일", "effective", next?.effective || "", "date")}${field("변경 후 월 금액 (원)", "futureAmount", next?.amount ?? "", "number")}</div><p class="small muted">기존 적용 이력은 보존해요. 같은 적용일을 입력하면 해당 금액을 수정해요. 실제 거래의 가맹점 문구와 결제수단이 맞으면 자동 연결해요.</p>${id ? `<button class="btn danger-text" type="button" data-remove-recurring="${e(id)}">반복비 삭제</button>` : ""}`,
+    )}${field("시작일", "start", r.start, "date", "required")}${field("종료일 (선택)", "end", r.end, "date")}${field("가맹점 포함 문구 (자동 연결)", "merchantPattern", r.merchantPattern, "text", 'maxlength="100"')}</div><label class="check-field"><input name="dayEstimated" type="checkbox" ${r.dayEstimated || (r.autoDetected && !r.dateConfirmed) ? "checked" : ""}>출금일은 아직 추정이에요 (확인했으면 해제)</label><label class="check-field"><input name="protected" type="checkbox" ${r.protected ? "checked" : ""}>유지할 고정비 · 절약 권고 대상에서 제외</label><h3>앞으로 금액이 바뀌나요?</h3><div class="form-grid">${field("변경 적용일", "effective", next?.effective || "", "date")}${field("변경 후 월 금액 (원)", "futureAmount", next?.amount ?? "", "number")}</div><p class="small muted">현재 월 금액을 수정하면 오늘부터 적용하고 과거 예정액은 보존해요. 사용을 중단하면 종료일을 입력해 주세요. 같은 적용일을 입력하면 해당 금액을 수정해요. 실제 거래의 가맹점 문구와 결제수단이 맞으면 자동 연결해요.</p>${id ? `<button class="btn danger-text" type="button" data-remove-recurring="${e(id)}">반복비 삭제</button>` : ""}`,
     async (f) => {
-      const changes = r.changes.filter(
+      const changes = (r.changes || []).filter(
         (c) => c.effective !== f.get("effective"),
       );
       if (f.get("effective")) {
@@ -253,10 +256,16 @@ export function recurringEditor(app, id) {
         throw Error("종료일은 시작일 이후여야 해요.");
       const day = Number(f.get("day"));
       if (day < 1 || day > 31) throw Error("결제일은 1~31일로 입력해 주세요.");
+      const amount = amountInput(f.get("amount"));
+      if (id && amount !== amountToday) {
+        const i = changes.findIndex(c => c.effective === today());
+        if (i >= 0) changes.splice(i, 1);
+        changes.push({effective: today(), amount});
+      }
       const item = {
         ...r,
         name: String(f.get("name")).trim(),
-        amount: amountInput(f.get("amount")),
+        amount: id ? r.amount : amount,
         day,
         category: String(f.get("category")),
         paymentMethod: String(f.get("paymentMethod")).trim(),
@@ -266,6 +275,8 @@ export function recurringEditor(app, id) {
         end: String(f.get("end")),
         merchantPattern: String(f.get("merchantPattern")).trim(),
         protected: !!f.get("protected"),
+        dayEstimated: !!f.get("dayEstimated"),
+        dateConfirmed: !f.get("dayEstimated"),
         changes: changes.sort((a, b) => a.effective.localeCompare(b.effective)),
       };
       await app.update((s) => {

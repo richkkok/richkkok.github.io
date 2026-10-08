@@ -13,16 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Snapshot feature source for isolated local verification
-        if: github.ref == 'refs/heads/feat/pay-cycle-dashboard-20261008'
-        uses: actions/upload-artifact@v4
-        with:
-          name: feature-source
-          path: |
-            .
-            !.git
-          include-hidden-files: true
-          retention-days: 1
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -33,6 +23,19 @@ jobs:
       - run: node scripts/vendor.mjs
       - run: pnpm run check
       - run: pnpm test
+      - name: Install isolated browser test driver
+        run: npm install --prefix "$RUNNER_TEMP/richkkok-browser" --no-audit --no-fund playwright@1.51.1
+      - name: Browser regression (synthetic local data only)
+        run: node qa/money-browser.mjs
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/richkkok-browser/node_modules/playwright/index.mjs
+      - name: Save browser verification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-verification
+          path: qa-results
+          retention-days: 7
       - run: pnpm run build
       - name: Verify committed offline release matches source
         run: git diff --exit-code -- sw.js

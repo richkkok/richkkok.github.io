@@ -1,4 +1,4 @@
-export const VERSION = "2.0.0";
+export const VERSION = "2.1.0";
 export const SCOPES = {
   shared: "공동생활비",
   fixed: "공동고정비",
