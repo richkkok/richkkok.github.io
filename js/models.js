@@ -1,3 +1,4 @@
+import { validateIncomeSchedules } from "./income-schedule.js";
 import { validateCash } from "./cash.js";
 import { emptyState } from "../data/defaults.js";
 const scopes = ["shared", "fixed", "p1", "p2", "excluded"],
@@ -162,6 +163,7 @@ export function validateState(input) {
     for (const value of Object.values(override.categoryBudgets || {}))
       if (!isMoney(value)) throw Error("월별 예산을 확인해 주세요.");
   }
+  validateIncomeSchedules(state);
   validateCash(state);
   return state;
 }

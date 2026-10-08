@@ -1,0 +1,80 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {spawn} from 'node:child_process';
+import {pathToFileURL} from 'node:url';
+const {chromium}=await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
+const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium'].find(p=>fs.existsSync(p));
+const server=spawn(process.execPath,['scripts/serve.cjs'],{env:{...process.env,PORT:'4176'},stdio:'inherit'});
+let browser;
+try {
+ await new Promise(r=>setTimeout(r,600));
+ browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox']});
+ const context=await browser.newContext({viewport:{width:1440,height:1000},timezoneId:'Asia/Seoul',serviceWorkers:'block'});
+ await context.route(/supabase\.co/,r=>r.abort());
+ const page=await context.newPage(), errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4176/',{waitUntil:'networkidle'});
+ await page.evaluate(async()=>{const {sampleState}=await import('./data/sample.js');const {Repository}=await import('./js/db.js');const {periodKey,period}=await import('./js/period.js');const s=sampleState();s.demo=false;s.settings.privacy=false;s.settings.income=6500000;s.settings.monthOverrides={};const p=period(periodKey());s.transactions.push({id:'qa-salary-received',sourceId:'qa-salary-received',direction:'income',amount:3050000,owner:'p1',date:p.start,datetime:p.start+'T10:03:00',merchantRaw:'QA 급여 입금',merchantNormalized:'QA 급여 입금',paymentMethod:'QA 계좌',scope:'shared',category:'other',excluded:false,deletedAt:null});const r=new Repository();await r.replace(s);r.close();});
+ await page.reload({waitUntil:'networkidle'});
+ await page.waitForSelector('.income-schedule-panel');
+ const state=()=>page.evaluate(async()=>{const {Repository}=await import('./js/db.js');const r=new Repository(),s=await r.read();r.close();return s;});
+ const before=await state();
+ await page.locator('[data-action="month-income"]').first().click();
+ assert.equal(await page.locator('#dialog [name="income-day-0"]').inputValue(),'10');
+ assert.equal(await page.locator('#dialog [name="income-day-1"]').inputValue(),'15');
+ assert.equal(await page.locator('#dialog [name="income-amount-0"]').inputValue(),'');
+ await page.locator('#dialog [name="income-amount-0"]').fill('3100000');
+ await page.locator('#dialog [name="income-owner-0"]').selectOption('p1');
+ await page.locator('#dialog [name="income-amount-1"]').fill('2700000');
+ await page.locator('#dialog [name="income-owner-1"]').selectOption('p2');
+ assert.match(await page.locator('#income-editor-total').innerText(),/5,800,000/);
+ await page.locator('#dialog [name="income-future"]').check();
+ await page.locator('#dialog [type=submit]').click();
+ await page.waitForSelector('#dialog[open]',{state:'hidden'});
+ assert.equal(await page.locator('.income-schedule-card').count(),2);
+ assert.match(await page.locator('.income-schedule-panel').innerText(),/5,800,000/);
+ assert.equal((await state()).transactions.length,before.transactions.length);
+ assert.deepEqual((await state()).cashAccounts,before.cashAccounts);
+ // Explicit linking changes attribution only; amount, timestamp, and cash connection survive.
+ await page.locator('.income-schedule-card [data-action="income-link"]').first().click();
+ await page.locator('#dialog [name="income-transaction"]').selectOption('qa-salary-received');
+ await page.locator('#dialog [name="income-confirm"]').check();
+ await page.locator('#dialog [type=submit]').click();await page.waitForSelector('#dialog[open]',{state:'hidden'});
+ assert.match(await page.locator('.income-schedule-card').first().innerText(),/50,000원 적게/);
+ assert.equal((await state()).transactions.length,before.transactions.length);
+ // One-time date and amount overrides stay in the selected month; future schedule remains unchanged.
+ const month=await page.locator('#month-picker').inputValue();
+ await page.locator('[data-action="month-income"]').first().click();
+ await page.locator('#dialog [name="income-amount-1"]').fill('2600000');
+ await page.locator('#dialog [name="income-date-1"]').fill(month+'-14');
+ await page.locator('#dialog [type=submit]').click();await page.waitForSelector('#dialog[open]',{state:'hidden'});
+ assert.match(await page.locator('.income-schedule-panel').innerText(),/5,700,000/);
+ const next=await page.evaluate(async m=>{const {shiftMonth}=await import('./js/format.js');return shiftMonth(m,1);},month);
+ await page.locator('#month-picker').fill(next);
+ assert.match(await page.locator('.income-schedule-panel').innerText(),/5,800,000/);
+ assert.equal(await page.locator('.income-schedule-card').count(),2);
+ await page.locator('#month-picker').fill(month);
+ // Add/remove rows without dropping the values already entered.
+ await page.locator('[data-action="month-income"]').first().click();
+ await page.locator('#income-editor-add').click();
+ assert.equal(await page.locator('.income-editor-row').count(),3);
+ await page.locator('[data-income-remove]').last().click();
+ assert.equal(await page.locator('#dialog [name="income-amount-1"]').inputValue(),'2600000');
+ await page.locator('#dialog [data-close]').first().click();
+ fs.mkdirSync('qa-results',{recursive:true});const layouts=[];
+ for(const width of [1440,1024,768,390,375,320]){
+  await page.setViewportSize({width,height:900});
+  const m=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth}));assert.ok(m.width<=m.viewport+1,JSON.stringify(m));
+  layouts.push(m);
+  if([390,1440].includes(width))await page.locator('.income-schedule-panel').screenshot({path:`qa-results/income-panel-${width}.png`});
+  await page.locator('[data-action="month-income"]').first().click();
+  const d=await page.locator('#dialog').evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));assert.ok(d.scroll<=d.width+1,JSON.stringify(d));
+  if(width===390)await page.screenshot({path:'qa-results/income-editor-390.png'});
+  await page.locator('#dialog [data-close]').first().click();
+ }
+ await page.reload({waitUntil:'networkidle'});
+ assert.equal(await page.locator('.income-schedule-card').count(),2);
+ assert.match(await page.locator('.income-schedule-panel').innerText(),/5,700,000/);
+ assert.deepEqual(errors,[]);
+ fs.writeFileSync('qa-results/income-browser.json',JSON.stringify({result:'PASS',layouts,errors,checks:['two distinct pay amounts','no fabricated actual income','no cash mutation','explicit actual receipt link','partial amount discrepancy','one month date override','future defaults','add remove fields','reload preservation']},null,2));
+ console.log('PASS distinct payday amounts, actual links, future defaults, one-month exceptions, reload and six responsive sizes');
+}finally{await browser?.close();server.kill();}

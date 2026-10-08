@@ -1,3 +1,4 @@
+import { scheduledIncome } from "./income-schedule.js";
 import { today, daysInMonth, keyText } from "./format.js";
 import { period, startDay, inPeriod, dayDiff } from "./period.js";
 import { recurringLedger } from "./recurring.js";
@@ -30,7 +31,7 @@ export function planFor(state, month) {
   return {
     ...s,
     ...o,
-    income: beforeIncomeStart ? 0 : (o.income ?? s.income),
+    income: scheduledIncome(state, month) ?? (beforeIncomeStart ? 0 : (o.income ?? s.income)),
     personalBudgets: { ...s.personalBudgets, ...o.personalBudgets },
     categoryBudgets: { ...s.categoryBudgets, ...o.categoryBudgets },
   };
