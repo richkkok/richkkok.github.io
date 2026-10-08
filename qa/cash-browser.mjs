@@ -23,7 +23,7 @@ try {
   const date=n=>new Date(Date.now()+9*3600000-n*86400000).toISOString().slice(0,10);
   return {start:date(3)+'T23:59:59',movement:date(2)+'T10:23:00',check:date(1)+'T18:00:00'};
  });
- await page.reload({waitUntil:'networkidle'});await page.waitForSelector('.cash-home');
+ await page.reload({waitUntil:'networkidle'});await page.waitForSelector('.focus-cash');
  const read=()=>page.evaluate(async()=>{const {Repository}=await import('./js/db.js'),{cashSummary}=await import('./js/cash.js');const r=new Repository(),s=await r.read();r.close();return {state:s,cash:cashSummary(s)};});
  const submit=async()=>{await page.locator('#dialog [type=submit]').click();await page.waitForTimeout(120);assert.equal(await page.locator('#dialog[open]').count(),0,await page.locator('#dialog').innerText());};
  await page.locator('[data-action="cash-account"]').first().click();

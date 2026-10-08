@@ -1,3 +1,4 @@
+import { focusAction, moreView } from "./focus-ui.js";
 import { cashView, cashAction } from "./cash-ui.js";
 import { syncCategories, reviewRows } from "./money.js";
 import { moneyAction } from "./money-actions.js";
@@ -40,6 +41,7 @@ import { syncAutoRecurring } from "./recurring.js";
 import { route, navigate, watchRoute } from "./router.js";
 const titles = {
   home: "홈",
+  more: "더보기",
   cash: "계좌·잔액",
   recurring: "자동이체",
   review: "분류 확인",
@@ -131,20 +133,21 @@ app.render = () => {
   const nav = [
     ["home", "home", "홈"],
     ["transactions", "list", "기록"],
-    ["cash", "wallet", "계좌잔액"],
-    ["recurring", "repeat", "자동이체"],
-    ["review", "info", "분류확인"],
-    ["analytics", "chart", "분석"],
-    ["settings", "settings", "설정"],
+    ["cash", "wallet", "현금"],
+    ["recurring", "repeat", "고정지출"],
+    ["more", "dots", "더보기"],
   ];
+  const mainRoute = ["review", "analytics", "settings", "budget", "import"].includes(current) ? "more" : current;
+  const reviewCount = reviewRows(app.state, app.month, true).length;
   document.querySelector("#navigation").innerHTML = nav
     .map(
       ([r, i, label]) =>
-        `<a href="#${r}" class="nav-item ${current === r ? "active" : ""}" ${current === r ? 'aria-current="page"' : ""}>${icon(i)}<span>${label}</span>${r === "review" && reviewRows(app.state, app.month, true).length ? `<b class="money-nav-count" aria-label="전체 분류 대기 ${reviewRows(app.state, app.month, true).length}건">${reviewRows(app.state, app.month, true).length}</b>` : ""}</a>`,
+        `<a href="#${r}" class="nav-item ${mainRoute === r ? "active" : ""}" ${mainRoute === r ? 'aria-current="page"' : ""}>${icon(i)}<span>${label}</span>${r === "more" && reviewCount ? '<i class="focus-nav-dot" aria-label="확인할 분류가 있어"></i>' : ""}</a>`,
     )
     .join("");
-  document.querySelector("#month-title").textContent =
-    monthTitle(app.month) + " 운영월";
+  document.body.dataset.page = current;
+  document.querySelector("#month-title").textContent = monthTitle(app.month) + (current === "home" ? " 가계부" : " 운영월");
+  document.querySelector("#period-label").hidden = current === "home";
   document.querySelector("#period-label").textContent = periodLabel(
     period(app.month, startDay(app.state)),
   );
@@ -184,6 +187,7 @@ app.render = () => {
   document.querySelector("#demo-banner").hidden = app.mode !== "demo";
   document.querySelector("#app-header").hidden = !app.state.configured;
   const main = document.querySelector("#main");
+  const openFolds = new Set([...main.querySelectorAll('details[data-focus-fold][open]')].map(el => el.dataset.focusFold));
   const focused = document.activeElement,
     focusName = focused?.name,
     caret = focused?.selectionStart;
@@ -192,6 +196,7 @@ app.render = () => {
   else
     main.innerHTML = {
       home: () => controlHome(app.state, app.month),
+      more: () => moreView(app.state, app.month),
       cash: () => cashView(app.state, app.cashFilters),
       recurring: () => recurringView(app.state, app.month, app.recurringFilters),
       review: () => reviewView(app.state, app.month, app.reviewFilters),
@@ -202,6 +207,7 @@ app.render = () => {
       import: () => importView(app.state, app.importSession),
     }[current]();
   if (app.state.configured && current !== "cash") main.insertAdjacentHTML("afterbegin", cycleStrip(app.state, app.month));
+  main.querySelectorAll('details[data-focus-fold]').forEach(el => { el.open = openFolds.has(el.dataset.focusFold); });
   if (app.state.configured && current === "import") mountImport(app);
   if (["transaction-search", "recurring-search", "review-search", "cash-search"].includes(focusName)) {
     const input = main.querySelector(`[name="${focusName}"]`);
@@ -297,6 +303,7 @@ document.addEventListener("click", async (event) => {
       }
     const action = target.dataset.action;
     if (!action) return;
+    if (await focusAction(app, action, target)) return;
     if (await cashAction(app, action, target)) return;
     if (await moneyAction(app, action, target)) return;
     if (await behaviorAction(app, action, target)) return;

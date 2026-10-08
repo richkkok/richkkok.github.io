@@ -54,7 +54,8 @@ test("All views render meaningful accessible controls, escape user text and mask
       item.dataset.filterCategory || item.dataset.filterCategories,
       "Category drill-down must carry a single or grouped category filter",
     );
-  assert.ok(homeDoc.querySelector(".smart-home-panel"));
+  assert.equal(homeDoc.querySelectorAll(".focus-board > .focus-card").length, 3);
+  assert.equal(homeDoc.querySelectorAll(".focus-details > details[open]").length, 0);
   assert.ok(homeDoc.querySelector(".detail-disclosure"));
   assert.match(
     homeDoc.querySelector(".category-share-panel").textContent,
