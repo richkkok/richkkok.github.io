@@ -14,3 +14,8 @@
 
 .money-hero h2{color:#fff}.money-hero .money-record-warning{display:inline-block;background:#ffffff1c;color:#fff1cd;padding:5px 9px;border-radius:7px;margin-top:9px;font-size:.73rem}.money-three .money-metric>strong{white-space:nowrap}
 @media(max-width:700px){.money-three{grid-template-columns:repeat(2,minmax(0,1fr))}.money-three>.money-metric:first-child{grid-column:1/-1}.money-three .money-metric>strong{font-size:1.15rem}.money-three>.money-metric:first-child>strong{font-size:1.4rem}}
+/* Home uses a half-width desktop card; reserve enough width for Korean currency. */
+.money-recurring .money-three{grid-template-columns:repeat(2,minmax(0,1fr))}
+.money-recurring .money-three>.money-metric:first-child{grid-column:1/-1}
+.money-recurring .money-three .money-metric>strong{font-size:1.2rem}
+.money-recurring .money-three>.money-metric:first-child>strong{font-size:1.5rem}
