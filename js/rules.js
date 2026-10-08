@@ -41,7 +41,7 @@ export function classify(tx, rules = []) {
         ? "dining"
         : /병원|약국|의원/.test(text)
           ? "health"
-          : /관리비|월세|전기|도시가스|수도/.test(text)
+          : /관리비|월세|임차료/.test(text)
             ? "housing"
             : /대출|보험|이자/.test(text)
               ? "finance"

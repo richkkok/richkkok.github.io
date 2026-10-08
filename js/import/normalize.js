@@ -229,7 +229,7 @@ export function normalizeRow(
   }
   const kind = String(cell("costKind") || "");
   const oneOffByMerchant =
-    /재산세|주민세|고향사랑기부|연회비|카드연회비/i.test(tx.merchantRaw);
+    /재산세|주민세|자동차세|종합소득세|지방소득세|부가가치세|종합부동산세|취득세|등록면허세|국세납부|지방세납부|세금납부|위택스|고향사랑기부|연회비|카드연회비/i.test(tx.merchantRaw);
   tx.costKind = /fixed|고정/i.test(kind)
     ? "fixed"
     : /oneoff|일회/i.test(kind)
@@ -238,7 +238,7 @@ export function normalizeRow(
         ? "variable"
         : oneOffByMerchant
           ? "oneoff"
-          : ["housing", "finance", "subscription"].includes(tx.category)
+          : ["housing", "tax", "finance", "subscription"].includes(tx.category)
             ? "fixed"
             : "variable";
   tx.costKindInferred = !kind;

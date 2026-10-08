@@ -11,6 +11,10 @@ export function migrate(state) {
   for (const c of CATEGORIES)
     if (!state.categories.some((old) => old.id === c.id))
       state.categories.push(structuredClone(c));
+  // Keep the housing ID so transactions, recurring links and budgets stay intact.
+  // Only rename the previous built-in label; never replace a user's custom name.
+  const housing = state.categories.find((c) => c.id === "housing");
+  if (housing?.name === "주거·관리") housing.name = "주거비";
   state.productVersion = 2;
   return state;
 }
