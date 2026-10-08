@@ -26,7 +26,7 @@ try {
   const r=new Repository();await r.replace(s);r.close();
  });
  await page.reload({waitUntil:'networkidle'});
- await page.waitForSelector('.money-big');
+ await page.waitForSelector('[data-focus-value=remaining]');
  const overview=()=>page.evaluate(async()=>{const {Repository}=await import('./js/db.js');const {moneyOverview}=await import('./js/money.js');const {periodKey,startDay}=await import('./js/period.js');const r=new Repository(),s=await r.read();r.close();return moneyOverview(s,periodKey(undefined,startDay(s)));});
  const routes=['home','recurring','review','transactions','budget','analytics','settings','import'];
  for(const route of routes){await page.goto('http://127.0.0.1:4174/#'+route);await page.waitForTimeout(80);assert.equal(await page.locator('.cycle-strip').count(),1,route);}
@@ -40,12 +40,12 @@ try {
  assert.equal(await page.locator('#dialog [name=learn]').count(),0);
  await page.locator('#dialog [name=category]').selectOption('other');await page.locator('#dialog [type=submit]').click();await page.waitForTimeout(150);
  assert.equal(await page.locator('[data-action="money-review"][data-id="qa-pg"]').count(),0);
- await page.goto('http://127.0.0.1:4174/#home');await page.locator('[data-action="money-plan"]').first().click();
+ await page.goto('http://127.0.0.1:4174/#home');await page.locator('[data-focus-fold="budget"] > summary').click();await page.locator('[data-action="money-plan"]').first().click();
  for(const [name,value]of [['shared','1800000'],['p1','350000'],['p2','350000']])await page.locator(`#dialog [name=${name}]`).fill(value);
  await page.locator('#dialog [type=submit]').click();await page.waitForTimeout(150);
- assert.ok((await page.locator('.money-summary').innerText()).includes('2,500,000원'));
+ assert.ok((await page.locator('.focus-budget').innerText()).includes('2,500,000원'));
  const incomeBefore=(await overview()).d.b.actualIncome;
- await page.locator('[data-action="money-income"]').click();await page.locator('[data-action="money-add-income"]').click();
+ await page.locator('[data-focus-fold="income"] > summary').click();await page.locator('[data-action="money-income"]').click();await page.locator('#dialog [data-action="money-add-income"]').click();
  for(const [name,value]of [['amount','123456'],['merchant','QA 급여'],['payment','QA 계좌']])await page.locator(`#dialog [name=${name}]`).fill(value);
  await page.locator('#dialog [type=submit]').click();await page.waitForTimeout(150);
  assert.equal((await overview()).d.b.actualIncome,incomeBefore+123456);

@@ -15,6 +15,7 @@ try {
  await page.goto('http://127.0.0.1:4176/',{waitUntil:'networkidle'});
  await page.evaluate(async()=>{const {sampleState}=await import('./data/sample.js');const {Repository}=await import('./js/db.js');const {periodKey,period}=await import('./js/period.js');const s=sampleState();s.demo=false;s.settings.privacy=false;s.settings.income=6500000;s.settings.monthOverrides={};const p=period(periodKey());s.transactions.push({id:'qa-salary-received',sourceId:'qa-salary-received',direction:'income',amount:3050000,owner:'p1',date:p.start,datetime:p.start+'T10:03:00',merchantRaw:'QA 급여 입금',merchantNormalized:'QA 급여 입금',paymentMethod:'QA 계좌',scope:'shared',category:'other',excluded:false,deletedAt:null});const r=new Repository();await r.replace(s);r.close();});
  await page.reload({waitUntil:'networkidle'});
+ await page.locator('[data-focus-fold=income] > summary').click();
  await page.waitForSelector('.income-schedule-panel');
  const state=()=>page.evaluate(async()=>{const {Repository}=await import('./js/db.js');const r=new Repository(),s=await r.read();r.close();return s;});
  const before=await state();
@@ -72,6 +73,7 @@ try {
   await page.locator('#dialog [data-close]').first().click();
  }
  await page.reload({waitUntil:'networkidle'});
+ await page.locator('[data-focus-fold=income] > summary').click();
  assert.equal(await page.locator('.income-schedule-card').count(),2);
  assert.match(await page.locator('.income-schedule-panel').innerText(),/5,700,000/);
  assert.deepEqual(errors,[]);
