@@ -1,3 +1,4 @@
+import { matchRecurring } from "./recurring.js";
 import { cashNow, cashTime, cashSummary, cashLedger, cashRoots, cashConnection, cashFingerprint, cashHidden, ensureCash, saveCashAccount, saveCashCheck, saveCashLink } from './cash.js';
 import { escape as e, won, amountInput, uid, normalizeText, keyText } from './format.js';
 import { memberName } from '../data/defaults.js';
@@ -71,7 +72,7 @@ export async function cashAction(app, action, target) {
         const a=(st.cashAccounts||[]).find(a=>a.id===accountId&&!a.archived);if(!a)throw Error('계좌가 변경됐어요.');
         if(cashRoots(st).some(t=>t.datetime===postedAt&&t.amount===amount&&t.merchantRaw===merchant&&t.paymentMethod===(a.paymentMethod||a.name)))throw Error('같은 내용·시각·금액의 거래가 이미 있어요. 연결 기능을 사용해 주세요.');
         if(!st.categories.some(c=>c.id===category&&!c.archived))throw Error('카테고리가 변경됐어요.');
-        st.transactions.push({id,sourceId:id,date:postedAt.slice(0,10),datetime:postedAt,amount,direction,owner:a.owner,merchantRaw:merchant,merchantNormalized:normalizeText(merchant),category,categoryConfirmed:true,scope:direction==='transfer'?'excluded':'shared',excluded:direction==='transfer',paymentMethod:a.paymentMethod||a.name,note:'계좌 입출금 직접 기록',sourceType:'manual',costKind:'variable',recurringId:null,performanceStatus:'unknown',deletedAt:null,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+        st.transactions.push(matchRecurring({id,sourceId:id,date:postedAt.slice(0,10),datetime:postedAt,amount,direction,owner:a.owner,merchantRaw:merchant,merchantNormalized:normalizeText(merchant),category,categoryConfirmed:true,scope:direction==='transfer'?'excluded':'shared',excluded:direction==='transfer',paymentMethod:a.paymentMethod||a.name,note:'계좌 입출금 직접 기록',sourceType:'manual',costKind:'variable',recurringId:null,performanceStatus:'unknown',deletedAt:null,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}, st.recurring));
         const legs=[{accountId,direction:['income','refund'].includes(kind)?'in':'out',at:postedAt},...(kind==='transfer'?[{accountId:String(f.get('toAccountId')),direction:'in',at:postedAt}]:[])];
         saveCashLink(st,id,legs);
       });toast('입출금을 저장했어요. 이체·카드대금은 소비에 중복 합산하지 않았어요.');

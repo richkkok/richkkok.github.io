@@ -14,6 +14,8 @@ try {
  await context.route(/supabase\.co/,r=>r.abort());
  const page=await context.newPage(), errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('http://127.0.0.1:4175/',{waitUntil:'networkidle'});
+ // HTML normalizes zero seconds; feed the canonical value expected by the driver.
+ const inputTime=v=>v.endsWith(':00')?v.slice(0,-3):v;
  const dates=await page.evaluate(async()=>{
   const {emptyState}=await import('./data/defaults.js'),{Repository}=await import('./js/db.js');
   const s=emptyState();s.configured=true;s.settings.privacy=false;s.settings.income=4000000;s.settings.sharedBudget=2000000;
@@ -25,7 +27,7 @@ try {
  const read=()=>page.evaluate(async()=>{const {Repository}=await import('./js/db.js'),{cashSummary}=await import('./js/cash.js');const r=new Repository(),s=await r.read();r.close();return {state:s,cash:cashSummary(s)};});
  const submit=async()=>{await page.locator('#dialog [type=submit]').click();await page.waitForTimeout(120);assert.equal(await page.locator('#dialog[open]').count(),0,await page.locator('#dialog').innerText());};
  await page.locator('[data-action="cash-account"]').first().click();
- for(const [n,v]of [['name','QA 생활비 계좌'],['openingBalance','1000000'],['openingAt',dates.start],['reserved','100000']])await page.locator(`#dialog [name=${n}]`).fill(v);
+ for(const [n,v]of [['name','QA 생활비 계좌'],['openingBalance','1000000'],['openingAt',dates.start],['reserved','100000']])await page.locator(`#dialog [name=${n}]`).fill(['at','openingAt'].includes(n)?inputTime(v):v);
  await submit();
  let d=await read();const a=d.cash.accounts[0].id;assert.equal(d.cash.accounts[0].difference,null);assert.equal(d.state.transactions.length,0);assert.equal(d.cash.usable,900000);
  await page.goto('http://127.0.0.1:4175/#cash');await page.waitForSelector('.cash-page');
@@ -33,11 +35,11 @@ try {
  await page.locator('[data-action="cash-entry"]').first().click();
  await page.locator('#dialog [name=kind]').selectOption('expense');
  await page.locator('#dialog [name=category]').selectOption('work');
- for(const[n,v]of[['merchant','QA 업무경비'],['amount','12000'],['at',dates.movement]])await page.locator(`#dialog [name=${n}]`).fill(v);
+ for(const[n,v]of[['merchant','QA 업무경비'],['amount','12000'],['at',dates.movement]])await page.locator(`#dialog [name=${n}]`).fill(['at','openingAt'].includes(n)?inputTime(v):v);
  await page.locator('#dialog [name=checked]').check();await submit();
  d=await read();assert.equal(d.cash.expected,988000);assert.equal(d.state.transactions.length,1);assert.equal(d.state.transactions[0].category,'work');
  await page.locator('.cash-account [data-action="cash-check"]').click();
- await page.locator('#dialog [name=actual]').fill('985000');await page.locator('#dialog [name=at]').fill(dates.check);await page.locator('#dialog [name=checked]').check();await submit();
+ await page.locator('#dialog [name=actual]').fill('985000');await page.locator('#dialog [name=at]').fill(inputTime(dates.check));await page.locator('#dialog [name=checked]').check();await submit();
  d=await read();assert.equal(d.cash.accounts[0].difference,-3000);assert.equal(d.state.transactions.length,1);
  assert.ok((await page.locator('.cash-result').innerText()).includes('실제가 3,000원 적음'));
  // An existing bank movement is linked without creating another household expense.
@@ -47,11 +49,11 @@ try {
  await page.locator('#dialog [name=mode]').selectOption('in');await page.locator('#dialog [name=accountId]').selectOption(a);await page.locator('#dialog [name=checked]').check();await submit();
  d=await read();assert.equal(d.cash.expected,993000);assert.equal(d.state.transactions.length,2);assert.equal(d.cash.accounts[0].difference,-8000);assert.equal(d.cash.accounts[0].recalculated,true);
  await page.locator('[data-action="cash-account"]').first().click();
- for(const[n,v]of[['name','QA 두번째 계좌'],['openingBalance','100000'],['openingAt',dates.start]])await page.locator(`#dialog [name=${n}]`).fill(v);await submit();
+ for(const[n,v]of[['name','QA 두번째 계좌'],['openingBalance','100000'],['openingAt',dates.start]])await page.locator(`#dialog [name=${n}]`).fill(['at','openingAt'].includes(n)?inputTime(v):v);await submit();
  d=await read();const b=d.cash.accounts.find(x=>x.id!==a).id;
  await page.locator(`[data-action="cash-entry"][data-id="${a}"]`).click();
  await page.locator('#dialog [name=kind]').selectOption('transfer');await page.locator('#dialog [name=toAccountId]').selectOption(b);
- for(const[n,v]of[['merchant','QA 계좌이체'],['amount','20000'],['at',dates.movement]])await page.locator(`#dialog [name=${n}]`).fill(v);await page.locator('#dialog [name=checked]').check();await submit();
+ for(const[n,v]of[['merchant','QA 계좌이체'],['amount','20000'],['at',dates.movement]])await page.locator(`#dialog [name=${n}]`).fill(['at','openingAt'].includes(n)?inputTime(v):v);await page.locator('#dialog [name=checked]').check();await submit();
  d=await read();assert.equal(d.cash.expected,1093000);assert.equal(d.cash.accounts.find(x=>x.id===a).now.expected,973000);assert.equal(d.cash.accounts.find(x=>x.id===b).now.expected,120000);
  // Void just the mistaken balance observation, not financial records.
  await page.locator('[data-action="cash-void"]').click();await submit();d=await read();assert.equal(d.state.transactions.length,3);assert.equal(d.cash.accounts.find(x=>x.id===a).difference,null);
