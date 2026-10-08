@@ -1,3 +1,4 @@
+import { incomeAction } from "./income-ui.js";
 import { moneyOverview, cycleText, syncCategories, confirmCategory, ambiguousMerchant } from "./money.js";
 import { openDialog, field, select, button, hiddenPersonal, transactionRow, toast } from "./ui.js";
 import { escape as e, won, today, uid, amountInput, normalizeText } from "./format.js";
@@ -5,6 +6,7 @@ import { periodKey, startDay, validDate } from "./period.js";
 import { memberName } from "../data/defaults.js";
 
 export async function moneyAction(app, action, target) {
+  if (await incomeAction(app, action, target)) return true;
   if (!action.startsWith("money-") && action !== "recurring-list") return false;
   const s = app.state, o = moneyOverview(s, app.month), b = o.d;
   if (action === "recurring-list") app.navigate("recurring");

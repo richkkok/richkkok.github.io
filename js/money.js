@@ -1,3 +1,4 @@
+import { incomeScheduleFor, incomeDate } from "./income-schedule.js";
 import { dashboard, liveExpense, costKind } from "./behavior.js";
 import { expenseValue } from "./budget.js";
 import { classify } from "./rules.js";
@@ -101,7 +102,8 @@ export function moneyOverview(s, month, asOf = today()) {
   const paid = recurring.reduce((n, r) => n + r.actual, 0);
   const unpaid = recurring.reduce((n, r) => n + r.outstanding, 0);
   const daily = d.p.start > asOf ? d.p.days : d.p.end < asOf ? 0 : dayDiff(asOf, d.p.end) + 1;
-  const salaryDates = [...new Set(s.settings.salaryDays || [10, 15])].flatMap(day =>
+  const configuredIncome = incomeScheduleFor(s, month);
+  const salaryDates = configuredIncome ? configuredIncome.entries.map(r => incomeDate(s, month, r)).sort() : [...new Set(s.settings.salaryDays || [10, 15])].flatMap(day =>
     [...new Set([d.p.start.slice(0, 7), d.p.end.slice(0, 7)])].map(m => occurrence({ day, amount: 0, changes: [] }, m)?.date)
       .filter(date => date && date >= d.p.start && date <= d.p.end)).sort();
   return { d, asOf, recurring, total, paid, unpaid, allowances, allowanceReserve, sharedUsed, sharedRemaining,
