@@ -1,3 +1,6 @@
+import { syncCategories, reviewRows } from "./money.js";
+import { moneyAction } from "./money-actions.js";
+import { cycleStrip, recurringView, reviewView } from "./views/money.js";
 import { periodKey, startDay, periodLabel, period } from "./period.js";
 import { behaviorAction, quickEntry } from "./behavior-actions.js";
 import { controlHome, controlAnalysis } from "./views/behavior.js";
@@ -36,6 +39,8 @@ import { syncAutoRecurring } from "./recurring.js";
 import { route, navigate, watchRoute } from "./router.js";
 const titles = {
   home: "홈",
+  recurring: "자동이체",
+  review: "분류 확인",
   transactions: "기록",
   budget: "계획",
   analytics: "분석",
@@ -48,6 +53,8 @@ const app = {
   month: currentMonth(),
   step: 1,
   filters: { query: "", limit: 100 },
+  recurringFilters: { mode: "cycle", query: "" },
+  reviewFilters: { mode: "cycle", query: "", limit: 100 },
   importSession: { owner: "p1", sheet: 0, queue: [] },
   repo: null,
   pwa: null,
@@ -70,10 +77,24 @@ app.load = async () => {
   app.render();
 };
 app.update = async (change) => {
+  const mutate = state => {
+    const before = new Map(state.transactions.map(t => [t.id, t.category]));
+    const rulesBefore = new Set(state.rules.map(r => r.id));
+    const next = change(state) || state;
+    for (const t of next.transactions) {
+      const edited = before.has(t.id) && before.get(t.id) !== t.category;
+      const learned = !before.has(t.id) && t.sourceType === "manual" && next.rules.some(r =>
+        !rulesBefore.has(r.id) && r.learned && r.match === "exact" &&
+        r.pattern === t.merchantNormalized && r.category === t.category);
+      if (edited || learned) t.categoryConfirmed = true;
+    }
+    syncCategories(next);
+    return next;
+  };
   app.state =
     app.mode === "real" && app.cloud?.connected
-      ? await app.cloud.mutate(change)
-      : await app.repo.mutate(change);
+      ? await app.cloud.mutate(mutate)
+      : await app.repo.mutate(mutate);
   app.render();
   try {
     channel?.postMessage("changed");
@@ -82,7 +103,8 @@ app.update = async (change) => {
 app.applyAutoRecurring = async () => {
   const preview = structuredClone(app.state);
   const result = syncAutoRecurring(preview);
-  if (!result.changed) return result;
+  const classified = syncCategories(preview);
+  if (!result.changed && !classified) return result;
   await app.update((state) => {
     syncAutoRecurring(state);
   });
@@ -106,13 +128,15 @@ app.render = () => {
   const nav = [
     ["home", "home", "홈"],
     ["transactions", "list", "기록"],
+    ["recurring", "repeat", "자동이체"],
+    ["review", "info", "분류확인"],
     ["analytics", "chart", "분석"],
     ["settings", "settings", "설정"],
   ];
   document.querySelector("#navigation").innerHTML = nav
     .map(
       ([r, i, label]) =>
-        `<a href="#${r}" class="nav-item ${current === r ? "active" : ""}" ${current === r ? 'aria-current="page"' : ""}>${icon(i)}<span>${label}</span></a>`,
+        `<a href="#${r}" class="nav-item ${current === r ? "active" : ""}" ${current === r ? 'aria-current="page"' : ""}>${icon(i)}<span>${label}</span>${r === "review" && reviewRows(app.state, app.month, true).length ? `<b class="money-nav-count" aria-label="전체 분류 대기 ${reviewRows(app.state, app.month, true).length}건">${reviewRows(app.state, app.month, true).length}</b>` : ""}</a>`,
     )
     .join("");
   document.querySelector("#month-title").textContent =
@@ -159,15 +183,18 @@ app.render = () => {
   else
     main.innerHTML = {
       home: () => controlHome(app.state, app.month),
+      recurring: () => recurringView(app.state, app.month, app.recurringFilters),
+      review: () => reviewView(app.state, app.month, app.reviewFilters),
       transactions: () => transactionsView(app.state, app.month, app.filters),
       budget: () => budgetView(app.state, app.month),
       analytics: () => controlAnalysis(app.state, app.month),
       settings: () => settingsView(app.state, app.cloud?.summary()),
       import: () => importView(app.state, app.importSession),
     }[current]();
+  if (app.state.configured) main.insertAdjacentHTML("afterbegin", cycleStrip(app.state, app.month));
   if (app.state.configured && current === "import") mountImport(app);
-  if (focusName === "transaction-search") {
-    const input = main.querySelector("[name=transaction-search]");
+  if (["transaction-search", "recurring-search", "review-search"].includes(focusName)) {
+    const input = main.querySelector(`[name="${focusName}"]`);
     input?.focus();
     if (caret !== null)
       try {
@@ -260,6 +287,7 @@ document.addEventListener("click", async (event) => {
       }
     const action = target.dataset.action;
     if (!action) return;
+    if (await moneyAction(app, action, target)) return;
     if (await behaviorAction(app, action, target)) return;
     if (action.startsWith("go-")) {
       document.querySelector("#dialog").close();
@@ -322,7 +350,19 @@ document.querySelector("#month-picker").onchange = (event) => {
     app.render();
   }
 };
+document.addEventListener("change", event => {
+  const match = /^(recurring|review)-(mode|status|owner|sort)$/.exec(event.target.name || "");
+  if (!match) return;
+  app[match[1] + "Filters"][match[2]] = event.target.value;
+  app.render();
+});
 document.addEventListener("input", (event) => {
+  const match = /^(recurring|review)-search$/.exec(event.target.name || "");
+  if (match) {
+    app[match[1] + "Filters"].query = event.target.value;
+    app.render();
+    return;
+  }
   if (event.target.name === "transaction-search") {
     app.filters.query = event.target.value;
     app.filters.limit = 100;

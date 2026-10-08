@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import { sampleState } from "../data/sample.js";
-import { currentMonth } from "../js/format.js";
+import { periodKey, startDay } from "../js/period.js";
 import {
   controlHome as homeView,
   controlAnalysis as analyticsView,
@@ -16,7 +16,7 @@ import { field, transactionRow } from "../js/ui.js";
 test("All views render meaningful accessible controls, escape user text and mask personal merchants", () => {
   const s = sampleState();
   s.settings.members.p1 = "<script>alert(1)</script>";
-  const month = currentMonth();
+  const month = periodKey(undefined, startDay(s));
   for (const html of [
     homeView(s, month),
     transactionsView(s, month, {}),
