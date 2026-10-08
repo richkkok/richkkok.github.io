@@ -1,3 +1,4 @@
+import { cashView, cashAction } from "./cash-ui.js";
 import { syncCategories, reviewRows } from "./money.js";
 import { moneyAction } from "./money-actions.js";
 import { cycleStrip, recurringView, reviewView } from "./views/money.js";
@@ -39,6 +40,7 @@ import { syncAutoRecurring } from "./recurring.js";
 import { route, navigate, watchRoute } from "./router.js";
 const titles = {
   home: "홈",
+  cash: "계좌·잔액",
   recurring: "자동이체",
   review: "분류 확인",
   transactions: "기록",
@@ -53,6 +55,7 @@ const app = {
   month: currentMonth(),
   step: 1,
   filters: { query: "", limit: 100 },
+  cashFilters: { query: "", status: "pending", limit: 50 },
   recurringFilters: { mode: "cycle", query: "" },
   reviewFilters: { mode: "cycle", query: "", limit: 100 },
   importSession: { owner: "p1", sheet: 0, queue: [] },
@@ -128,6 +131,7 @@ app.render = () => {
   const nav = [
     ["home", "home", "홈"],
     ["transactions", "list", "기록"],
+    ["cash", "wallet", "계좌잔액"],
     ["recurring", "repeat", "자동이체"],
     ["review", "info", "분류확인"],
     ["analytics", "chart", "분석"],
@@ -172,6 +176,11 @@ app.render = () => {
     }</small></span>`;
   }
   document.querySelector("#month-picker").value = app.month;
+  document.querySelector("#month-picker").closest("label").hidden = current === "cash";
+  if (current === "cash") {
+    document.querySelector("#month-title").textContent = "계좌 현금";
+    document.querySelector("#period-label").textContent = "실제 입출금 시각 기준 · 운영월 필터 미적용";
+  }
   document.querySelector("#demo-banner").hidden = app.mode !== "demo";
   document.querySelector("#app-header").hidden = !app.state.configured;
   const main = document.querySelector("#main");
@@ -183,6 +192,7 @@ app.render = () => {
   else
     main.innerHTML = {
       home: () => controlHome(app.state, app.month),
+      cash: () => cashView(app.state, app.cashFilters),
       recurring: () => recurringView(app.state, app.month, app.recurringFilters),
       review: () => reviewView(app.state, app.month, app.reviewFilters),
       transactions: () => transactionsView(app.state, app.month, app.filters),
@@ -191,9 +201,9 @@ app.render = () => {
       settings: () => settingsView(app.state, app.cloud?.summary()),
       import: () => importView(app.state, app.importSession),
     }[current]();
-  if (app.state.configured) main.insertAdjacentHTML("afterbegin", cycleStrip(app.state, app.month));
+  if (app.state.configured && current !== "cash") main.insertAdjacentHTML("afterbegin", cycleStrip(app.state, app.month));
   if (app.state.configured && current === "import") mountImport(app);
-  if (["transaction-search", "recurring-search", "review-search"].includes(focusName)) {
+  if (["transaction-search", "recurring-search", "review-search", "cash-search"].includes(focusName)) {
     const input = main.querySelector(`[name="${focusName}"]`);
     input?.focus();
     if (caret !== null)
@@ -287,6 +297,7 @@ document.addEventListener("click", async (event) => {
       }
     const action = target.dataset.action;
     if (!action) return;
+    if (await cashAction(app, action, target)) return;
     if (await moneyAction(app, action, target)) return;
     if (await behaviorAction(app, action, target)) return;
     if (action.startsWith("go-")) {
@@ -351,12 +362,14 @@ document.querySelector("#month-picker").onchange = (event) => {
   }
 };
 document.addEventListener("change", event => {
+  if (event.target.name === "cash-status") { app.cashFilters.status = event.target.value; app.cashFilters.limit = 50; app.render(); return; }
   const match = /^(recurring|review)-(mode|status|owner|sort)$/.exec(event.target.name || "");
   if (!match) return;
   app[match[1] + "Filters"][match[2]] = event.target.value;
   app.render();
 });
 document.addEventListener("input", (event) => {
+  if (event.target.name === "cash-search") { app.cashFilters.query = event.target.value; app.cashFilters.limit = 50; app.render(); return; }
   const match = /^(recurring|review)-search$/.exec(event.target.name || "");
   if (match) {
     app[match[1] + "Filters"].query = event.target.value;

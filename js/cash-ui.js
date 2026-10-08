@@ -1,0 +1,85 @@
+import { matchRecurring } from "./recurring.js";
+import { cashNow, cashTime, cashSummary, cashLedger, cashRoots, cashConnection, cashFingerprint, cashHidden, ensureCash, saveCashAccount, saveCashCheck, saveCashLink } from './cash.js';
+import { escape as e, won, amountInput, uid, normalizeText, keyText } from './format.js';
+import { memberName } from '../data/defaults.js';
+import { button, sectionTitle, field, select, openDialog, toast, icon } from './ui.js';
+const when = v => String(v || '').replace('T',' ').replaceAll('-','.');
+const diffText = n => n === null ? '첫 기준만 등록 · 아직 검증 전' : n === 0 ? '연결 기록상 일치' : `실제가 ${won(Math.abs(n))} ${n > 0 ? '많음' : '적음'}`;
+const metric = (label, value, small='') => `<div class="cash-metric"><span>${e(label)}</span><strong>${e(value)}</strong><small>${e(small)}</small></div>`;
+const actionButton=(label,action,id,cls='secondary')=>`<button type="button" class="btn ${cls}" data-action="${action}" data-id="${e(id)}">${e(label)}</button>`;
+const signed=n=>`${n>0?'+':''}${won(n)}`;
+export function cashHome(s) {
+  const c=cashSummary(s);
+  return `<section class="card cash-home">${sectionTitle('실제 계좌 현금 · 잔액 확인','소비 예산과 별개 · 은행 자동조회가 아닌 직접 확인한 잔액',button('계좌·잔액 관리','go-cash','secondary','wallet'))}${!c.accounts.length?`<div class="cash-empty"><strong>지금 계좌에서 쓸 수 있는 현금을 입력해 줘</strong><p>계좌 잔액을 기준으로 저장한 뒤, 이후 입출금 기록과 실제 잔액의 차이를 확인해요. 최초 입력은 검증 완료가 아니에요.</p>${button('현재 계좌 잔액 입력','cash-account','primary','plus')}</div>`:`<div class="cash-metrics">${metric('최근 확인 잔액 합계',won(c.actual),`${c.accounts.length}개 계좌 · 계좌별 확인시각은 다를 수 있어요`)}${metric('따로 확보할 돈을 뺀 현금',won(c.usable),`별도 확보 ${won(c.reserved)} · 미래 카드대금 등은 직접 확보액에 입력`)}${metric('계좌별 차이 합계',won(c.absoluteDifference),`${c.mismatchCount}개 계좌 불일치 · 서로 상쇄하지 않은 절대금액`)}</div><div class="cash-status-bar ${c.mismatchCount||c.pending.length?'cash-warning':''}"><div><strong>${c.mismatchCount?`${c.mismatchCount}개 계좌 잔액을 확인해 주세요`:c.baselineCount?`${c.baselineCount}개 계좌는 기준잔액만 등록했어요`:c.pending.length?'계좌 연결·입출금 방향을 확인해 주세요':'최근 확인시각의 연결 기록상 일치'}</strong><p>계좌 미연결·재확인 ${c.pending.length}건 · 가장 오래된 확인 ${when(c.oldest)}. 차이가 0원이어도 누락 거래가 없다는 보장은 아니에요.</p></div>${button('실제 잔액 확인','cash-check','primary')}</div>`}</section>`;
+}
+export function cashView(s, f={}) {
+  const c=cashSummary(s), accounts=c.accounts, all=(s.cashAccounts||[]);
+  const activeNames=new Map(all.map(a=>[a.id,a.name]));
+  const first=accounts.map(a=>a.openingAt.slice(0,10)).sort()[0];
+  const rows=c.rows.filter(r=>!first||r.t.date>=first).filter(r=>r.t.date<=cashNow().slice(0,10))
+    .filter(r=>f.status==='all'||(f.status==='linked'?['linked','auto'].includes(r.status):['unlinked','review'].includes(r.status)))
+    .filter(r=>!f.query||keyText(cashHidden(r.t,s)?`${r.t.date} ${r.t.amount} 개인 지출`:`${r.t.merchantRaw} ${r.t.paymentMethod} ${r.t.amount}`).includes(keyText(f.query)))
+    .sort((a,b)=>b.t.date.localeCompare(a.t.date));
+  const history=[...(s.cashChecks||[])].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,f.historyLimit||20);
+  return `<div class="cash-page"><div class="page-intro"><div><h1>계좌 현금 · 잔액 맞춰보기</h1><p>기준잔액 + 실제 입금 − 실제 출금 = 기록상 잔액. 가계부 운영월이 아니라 실제 입출금 시각으로 계산해요.</p></div>${button('계좌 추가','cash-account','primary','plus')}</div>${cashHome(s)}
+  <div class="cash-notice"><strong>처음 입력할 때</strong><p>현재 잔액을 입력하면 지금부터 기록을 맞춰볼 기준이 돼요. 과거 입출금까지 확인하려면 과거의 정확한 잔액·시각을 기준으로 등록한 뒤 현재 잔액을 한 번 더 입력해 주세요. 기준잔액이 없는 과거 기간은 검증하지 않아요.</p><p>‘자동이체 예정’은 실제 출금에 포함하지 않아요. 신용카드 사용은 결제대금이 빠져나갈 때 현금에 반영하고, 체크카드·현금결제는 실제 출금 계좌를 연결해 주세요.</p></div>
+  <div class="cash-account-grid">${accounts.map(a=>`<article class="card cash-account"><header><div><h2>${e(a.name)}</h2><p>${e(memberName(a.owner,s))} · ${e(a.autoMatch?a.paymentMethod+' (은행내역 자동 연결)':'거래별 직접 연결')}</p></div>${actionButton('설정','cash-account',a.id,'text')}</header><div class="cash-metrics"><div class="cash-metric"><span>실제 잔액 · 최근 확인</span><strong>${won(a.actual)}</strong><small>${when(a.measuredAt)}</small></div>${metric('지금까지 기록상 잔액',won(a.now.expected),'연결된 입출금만 반영 · 실제 잔액 아님')}</div><div class="cash-result ${a.difference||a.checked.pending.length?'cash-warning':''}"><strong>${diffText(a.difference)}</strong><p>${a.last?`비교시각 ${when(a.last.at)} · 기준 ${won(a.openingBalance)} + 입금 ${won(a.checked.incoming)} − 출금 ${won(a.checked.outgoing)} = ${won(a.checked.expected)}`:'첫 기준잔액 이후의 실제 잔액을 입력하면 차이가 표시돼요.'}${a.checked.pending.length?`<br>이 계좌의 방향·시각 재확인 ${a.checked.pending.length}건은 아직 계산에 넣지 않았어요.`:''}${a.recalculated?'<br>확인 후 거래·연결이 바뀌어 다시 계산했어요. 실제 잔액도 다시 확인해 주세요.':''}</p></div><p class="cash-small">시작 기준 ${when(a.openingAt)} · ${won(a.openingBalance)}<br>별도 확보액 ${won(a.reserved)} · 최근 확인 기준 쓸 현금 ${won(a.usable)}</p><footer>${actionButton('실제 잔액 입력','cash-check',a.id,'primary')}${actionButton('입출금·계산 근거','cash-ledger',a.id)}${actionButton('계좌 입출금 기록','cash-entry',a.id)}</footer></article>`).join('')}</div>
+  ${accounts.length?`<section class="card cash-links"><div class="section-heading"><div><h2>거래내역과 계좌 연결</h2><p>원래 금액·소비 분류는 그대로 두고, 현금이 어느 계좌에서 오갔는지만 지정해요.</p></div>${button('거래 가져오기','go-import','secondary','upload')}</div><div class="cash-filters">${field('사용처·금액 검색','cash-search',f.query||'','search','placeholder="개인 내역 숨김 유지"')}${select('보기','cash-status',[['pending','계좌 미연결·재확인'],['linked','연결된 거래'],['all','전체 · 카드/제외 포함']],f.status||'pending')}</div><p class="cash-small">가장 이른 기준일 ${e(first)} 이후 ${rows.length}건. 연결하지 않은 카드 사용액은 현금 잔액에서 빼지 않아요.</p><div>${rows.slice(0,f.limit||50).map(r=>`<div class="cash-link-row"><div><strong>${e(cashHidden(r.t,s)?'개인 내역 숨김':r.t.merchantRaw)}</strong><small>${e(r.t.date)} · ${won(r.t.amount)}${cashHidden(r.t,s)?'':` · ${e(r.t.paymentMethod)}`} ${r.t.splitParent?'· 분할 전 원거래':''}</small><small>${cashHidden(r.t,s)?'개인 내역을 표시한 후 연결해 주세요.':e(r.legs.length?r.legs.map(l=>`${activeNames.get(l.accountId)||'계좌'} ${l.direction==='in'?'입금':'출금'} ${when(l.at)}`).join(' / '):r.reason)}</small></div>${actionButton(['auto','linked','ignored'].includes(r.status)?'연결 수정':'계좌 연결','cash-link',r.t.id)}</div>`).join('')||'<p class="empty-inline">표시할 거래가 없어요. 전체 보기를 선택하면 카드 내역도 확인할 수 있어요.</p>'}</div>${rows.length>(f.limit||50)?button('50건 더 보기','cash-more','secondary'):''}</section>`:''}
+  <section class="card"><h2>잔액 확인 이력</h2><p class="cash-small">확인 당시의 숫자를 보존해요. 위 계좌 카드는 현재 거래 기준으로 재계산해요. 틀린 잔액 입력은 이력만 취소하며 거래를 만들거나 삭제하지 않아요.</p>${history.map(h=>`<div class="cash-history-row ${h.voidedAt?'is-void':''}"><div><strong>${e(activeNames.get(h.accountId)||'계좌')} · ${h.voidedAt?'취소됨':when(h.at)}</strong><small>실제 ${won(h.actual)} / 당시 기록 ${won(h.expected)} / 차이 ${signed(h.difference)}${h.pending?` · 재확인 ${h.pending}건`:''}</small>${h.note?`<small>${e(h.note)}</small>`:''}</div>${!h.voidedAt?actionButton('확인 취소','cash-void',h.id,'text'):''}</div>`).join('')||'<p class="empty-inline">기준잔액 이후 실제 잔액을 확인하면 이력이 쌓여요.</p>'}${(s.cashChecks||[]).length>history.length?button('이력 더 보기','cash-history-more','text'):''}</section>
+  ${all.some(a=>a.archived)?`<details class="card"><summary>사용 종료한 계좌</summary>${all.filter(a=>a.archived).map(a=>`<p>${e(a.name)} · 기준 ${when(a.openingAt)} · ${won(a.openingBalance)} ${actionButton('설정·다시 사용','cash-account',a.id,'text')}</p>`).join('')}</details>`:''}</div>`;
+}
+export async function cashAction(app, action, target) {
+  if(!action.startsWith('cash-')) return false;
+  const s=app.state, id=target?.dataset.id||'', at=cashNow(), active=(s.cashAccounts||[]).filter(a=>!a.archived);
+  const opts=active.map(a=>[a.id,`${a.name} · ${memberName(a.owner,s)}`]);
+  if(action==='cash-more'||action==='cash-history-more') {app.cashFilters ||= {};const k=action==='cash-more'?'limit':'historyLimit';app.cashFilters[k]=(app.cashFilters[k]||(k==='limit'?50:20))+(k==='limit'?50:20);app.render();}
+  else if(action==='cash-account') {
+    const old=(s.cashAccounts||[]).find(a=>a.id===id), initial=old||{id:uid(),name:'',owner:'p1',paymentMethod:'',openingBalance:0,openingAt:at,reserved:0,autoMatch:false};
+    const dialog=openDialog(old?'계좌 설정':'실제 계좌 잔액 등록',`<p>대출·마이너스통장 한도와 카드 한도를 빼고, 은행 앱에 표시된 실제 잔액을 입력해 주세요. 계좌번호 전체는 필요 없어요.</p><div class="form-grid">${field('계좌 이름','name',initial.name,'text','required maxlength="80" placeholder="예: 신한 생활비"')}${select('계좌 사용자','owner',['p1','p2','joint'].map(p=>[p,memberName(p,s)]),initial.owner)}${!old?field('기준시각까지 반영된 잔액','openingBalance','','number','required min="0"')+field('기준잔액 확인시각 (한국시간)','openingAt',initial.openingAt,'datetime-local',`required step="1" max="${at.slice(0,10)}T23:59:59"`):''}${field('따로 확보할 돈','reserved',initial.reserved,'number','required min="0"')}</div><p class="cash-small">확보액은 카드대금·저축 등 사용하지 않을 돈이에요. 현금 표시에서만 빼고, 계좌 입출금 검증이나 소비 예산에서 다시 빼지 않아요.</p><details><summary>은행 거래내역 자동 연결 (선택)</summary>${field('거래내역의 결제수단과 동일한 계좌명','paymentMethod',initial.paymentMethod,'text','maxlength="100" placeholder="은행계좌 거래내역의 결제수단 이름"')}<label class="check-field"><input name="autoMatch" type="checkbox" ${initial.autoMatch?'checked':''}>이 이름·사용자의 내역은 실제 은행 입출금임을 확인했어요</label><p class="cash-small">같은 이름의 카드 이용내역은 연결하지 않아요. 입출금 방향을 모르는 이체나 시각이 불명확한 건은 직접 확인해요.</p></details>${old?`<p class="notice">시작 기준 ${when(old.openingAt)} · ${won(old.openingBalance)}은 이력 보존을 위해 유지해요. 처음 잘못 등록했다면 사용 종료 후 다시 등록해 주세요.</p><label class="check-field"><input name="archived" type="checkbox" ${old.archived?'checked':''}>이 계좌 사용 종료 (거래·이력은 보존)</label>`:''}`,async f=>{
+      const input={...initial,name:String(f.get('name')).trim(),owner:String(f.get('owner')),paymentMethod:String(f.get('paymentMethod')||'').trim(),reserved:amountInput(f.get('reserved')),autoMatch:!!f.get('autoMatch'),archived:!!f.get('archived'),openingAt:old?old.openingAt:cashTime(f.get('openingAt')),openingBalance:old?old.openingBalance:amountInput(f.get('openingBalance'))};
+      await app.update(st=>{saveCashAccount(st,input,old||null);});toast(old?'계좌 설정을 저장했어요.':'기준잔액을 등록했어요. 이후 실제 잔액을 한 번 더 확인하면 차이를 비교해요.');
+    });
+    void dialog;
+  } else if(action==='cash-check') {
+    if(!active.length) {await cashAction(app,'cash-account',target);return true;}
+    openDialog('실제 잔액 확인',`<p>은행 앱에서 잔액을 확인한 시각과 금액을 입력해 주세요. 같은 시각까지 입력된 거래와 비교하고, 차이를 임의의 수입·지출로 보정하지 않아요.</p><div class="form-grid">${select('확인할 계좌','accountId',opts,id||active[0].id)}${field('실제 계좌 잔액','actual','','number','required min="0"')}${field('확인시각 (한국시간)','at',at,'datetime-local',`required step="1" max="${at.slice(0,10)}T23:59:59"`)}${field('메모','note','','text','maxlength="1000"')}</div><label class="check-field"><input name="checked" type="checkbox" required>은행 앱에서 실제 잔액과 시각을 확인했어요</label>`,async f=>{
+      if(!f.get('checked'))throw Error('실제 잔액을 확인해 주세요.');let result;
+      await app.update(st=>{result=saveCashCheck(st,{id:uid(),accountId:String(f.get('accountId')),at:cashTime(f.get('at')),actual:amountInput(f.get('actual')),note:String(f.get('note'))});});toast(diffText(result.difference)+' · 연결 내역 기준');
+    },'잔액 비교·저장');
+  } else if(action==='cash-link') {
+    const t=cashRoots(s).find(t=>t.id===id);if(!t)throw Error('거래를 찾지 못했어요.');
+    if(cashHidden(t,s)){openDialog('개인 내역 숨김','<p>개인 내역 표시를 허용한 다음 계좌를 연결해 주세요.</p>'+button('개인 내역 표시하기','privacy-off','secondary'));return true;}
+    const connection=cashConnection(t,s), old=(s.cashLinks||[]).find(l=>l.id===id), basis=cashFingerprint(t);
+    const out=connection.legs.find(l=>l.direction==='out'), incoming=connection.legs.find(l=>l.direction==='in');
+    const mode=out&&incoming?'transfer':incoming?'in':out?'out':old?.ignored?'ignore':t.direction==='income'||t.direction==='refund'?'in':'out';
+    const body=`<p><strong>${e(t.merchantRaw)} · ${won(t.amount)}</strong></p><p>실제 현금 이동만 연결해요. 신용카드 사용·현금 이동 없는 거래는 ‘현금 계산 제외’를 선택해 주세요. 체크카드는 출금으로 연결해요.</p><div class="form-grid">${select('현금 이동','mode',[['out','계좌에서 출금'],['in','계좌로 입금'],['transfer','등록한 두 계좌 사이 이동'],['ignore','현금 계산 제외 (소비 기록은 유지)']],mode)}${select('입금 또는 출금 계좌','accountId',opts,out?.accountId||incoming?.accountId||active[0]?.id)}${select('계좌 간 이동: 입금 계좌','toAccountId',[['','이동일 때만 선택'],...opts],incoming&&out?incoming.accountId:'')}${field('실제 입출금 처리시각 (한국시간)','postedAt',connection.legs[0]?.at||cashTime(t.datetime)||at,'datetime-local',`step="1" max="${at.slice(0,10)}T23:59:59"`)}</div><p class="cash-small">한 은행 이체 거래로 두 계좌를 연결했다면 반대편에 따로 가져온 동일 이체는 ‘현금 계산 제외’로 지정해 중복을 막아 주세요. 원거래가 분할됐어도 현금은 원래 금액 한 번만 반영돼요.</p><label class="check-field"><input name="checked" type="checkbox" required>은행 내역과 대조했고 같은 현금 이동을 두 번 연결하지 않았어요</label>`;
+    openDialog('입출금 계좌 연결',body,async f=>{
+      if(!f.get('checked'))throw Error('실제 입출금 내역을 확인해 주세요.');
+      const mode=String(f.get('mode')),at=cashTime(f.get('postedAt')),accountId=String(f.get('accountId'));
+      const legs=mode==='ignore'?[]:[{accountId,direction:mode==='in'?'in':'out',at},...(mode==='transfer'?[{accountId:String(f.get('toAccountId')),direction:'in',at}]:[])];
+      await app.update(st=>{if(JSON.stringify((st.cashLinks||[]).find(l=>l.id===id))!==JSON.stringify(old))throw Error('다른 기기에서 연결이 바뀌었어요. 다시 열어 주세요.');saveCashLink(st,id,legs,mode==='ignore',basis);});toast('계좌 연결을 저장했어요. 원래 금액·소비 분류는 유지했어요.');
+    });
+  } else if(action==='cash-ledger') {
+    const a=(s.cashAccounts||[]).find(a=>a.id===id);if(!a)throw Error('계좌를 찾지 못했어요.');const b=cashLedger(s,a);
+    openDialog('계좌 입출금 계산 근거',`<h3>${e(a.name)}</h3><p>기준 ${when(a.openingAt)} · ${won(a.openingBalance)}<br>+ 입금 ${won(b.incoming)} − 출금 ${won(b.outgoing)}<br><strong>지금까지 기록상 잔액 ${won(b.expected)}</strong></p><p>실제 잔액은 은행 앱에서 다시 확인해 주세요. 아래 금액은 연결된 원거래 기준이며, 미연결·재확인 거래는 제외돼요.</p>${b.entries.sort((a,b)=>b.leg.at.localeCompare(a.leg.at)).slice(0,200).map(r=>`<div class="cash-history-row"><div><strong>${e(cashHidden(r.t,s)?'개인 내역 숨김':r.t.merchantRaw)}</strong><small>${when(r.leg.at)} · ${r.leg.direction==='in'?'입금':'출금'} ${won(r.t.amount)}</small></div>${actionButton('연결 수정','cash-link',r.t.id,'text')}</div>`).join('')||'<p>연결된 실제 입출금이 없어요.</p>'}${b.entries.length>200?'<p>최근 200건 표시. 전체 연결 내역은 계좌 메뉴에서 확인해 주세요.</p>':''}`);
+  } else if(action==='cash-entry') {
+    if(!active.length)throw Error('계좌를 먼저 등록해 주세요.');
+    openDialog('계좌 입출금 직접 기록',`<p>이미 거래내역에 있는 건 새로 입력하지 말고 ‘계좌 연결’을 사용해 주세요. 이 입력은 실제 거래로 저장돼요.</p><div class="form-grid">${select('입출금 유형','kind',[['expense','지출 · 출금'],['income','수입 · 입금'],['refund','환불·경비 환급 · 입금'],['transfer','등록 계좌 간 이체 · 소비 제외'],['settlement','카드대금 등 출금 · 소비 제외']], 'expense')}${select('입금 또는 출금 계좌','accountId',opts,id||active[0].id)}${select('계좌 간 이체: 입금 계좌','toAccountId',[['','이체일 때만 선택'],...opts],'')}${field('입출금 내용','merchant','','text','required maxlength="300"')}${field('실제 금액','amount','','number','required min="1"')}${field('실제 처리시각 (한국시간)','at',at,'datetime-local',`required step="1" max="${at.slice(0,10)}T23:59:59"`)}${select('카테고리','category',s.categories.filter(c=>!c.archived).map(c=>[c.id,c.name]),'other')}</div><label class="check-field"><input name="checked" type="checkbox" required>실제 입출금이고, 같은 내역을 아직 기록하지 않았어요</label>`,async f=>{
+      const kind=String(f.get('kind')),accountId=String(f.get('accountId')),amount=amountInput(f.get('amount')),postedAt=cashTime(f.get('at')),merchant=String(f.get('merchant')).trim(),category=String(f.get('category'));
+      if(!f.get('checked')||!amount||!merchant)throw Error('내용·금액과 실제 거래 여부를 확인해 주세요.');
+      const direction=['transfer','settlement'].includes(kind)?'transfer':kind, id=uid();
+      await app.update(st=>{
+        const a=(st.cashAccounts||[]).find(a=>a.id===accountId&&!a.archived);if(!a)throw Error('계좌가 변경됐어요.');
+        if(cashRoots(st).some(t=>t.datetime===postedAt&&t.amount===amount&&t.merchantRaw===merchant&&t.paymentMethod===(a.paymentMethod||a.name)))throw Error('같은 내용·시각·금액의 거래가 이미 있어요. 연결 기능을 사용해 주세요.');
+        if(!st.categories.some(c=>c.id===category&&!c.archived))throw Error('카테고리가 변경됐어요.');
+        st.transactions.push(matchRecurring({id,sourceId:id,date:postedAt.slice(0,10),datetime:postedAt,amount,direction,owner:a.owner,merchantRaw:merchant,merchantNormalized:normalizeText(merchant),category,categoryConfirmed:true,scope:direction==='transfer'?'excluded':'shared',excluded:direction==='transfer',paymentMethod:a.paymentMethod||a.name,note:'계좌 입출금 직접 기록',sourceType:'manual',costKind:'variable',recurringId:null,performanceStatus:'unknown',deletedAt:null,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}, st.recurring));
+        const legs=[{accountId,direction:['income','refund'].includes(kind)?'in':'out',at:postedAt},...(kind==='transfer'?[{accountId:String(f.get('toAccountId')),direction:'in',at:postedAt}]:[])];
+        saveCashLink(st,id,legs);
+      });toast('입출금을 저장했어요. 이체·카드대금은 소비에 중복 합산하지 않았어요.');
+    });
+  } else if(action==='cash-void') {
+    const check=(s.cashChecks||[]).find(c=>c.id===id);if(!check)throw Error('확인 이력이 없어요.');
+    openDialog('잘못 입력한 잔액 확인 취소',`<p>${when(check.at)} · 실제 ${won(check.actual)} 확인을 취소해요. 원래 거래와 기준잔액은 그대로 보존돼요.</p>`,async()=>{await app.update(st=>{const c=(st.cashChecks||[]).find(c=>c.id===id);if(c)c.voidedAt=new Date().toISOString();});toast('잔액 확인만 취소했어요.');},'확인 취소');
+  } else return false;
+  return true;
+}

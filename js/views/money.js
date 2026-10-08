@@ -1,3 +1,4 @@
+import { cashHome } from "../cash-ui.js";
 import { moneyOverview, reviewRows, classification, registeredPayments, PAYMENT_LABELS, cycleText } from "../money.js";
 import { won, escape as e, today, keyText } from "../format.js";
 import { button, icon, sectionTitle, transactionRow, hiddenPersonal, progress, select } from "../ui.js";
@@ -33,6 +34,7 @@ export function moneyHome(s, month, extras = {}) {
       ${metric("저축 목표", won(b.savingsTarget), "실제 저축 완료액과는 달라요", "money-plan")}
       ${metric("자동이체·정기결제 예정", won(o.total), `이번 기간 ${o.recurring.length}건 · 등록 전체 ${s.recurring.length}개`, "go-recurring")}
     </div></section>
+    ${cashHome(s)}
     ${o.stale ? `<div class="money-alert money-alert-warning" role="status">${icon("info")}<div><strong>거래자료가 최신인지 먼저 확인해 주세요</strong><p>마지막 지출 기록 ${dateLabel(o.latest)}${o.gapDays !== null ? ` · 기준일까지 ${o.gapDays}일 차이` : ""}. 미입력 소비가 있으면 남은 예산이 실제보다 크게 보여요. 기록이 없는 날을 무지출로 단정하지 않아요.</p></div>${button("내역 가져오기", "go-import", "secondary")}</div>` : ""}
     ${b.requested > b.affordability ? `<div class="money-alert money-alert-warning"><div><strong>소비 목표가 수입에서 확보할 수 있는 돈보다 ${won(b.requested - b.affordability)} 많아요.</strong><p>남은 예산은 고정비·저축 목표를 뺀 범위인 ${won(b.budget)} 기준으로 계산해요.</p></div>${button("목표 조정", "money-plan", "secondary")}</div>` : ""}
     <a class="money-review-callout ${o.allPending.length ? "needs-review" : "review-clear"}" href="#review">${icon(o.allPending.length ? "info" : "check")}<div><strong>${o.pending.length ? `분류 확인 ${o.pending.length}건 · ${won(o.pendingAmount)}` : "이번 기간 분류 대기 없음"}</strong><p>전체 기간 확인 대기 <b>${o.allPending.length}건</b> · 분류 전 금액도 이미 지출에 포함돼요.</p></div><span>확인하기 ${icon("chevron")}</span></a>

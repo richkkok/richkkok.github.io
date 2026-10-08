@@ -1,4 +1,4 @@
-export const VERSION = "2.1.0";
+export const VERSION = "2.2.0";
 export const SCOPES = {
   shared: "공동생활비",
   fixed: "공동고정비",
@@ -26,6 +26,7 @@ export const CATEGORIES = [
   ["child", "육아", "heart"],
   ["housing", "주거비", "home"],
   ["tax", "세금공과금", "list"],
+  ["work", "업무경비", "bag"],
   ["transport", "차량·교통", "car"],
   ["health", "의료·건강", "cross"],
   ["shopping", "쇼핑", "bag"],
@@ -58,6 +59,9 @@ export function emptyState() {
     },
     dailyCloses: {},
     reconciliations: [],
+    cashAccounts: [],
+    cashChecks: [],
+    cashLinks: [],
     categories: structuredClone(CATEGORIES),
     transactions: [],
     rules: [],
