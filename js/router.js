@@ -1,5 +1,6 @@
 const routes = new Set([
   "home",
+  "cash",
   "recurring",
   "review",
   "transactions",

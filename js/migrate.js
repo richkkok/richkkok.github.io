@@ -8,6 +8,9 @@ export function migrate(state) {
   state.settings.paymentMethods ??= [];
   state.dailyCloses ??= {};
   state.reconciliations ??= [];
+  state.cashAccounts ??= [];
+  state.cashChecks ??= [];
+  state.cashLinks ??= [];
   for (const c of CATEGORIES)
     if (!state.categories.some((old) => old.id === c.id))
       state.categories.push(structuredClone(c));

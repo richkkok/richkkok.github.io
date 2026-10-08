@@ -13,7 +13,7 @@ export function mergeStates(base, local, remote, choices = {}) {
     if (path === "revision") return Math.max(l || 0, r || 0);
     if (path === "settings.trackingSince")
       return [l, r].filter(Boolean).sort()[0];
-    if (/^transactions\[[^\]]+\]$/.test(path)) return conflict(b, l, r, path);
+    if (/^(transactions|cashAccounts|cashChecks|cashLinks)\[[^\]]+\]$/.test(path)) return conflict(b, l, r, path);
     if (Array.isArray(l) && Array.isArray(r)) {
       const all = [...(Array.isArray(b) ? b : []), ...l, ...r];
       if (all.every((x) => object(x) && typeof x.id === "string")) {
