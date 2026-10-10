@@ -106,3 +106,107 @@ test("공동가계부 저장 revision을 배우자 기기에 즉시 broadcast", 
   assert.equal(message.payload.payload.revision, 7);
 });
 
+function mockInviteDialog(dom) {
+  const dialog = dom.window.document.querySelector("#dialog");
+  dialog.showModal = () => { dialog.open = true; };
+  dialog.close = () => { dialog.open = false; };
+}
+
+test("초대 버튼 1회 탭으로 API 응답 전 iOS 클립보드 쓰기를 시작하고 유효한 초대링크를 복사", async () => {
+  const dom = new JSDOM('<dialog id="dialog"></dialog><div id="toast" hidden></div>');
+  mockInviteDialog(dom);
+  const originals = {
+    document: globalThis.document,
+    fetch: globalThis.fetch,
+    clipboard: Object.getOwnPropertyDescriptor(globalThis.navigator, "clipboard"),
+    clipboardItem: Object.getOwnPropertyDescriptor(globalThis, "ClipboardItem"),
+  };
+  const url = "https://richkkok.github.io/#invite=unique-once-only-token";
+  let started = 0, copied = "";
+  globalThis.document = dom.window.document;
+  Object.defineProperty(globalThis, "ClipboardItem", {
+    configurable: true,
+    value: class FakeClipboardItem {
+      constructor(entries) { this.entries = entries; }
+    },
+  });
+  Object.defineProperty(globalThis.navigator, "clipboard", {
+    configurable: true,
+    value: {
+      async write(items) {
+        started++;
+        copied = await (await items[0].entries["text/plain"]).text();
+      },
+      async writeText() {
+        assert.fail("Safari async ClipboardItem already copied: no secondary writeText call");
+      },
+    },
+  });
+  globalThis.fetch = async (_, options) => {
+    assert.equal(started, 1, "Clipboard access must start inside original click before network");
+    const body = JSON.parse(options.body);
+    assert.equal(body.action, "create_invite");
+    assert.equal(body.sessionToken, "owner-session");
+    return { ok: true, json: async () => ({ ok: true, inviteUrl: url }) };
+  };
+  const cloud = new CloudSync({ mode: "real" });
+  cloud.meta = { sessionToken: "owner-session", member: { role: "owner" } };
+  try {
+    await cloud.createInvite();
+    assert.equal(started, 1);
+    assert.equal(copied, url);
+    assert.equal(document.querySelector("#invite-url").value, url);
+    assert.ok(document.querySelector("#share-invite"), "Keep existing share action");
+    assert.match(document.querySelector("#toast").textContent, /자동 복사/);
+  } finally {
+    globalThis.document = originals.document;
+    globalThis.fetch = originals.fetch;
+    if (originals.clipboard) Object.defineProperty(globalThis.navigator, "clipboard", originals.clipboard);
+    else delete globalThis.navigator.clipboard;
+    if (originals.clipboardItem) Object.defineProperty(globalThis, "ClipboardItem", originals.clipboardItem);
+    else delete globalThis.ClipboardItem;
+    dom.window.close();
+  }
+});
+
+test("클립보드 권한이 없으면 초대링크를 선택해 직접 복사 가능하고 중복 초대를 만들지 않음", async () => {
+  const dom = new JSDOM('<dialog id="dialog"></dialog><div id="toast" hidden></div>');
+  mockInviteDialog(dom);
+  const originalDocument = globalThis.document;
+  const originalFetch = globalThis.fetch;
+  const clipboard = Object.getOwnPropertyDescriptor(globalThis.navigator, "clipboard");
+  const clipboardItem = Object.getOwnPropertyDescriptor(globalThis, "ClipboardItem");
+  globalThis.document = dom.window.document;
+  delete globalThis.ClipboardItem;
+  Object.defineProperty(globalThis.navigator, "clipboard", {
+    configurable: true,
+    value: { async writeText() { throw Error("permission denied"); } },
+  });
+  document.execCommand = () => false;
+  const url = "https://richkkok.github.io/#invite=fallback-token";
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
+    return { ok: true, json: async () => ({ ok: true, inviteUrl: url }) };
+  };
+  const cloud = new CloudSync({ mode: "real" });
+  cloud.meta = { sessionToken: "owner-session", member: { role: "owner" } };
+  try {
+    await cloud.createInvite();
+    assert.equal(requests, 1);
+    assert.equal(document.querySelector("#invite-url").value, url);
+    assert.match(document.querySelector("#toast").textContent, /직접 복사/);
+    assert.equal(document.activeElement.id, "invite-url");
+    cloud.meta.member.role = "member";
+    await cloud.createInvite();
+    assert.equal(requests, 1, "Non-owner must not request a new token");
+  } finally {
+    globalThis.document = originalDocument;
+    globalThis.fetch = originalFetch;
+    if (clipboard) Object.defineProperty(globalThis.navigator, "clipboard", clipboard);
+    else delete globalThis.navigator.clipboard;
+    if (clipboardItem) Object.defineProperty(globalThis, "ClipboardItem", clipboardItem);
+    else delete globalThis.ClipboardItem;
+    dom.window.close();
+  }
+});
