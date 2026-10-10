@@ -1,7 +1,7 @@
 name: RichKkok quality checks
 on:
   push:
-    branches: [main, feat/pay-cycle-dashboard-20261008, feat/cash-reconciliation-20261008, feat/payday-amounts-20261008, feat/focused-home-20261008]
+    branches: [main, feat/pay-cycle-dashboard-20261008, feat/cash-reconciliation-20261008, feat/payday-amounts-20261008, feat/focused-home-20261008, feat/brand-invite-autocopy-20261010]
   workflow_dispatch:
 permissions:
   contents: read
