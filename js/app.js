@@ -157,6 +157,15 @@ app.render = () => {
     memberCount: 1,
   };
   document.querySelector("#storage-status").textContent = cloudSummary.status;
+  const brand = document.querySelector(".brand");
+  if (brand) {
+    const canInvite = app.state.configured && app.mode === "real" &&
+      cloudSummary.connected && cloudSummary.role === "owner";
+    brand.setAttribute("aria-label", canInvite ? "리치콕 · 초대링크 복사" : "리치콕 홈");
+    brand.title = canInvite ? "누르면 가족 초대링크를 복사해요" : "리치콕 홈";
+    const subtitle = brand.querySelector("small");
+    if (subtitle) subtitle.textContent = canInvite ? "눌러서 초대링크 복사" : "함께 모으는 여유";
+  }
   const householdStatus = document.querySelector("#household-status");
   if (householdStatus) {
     householdStatus.classList.toggle("is-connected", !!cloudSummary.connected);
@@ -249,6 +258,16 @@ document.addEventListener("click", async (event) => {
     if (target.matches(".skip-link")) {
       event.preventDefault();
       document.querySelector("#main").focus();
+      return;
+    }
+    // Clipboard permission on iOS must be requested during the original tap.
+    // Handle invitations before the awaited actions below lose user activation.
+    if (target.dataset.action === "cloud-invite" ||
+        (target.matches(".brand") && app.state?.configured &&
+         app.mode === "real" && app.cloud?.connected &&
+         app.cloud.meta?.member?.role === "owner")) {
+      event.preventDefault();
+      await app.cloud.createInvite();
       return;
     }
     if (target.dataset.edit) return editTransaction(app, target.dataset.edit);
