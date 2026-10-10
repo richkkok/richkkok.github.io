@@ -12,6 +12,34 @@ const BASE_KEY = "cloudBase";
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+// Safari needs the clipboard write to BEGIN in the tap handler. The invite
+// URL arrives asynchronously from the existing one-time invite API.
+function beginInviteClipboardWrite() {
+  if (!globalThis.navigator?.clipboard?.write ||
+      typeof ClipboardItem !== "function" || typeof Blob !== "function")
+    return null;
+  let resolveData, rejectData;
+  const data = new Promise((resolve, reject) => {
+    resolveData = resolve;
+    rejectData = reject;
+  });
+  data.catch(() => {}); // A rejected API request must not leave an unhandled rejection.
+  try {
+    const write = navigator.clipboard.write([
+      new ClipboardItem({ "text/plain": data }),
+    ]).then(() => true, () => false);
+    return {
+      complete: (url) => {
+        resolveData(new Blob([url], { type: "text/plain" }));
+        return write;
+      },
+      abort: (error) => rejectData(error),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function errorMessage(code) {
   return (
     {
@@ -415,45 +443,86 @@ export class CloudSync {
       toast("우리집 관리자만 초대링크를 만들 수 있어요.");
       return;
     }
-    const result = await api({
-      action: "create_invite",
-      sessionToken: this.meta.sessionToken,
-    });
-    const url = result.inviteUrl;
-    const dialog = openDialog(
-      "아내 초대하기",
-      `<p>아래 링크를 아내에게 보내면 같은 우리집 가계부에 참여할 수 있어요. 링크는 한 번만 사용할 수 있고 7일 뒤 만료돼요.</p><label class="field"><span>초대링크</span><input id="invite-url" value="${e(url)}" readonly></label><div class="invite-actions"><button class="btn primary" type="button" id="share-invite">${icon("heart")}카카오톡 · 공유하기</button><button class="btn secondary" type="button" id="copy-invite">링크 복사</button></div><p class="small muted">초대받은 기기에서 이름을 한 번 입력하면 바로 공동가계부가 열려요.</p>`,
-    );
-    dialog
-      .querySelector("#share-invite")
-      ?.addEventListener("click", async () => {
-        try {
-          if (navigator.share) {
-            await navigator.share({
-              title: "리치콕 우리집 가계부 초대",
-              text: "우리집 가계부 같이 쓰자.",
-              url,
-            });
-          } else {
-            await this.copyInvite(url);
-          }
-        } catch {}
-      });
-    dialog
-      .querySelector("#copy-invite")
-      ?.addEventListener("click", () => this.copyInvite(url));
+    if (this.invitePending) {
+      toast("초대링크를 만들고 있어요.");
+      return;
+    }
+    this.invitePending = true;
+    const clipboardWrite = beginInviteClipboardWrite();
+    try {
+      let result;
+      try {
+        result = await api({
+          action: "create_invite",
+          sessionToken: this.meta.sessionToken,
+        });
+      } catch (error) {
+        clipboardWrite?.abort(error);
+        throw error;
+      }
+      const url = result.inviteUrl;
+      if (typeof url !== "string" || !url) {
+        clipboardWrite?.abort(new Error("초대링크가 비어 있어요."));
+        throw Error("초대링크를 생성하지 못했어요.");
+      }
+      const dialog = openDialog(
+        "아내 초대하기",
+        `<p>아래 링크를 아내에게 보내면 같은 우리집 가계부에 참여할 수 있어요. 링크는 한 번만 사용할 수 있고 7일 뒤 만료돼요.</p><label class="field"><span>초대링크</span><input id="invite-url" value="${e(url)}" readonly></label><div class="invite-actions"><button class="btn primary" type="button" id="share-invite">${icon("heart")}카카오톡 · 공유하기</button><button class="btn secondary" type="button" id="copy-invite">링크 복사</button></div><p class="small muted">초대받은 기기에서 이름을 한 번 입력하면 바로 공동가계부가 열려요.</p>`,
+      );
+      dialog
+        .querySelector("#share-invite")
+        ?.addEventListener("click", async () => {
+          try {
+            if (navigator.share) {
+              await navigator.share({
+                title: "리치콕 우리집 가계부 초대",
+                text: "우리집 가계부 같이 쓰자.",
+                url,
+              });
+            } else {
+              await this.copyInvite(url);
+            }
+          } catch {}
+        });
+      dialog
+        .querySelector("#copy-invite")
+        ?.addEventListener("click", () => this.copyInvite(url));
+
+      // Started synchronously from the tap above: works with Safari's
+      // asynchronous ClipboardItem API. Fallbacks keep the link selectable.
+      if (clipboardWrite && await clipboardWrite.complete(url)) {
+        toast("초대링크가 자동 복사됐어요. 카카오톡에 붙여넣어 주세요.");
+      } else {
+        await this.copyInvite(url);
+      }
+    } finally {
+      this.invitePending = false;
+    }
   }
 
   async copyInvite(url) {
     try {
-      await navigator.clipboard.writeText(url);
-      toast("초대링크를 복사했어요.");
-    } catch {
-      const input = document.querySelector("#invite-url");
-      input?.focus();
-      input?.select();
-      toast("초대링크를 선택했어요. 복사해 주세요.");
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast("초대링크를 복사했어요.");
+        return true;
+      }
+    } catch {}
+    const input = document.querySelector("#invite-url");
+    if (input) {
+      input.focus();
+      input.select();
+      try {
+        if (document.execCommand?.("copy")) {
+          toast("초대링크를 복사했어요.");
+          return true;
+        }
+      } catch {}
     }
+    toast(input
+      ? "자동 복사가 제한됐어요. 선택된 링크를 직접 복사해 주세요."
+      : "초대링크를 복사하지 못했어요. 다시 시도해 주세요.");
+    return false;
   }
 
   async showMembers() {
