@@ -35,6 +35,7 @@ jobs:
           node qa/cash-browser.mjs
           node qa/income-browser.mjs
           node qa/focus-browser.mjs
+          node qa/instrument-browser.mjs
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/richkkok-browser/node_modules/playwright/index.mjs
       - name: Save browser verification results
