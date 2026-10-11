@@ -41,6 +41,9 @@ try {
         response={ok:true,state:structuredClone(baseState),sessionToken:"qa-session-synthetic",household,
           member:{id:"qa-member2",role:"member",displayName:"QA 배우자"},revision:1};status=200;
       }
+    } else if (body.action === "members") {
+      response={ok:true,members:[{member_id:"qa-member1",role:"owner",display_name:"QA 초대자"},
+         {member_id:"qa-member2",role:"member",display_name:"QA 배우자"}]};status=200;
     } else if (body.action === "pull") {
       response={ok:true,state:structuredClone(baseState),household,
         member:{id:"qa-member2",role:"member",displayName:"QA 배우자"},revision:1,
@@ -88,7 +91,13 @@ try {
   await page.reload({waitUntil:"networkidle"});
   await page.waitForSelector(".focus-board");
   assert.match(await page.locator("#household-status").innerText(),/공동가계부 사용 중/);
-  await page.locator("#household-status").click();
+  // Mobile header status is visually collapsed; the member list is reachable
+  // through the existing More → Settings navigation instead.
+  await page.locator('#navigation [href="#more"]').click();
+  await page.waitForSelector(".focus-more");
+  await page.locator('[data-action="go-settings"]').click();
+  await page.waitForSelector(".settings-simple-grid");
+  await page.locator('[data-action="cloud-members"]').click();
   await page.waitForSelector("#dialog .cloud-member-list");
   assert.match(await page.locator("#dialog").innerText(),/QA 초대자/);
   assert.match(await page.locator("#dialog").innerText(),/QA 배우자/);
