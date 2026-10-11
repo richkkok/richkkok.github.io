@@ -45,6 +45,18 @@ for (const f of ["js", "data"].flatMap(walk)) {
     );
     continue;
   }
+  if (f.replaceAll("\\", "/") === "js/invite-link.js") {
+    const allowed = '"https://richkkok.github.io"';
+    assert.ok(
+      source.includes("const ORIGIN = " + allowed + ";"),
+      "Invite parser must pin the official origin",
+    );
+    assert.ok(
+      !/fetch\s*\(|XMLHttpRequest|sendBeacon|https?:\/\//.test(source.replace(allowed, "")),
+      "Invite parser must not make network requests or contact another origin",
+    );
+    continue;
+  }
   if (f.replaceAll("\\", "/") === "js/import/pdf-reader.js") {
     const allowed = [
       "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs",
