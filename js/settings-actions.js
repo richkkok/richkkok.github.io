@@ -15,6 +15,7 @@ export async function settingsAction(app, action) {
     s = state.settings;
   if (action === "cloud-conflicts") await app.cloud.resolveConflicts();
   else if (action === "cloud-start") await app.cloud.startSharing();
+  else if (action === "cloud-join") app.cloud.openInviteEntry();
   else if (action === "cloud-invite") await app.cloud.createInvite();
   else if (action === "cloud-members") await app.cloud.showMembers();
   else if (action === "month-income") {
