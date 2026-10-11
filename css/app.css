@@ -1854,6 +1854,27 @@ dialog > form {
 .onboarding-copy > .btn {
   margin: 8px 0;
 }
+.onboarding-invite-entry {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid #bfd9e8;
+  border-radius: 14px;
+  padding: 15px;
+  margin: 14px 0;
+  background: #f1f7fc;
+}
+.onboarding-invite-entry .btn {
+  width: 100%;
+  min-height: 46px;
+}
+.onboarding-invite-entry p {
+  font-size: .78rem;
+  line-height: 1.55;
+  margin: 0;
+  color: #536f80;
+}
+
 .onboarding-form h2 {
   margin: 10px 0;
 }
