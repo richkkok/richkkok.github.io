@@ -11,7 +11,7 @@ export function inviteTokenFromUrl(value) {
   try {
     url = new URL(raw);
   } catch {
-    throw Error("https://richkkok.github.io/로 시작하는 초대링크를 붙여넣어 주세요.");
+    throw Error("리치콕에서 복사한 공식 초대링크를 붙여넣어 주세요.");
   }
   if (
     url.origin !== ORIGIN ||
