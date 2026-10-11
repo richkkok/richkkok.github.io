@@ -1,6 +1,7 @@
 import { mergeValue, mergeStates } from "./sync-merge.js";
 import { openDialog, field, select, toast, icon } from "./ui.js";
 import { escape as e } from "./format.js";
+import { inviteTokenFromUrl } from "./invite-link.js";
 
 const API =
   "https://wjelumpbjklfrdjxbesj.supabase.co/functions/v1/richkkok-sync";
@@ -158,10 +159,16 @@ export class CloudSync {
     this.renderIfSafe();
 
     const params = new URLSearchParams(location.search);
-    const hashInvite = location.hash.startsWith("#invite=")
-      ? decodeURIComponent(location.hash.slice("#invite=".length))
-      : "";
-    const invite = params.get("invite") || hashInvite;
+    const hasInvite = params.has("invite") || location.hash.startsWith("#invite=");
+    let invite = "";
+    if (hasInvite) {
+      try {
+        invite = inviteTokenFromUrl(location.href);
+      } catch (error) {
+        this.clearInviteFromUrl();
+        openDialog("초대링크를 확인해 주세요", `<p>${e(error.message)}</p>`);
+      }
+    }
 
     if (this.connected) {
       try {
@@ -562,7 +569,42 @@ export class CloudSync {
     this.renderIfSafe();
   }
 
+  openInviteEntry() {
+    if (this.app.mode !== "real") {
+      toast("샘플 공간에서는 참여할 수 없어요. 샘플 둘러보기를 종료한 뒤 다시 시도해 주세요.");
+      return;
+    }
+    if (this.connected) {
+      openDialog(
+        "이미 공동가계부에 연결되어 있어요",
+        "<p>이 기기는 이미 공동가계부를 사용 중이에요. 상단의 공동가계부 사용 중을 눌러 구성원을 확인해 주세요.</p>",
+      );
+      return;
+    }
+    openDialog(
+      "받은 초대링크로 참여",
+      `<p>카카오톡에서 전달받은 <strong>리치콕 초대링크 전체</strong>를 복사해 아래에 붙여넣어 주세요. 설치된 앱에서도 바로 연결할 수 있어요.</p>${field(
+        "초대링크 붙여넣기",
+        "inviteUrl",
+        "",
+        "url",
+        'required autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="https://richkkok.github.io/#invite=..."',
+      )}<p class="small muted">확인하면 초대한 가계부 이름이 먼저 표시돼요. 그다음 이름을 입력하고 [우리집 가계부 참여]를 눌러야 연결이 완료돼요.</p><p class="small muted">이 기기에 이미 기록이 있다면 참여하기 전에 별도 백업을 만들어 주세요. 기존 기록 대신 공동가계부 내역을 열게 돼요.</p>`,
+      (form) => {
+        const token = inviteTokenFromUrl(form.get("inviteUrl"));
+        // The first form must close before handleInvite opens the name/confirmation
+        // dialog; otherwise openDialog's parent submit handler closes the new one.
+        setTimeout(() => this.handleInvite(token).catch(error => toast(error.message)), 0);
+      },
+      "초대링크 확인",
+    );
+  }
+
   async handleInvite(token) {
+    if (this.connected) {
+      openDialog("이미 공동가계부 사용 중", "<p>현재 연결을 유지했어요. 가족 구성원 목록에서 연결 여부를 확인해 주세요.</p>");
+      return;
+    }
     let preview;
     try {
       preview = await api({ action: "preview_invite", inviteToken: token });
