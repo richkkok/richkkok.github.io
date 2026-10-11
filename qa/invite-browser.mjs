@@ -74,7 +74,17 @@ try {
   assert.match(await page.locator("#dialog h2").innerText(),/QA 공동가계부/);
   await page.locator("#dialog [name=displayName]").fill("QA 배우자");
   await page.locator("#dialog [type=submit]").click();
-  await page.waitForSelector(".focus-board");
+  try {
+    await page.waitForSelector(".focus-board", {timeout:12000});
+  } catch (error) {
+    console.error("INVITE QA DEBUG", JSON.stringify({
+      actions: calls,
+      dialog: await page.locator("#dialog").innerText(),
+      page: (await page.locator("#main").innerText()).slice(0,900),
+      errors,
+    }));
+    throw error;
+  }
   await page.waitForFunction(()=>document.querySelector("#household-status")?.textContent?.includes("공동가계부 사용 중"));
   assert.deepEqual(calls.slice(0,2),["preview_invite","join_invite"]);
   assert.match(await page.locator("#household-status").innerText(),/2명/);
