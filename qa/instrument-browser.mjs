@@ -67,6 +67,16 @@ try {
   assert.equal(d.cash.expected,1025000);
   assert.match(await page.locator(".instrument-row").innerText(),/QA 실제 입금/);
   assert.match(await page.locator(".instrument-totals").innerText(),/25,000원/);
+  // The same bank movement at a different hour must be flagged, not counted again.
+  await page.locator('.instrument-panel [data-action="instrument-add"]').click();
+  await page.locator("#dialog [name=kind]").selectOption("income");
+  for(const [key,value] of [["merchant","QA 실제 입금"],["amount","25000"],["at",dates.bank.replace("T11:20","T13:20")]])await page.locator("#dialog [name="+key+"]").fill(value);
+  await page.locator("#dialog [name=checked]").check();
+  await page.locator("#dialog [type=submit]").click();
+  assert.equal(await page.locator("#dialog[open]").count(),1);
+  assert.match(await page.locator("#dialog .form-error").innerText(),/같은 날/);
+  await page.locator("#dialog [data-close]").first().click();
+  d=await read();assert.equal(d.s.transactions.length,4);assert.equal(d.cash.expected,1025000);
   // Return to the exact card, check persistence after refresh.
   await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent("우리카드"));
   await page.reload({waitUntil:"networkidle"});
