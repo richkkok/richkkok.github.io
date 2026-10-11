@@ -24,6 +24,7 @@ try {
     const r=new Repository();await r.replace(s);r.close();
     return {card:addDays(today,-1)+"T12:20",card2:addDays(today,-1)+"T13:20",bank:addDays(today,-1)+"T11:20"};
   });
+  await page.reload({waitUntil:"networkidle"});
   await page.goto("http://127.0.0.1:4178/#cash");await page.waitForSelector(".instrument-panel");
   const read=()=>page.evaluate(async()=>{const {Repository}=await import("./js/db.js"),{cashSummary}=await import("./js/cash.js");const r=new Repository(),s=await r.read();r.close();return {s,cash:cashSummary(s)};});
   const submit=async()=>{await page.locator("#dialog [type=submit]").click();await page.waitForTimeout(150);assert.equal(await page.locator("#dialog[open]").count(),0,await page.locator("#dialog").innerText());};
