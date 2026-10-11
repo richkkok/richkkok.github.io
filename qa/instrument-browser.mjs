@@ -1,0 +1,98 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
+const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
+const executablePath = ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium"].find(p => fs.existsSync(p));
+assert.ok(executablePath);
+const server = spawn(process.execPath, ["scripts/serve.cjs"], {env:{...process.env,PORT:"4178"},stdio:"inherit"});
+let browser;
+try {
+  await new Promise(r=>setTimeout(r,700));
+  browser = await chromium.launch({headless:true,executablePath,args:["--no-sandbox"]});
+  const context = await browser.newContext({viewport:{width:1440,height:1000},timezoneId:"Asia/Seoul",serviceWorkers:"block"});
+  await context.route(/supabase\.co/, r=>r.abort());
+  const page = await context.newPage(), errors=[];
+  page.on("pageerror", e=>errors.push(e.message));
+  page.setDefaultTimeout(6000);
+  await page.goto("http://127.0.0.1:4178/",{waitUntil:"networkidle"});
+  const dates=await page.evaluate(async()=>{
+    const { emptyState } = await import("./data/defaults.js"), { Repository } = await import("./js/db.js"), { cashNow } = await import("./js/cash.js"), { addDays } = await import("./js/period.js");
+    const s=emptyState(), today=cashNow().slice(0,10);
+    s.configured=true;s.settings.privacy=false;s.settings.paymentMethods=["우리카드","신한카드"];
+    s.cashAccounts=[{id:"qa-bank",name:"QA 생활비 계좌",owner:"p1",openingBalance:1000000,openingAt:addDays(today,-4)+"T10:00:00",reserved:0,paymentMethod:"QA 생활비 계좌",autoMatch:false,archived:false}];
+    const r=new Repository();await r.replace(s);r.close();
+    return {card:addDays(today,-1)+"T12:20",card2:addDays(today,-1)+"T13:20",bank:addDays(today,-1)+"T11:20"};
+  });
+  await page.reload({waitUntil:"networkidle"});
+  await page.goto("http://127.0.0.1:4178/#cash");await page.waitForSelector(".instrument-panel");
+  const read=()=>page.evaluate(async()=>{const {Repository}=await import("./js/db.js"),{cashSummary}=await import("./js/cash.js");const r=new Repository(),s=await r.read();r.close();return {s,cash:cashSummary(s)};});
+  const submit=async()=>{await page.locator("#dialog [type=submit]").click();await page.waitForTimeout(150);assert.equal(await page.locator("#dialog[open]").count(),0,await page.locator("#dialog").innerText());};
+  assert.match(await page.locator(".instrument-panel h2").innerText(),/계좌·카드별/);
+  assert.equal(await page.locator('[name=instrument-target] option').count(),3);
+  await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent("우리카드"));
+  await page.locator('.instrument-panel [data-action="instrument-add"]').click();
+  for(const [key,value] of [["merchant","QA 카드 구매"],["amount","7000"],["at",dates.card]])await page.locator("#dialog [name="+key+"]").fill(value);
+  await page.locator("#dialog [name=category]").selectOption("groceries");
+  await page.locator("#dialog [name=checked]").check();await submit();
+  let d=await read();assert.equal(d.s.transactions.length,1);assert.equal(d.s.transactions[0].paymentMethod,"우리카드");
+  assert.equal(d.cash.expected,1000000);assert.equal(d.s.cashLinks.length,0);
+  assert.match(await page.locator(".instrument-row").innerText(),/QA 카드 구매/);
+  // Do not silently import a duplicate; allow two genuinely separate purchases only after explicit confirmation.
+  await page.locator('.instrument-panel [data-action="instrument-add"]').click();
+  for(const [key,value] of [["merchant","QA 카드 구매"],["amount","7000"],["at",dates.card2]])await page.locator("#dialog [name="+key+"]").fill(value);
+  await page.locator("#dialog [name=checked]").check();
+  await page.locator("#dialog [type=submit]").click();
+  assert.equal(await page.locator("#dialog[open]").count(),1);
+  assert.match(await page.locator("#dialog .form-error").innerText(),/같은 날/);
+  await page.locator("#dialog [name=allowDuplicate]").check();await submit();
+  d=await read();assert.equal(d.s.transactions.length,2);
+  // An actual refund reduces usage, not bank cash.
+  await page.locator('.instrument-panel [data-action="instrument-add"]').click();
+  await page.locator("#dialog [name=direction]").selectOption("refund");
+  for(const [key,value] of [["merchant","QA 반품"],["amount","2000"],["at",dates.card2]])await page.locator("#dialog [name="+key+"]").fill(value);
+  await page.locator("#dialog [name=checked]").check();await submit();
+  d=await read();assert.equal(d.s.transactions.length,3);assert.equal(d.cash.expected,1000000);
+  assert.match(await page.locator(".instrument-totals").innerText(),/14,000원/);
+  assert.match(await page.locator(".instrument-totals").innerText(),/2,000원/);
+  await page.locator('[name=instrument-owner]').selectOption("p2");assert.equal(await page.locator(".instrument-row").count(),0);
+  await page.locator('[name=instrument-owner]').selectOption("");
+  await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent("신한카드"));
+  assert.equal(await page.locator(".instrument-row").count(),0);
+  await page.locator('[name=instrument-target]').selectOption("a:qa-bank");
+  await page.locator('.instrument-panel [data-action="instrument-add"]').click();
+  await page.locator("#dialog [name=kind]").selectOption("income");
+  for(const [key,value] of [["merchant","QA 실제 입금"],["amount","25000"],["at",dates.bank]])await page.locator("#dialog [name="+key+"]").fill(value);
+  await page.locator("#dialog [name=checked]").check();await submit();
+  d=await read();assert.equal(d.s.transactions.length,4);assert.equal(d.s.cashLinks.length,1);
+  assert.equal(d.cash.expected,1025000);
+  assert.match(await page.locator(".instrument-row").innerText(),/QA 실제 입금/);
+  assert.match(await page.locator(".instrument-totals").innerText(),/25,000원/);
+  // The same bank movement at a different hour must be flagged, not counted again.
+  await page.locator('.instrument-panel [data-action="instrument-add"]').click();
+  await page.locator("#dialog [name=kind]").selectOption("income");
+  for(const [key,value] of [["merchant","QA 실제 입금"],["amount","25000"],["at",dates.bank.replace("T11:20","T13:20")]])await page.locator("#dialog [name="+key+"]").fill(value);
+  await page.locator("#dialog [name=checked]").check();
+  await page.locator("#dialog [type=submit]").click();
+  assert.equal(await page.locator("#dialog[open]").count(),1);
+  assert.match(await page.locator("#dialog .form-error").innerText(),/같은 날/);
+  await page.locator("#dialog [data-close]").first().click();
+  d=await read();assert.equal(d.s.transactions.length,4);assert.equal(d.cash.expected,1025000);
+  // Return to the exact card, check persistence after refresh.
+  await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent("우리카드"));
+  await page.reload({waitUntil:"networkidle"});
+  await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent("우리카드"));
+  assert.equal(await page.locator(".instrument-row").count(),3);
+  fs.mkdirSync("qa-results",{recursive:true});
+  const layouts=[];
+  for(const width of [1440,1024,768,390,375,320]){
+    await page.setViewportSize({width,height:900});
+    await page.goto("http://127.0.0.1:4178/#cash");await page.waitForSelector(".instrument-panel");
+    const result=await page.evaluate(()=>({viewport:innerWidth,scroll:document.documentElement.scrollWidth}));
+    assert.ok(result.scroll<=result.viewport+1,JSON.stringify({width,...result}));layouts.push({width,...result});
+    if([1440,390].includes(width))await page.screenshot({path:"qa-results/instrument-"+width+".png",fullPage:true});
+  }
+  assert.deepEqual(errors,[]);
+  fs.writeFileSync("qa-results/instrument-browser.json",JSON.stringify({result:"PASS",layouts,errors,checks:["card-add","card-duplicate-rejected","separate-card-approved","refund","account-cash-separation","selection","owner-filter","refresh-persistence","mobile-overflow"]},null,2));
+  console.log("PASS instrument ledger browser QA and six responsive widths");
+} finally { await browser?.close();server.kill(); }

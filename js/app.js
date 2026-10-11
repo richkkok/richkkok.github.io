@@ -1,5 +1,6 @@
 import { focusAction, moreView } from "./focus-ui.js";
 import { cashView, cashAction } from "./cash-ui.js";
+import { instrumentLedgerView, instrumentLedgerAction } from "./instrument-ledger.js";
 import { syncCategories, reviewRows } from "./money.js";
 import { moneyAction } from "./money-actions.js";
 import { cycleStrip, recurringView, reviewView } from "./views/money.js";
@@ -42,7 +43,7 @@ import { route, navigate, watchRoute } from "./router.js";
 const titles = {
   home: "홈",
   more: "더보기",
-  cash: "계좌·잔액",
+  cash: "계좌·카드",
   recurring: "자동이체",
   review: "분류 확인",
   transactions: "기록",
@@ -133,7 +134,7 @@ app.render = () => {
   const nav = [
     ["home", "home", "홈"],
     ["transactions", "list", "기록"],
-    ["cash", "wallet", "현금"],
+    ["cash", "wallet", "계좌·카드"],
     ["recurring", "repeat", "고정지출"],
     ["more", "dots", "더보기"],
   ];
@@ -190,7 +191,7 @@ app.render = () => {
   document.querySelector("#month-picker").value = app.month;
   document.querySelector("#month-picker").closest("label").hidden = current === "cash";
   if (current === "cash") {
-    document.querySelector("#month-title").textContent = "계좌 현금";
+    document.querySelector("#month-title").textContent = "계좌·카드 내역";
     document.querySelector("#period-label").textContent = "실제 입출금 시각 기준 · 운영월 필터 미적용";
   }
   document.querySelector("#demo-banner").hidden = app.mode !== "demo";
@@ -206,7 +207,7 @@ app.render = () => {
     main.innerHTML = {
       home: () => controlHome(app.state, app.month),
       more: () => moreView(app.state, app.month),
-      cash: () => cashView(app.state, app.cashFilters),
+      cash: () => cashView(app.state, app.cashFilters, instrumentLedgerView(app.state, app.cashFilters)),
       recurring: () => recurringView(app.state, app.month, app.recurringFilters),
       review: () => reviewView(app.state, app.month, app.reviewFilters),
       transactions: () => transactionsView(app.state, app.month, app.filters),
@@ -218,7 +219,7 @@ app.render = () => {
   if (app.state.configured && current !== "cash") main.insertAdjacentHTML("afterbegin", cycleStrip(app.state, app.month));
   main.querySelectorAll('details[data-focus-fold]').forEach(el => { el.open = openFolds.has(el.dataset.focusFold); });
   if (app.state.configured && current === "import") mountImport(app);
-  if (["transaction-search", "recurring-search", "review-search", "cash-search"].includes(focusName)) {
+  if (["transaction-search", "recurring-search", "review-search", "cash-search", "instrument-query"].includes(focusName)) {
     const input = main.querySelector(`[name="${focusName}"]`);
     input?.focus();
     if (caret !== null)
@@ -323,6 +324,7 @@ document.addEventListener("click", async (event) => {
     const action = target.dataset.action;
     if (!action) return;
     if (await focusAction(app, action, target)) return;
+    if (await instrumentLedgerAction(app, action, target)) return;
     if (await cashAction(app, action, target)) return;
     if (await moneyAction(app, action, target)) return;
     if (await behaviorAction(app, action, target)) return;
@@ -389,6 +391,14 @@ document.querySelector("#month-picker").onchange = (event) => {
 };
 document.addEventListener("change", event => {
   if (event.target.name === "cash-status") { app.cashFilters.status = event.target.value; app.cashFilters.limit = 50; app.render(); return; }
+  const instrumentFilter = /^(instrument)-(target|period|owner|direction|from|to)$/.exec(event.target.name || "");
+  if (instrumentFilter) {
+    const name = {target:"instrument",period:"instrumentPeriod",owner:"instrumentOwner",direction:"instrumentDirection",from:"instrumentFrom",to:"instrumentTo"}[instrumentFilter[2]];
+    app.cashFilters[name] = event.target.value;
+    app.cashFilters.instrumentLimit = 40;
+    app.render();
+    return;
+  }
   const match = /^(recurring|review)-(mode|status|owner|sort)$/.exec(event.target.name || "");
   if (!match) return;
   app[match[1] + "Filters"][match[2]] = event.target.value;
@@ -396,6 +406,7 @@ document.addEventListener("change", event => {
 });
 document.addEventListener("input", (event) => {
   if (event.target.name === "cash-search") { app.cashFilters.query = event.target.value; app.cashFilters.limit = 50; app.render(); return; }
+  if (event.target.name === "instrument-query") { app.cashFilters.instrumentQuery = event.target.value; app.cashFilters.instrumentLimit = 40; app.render(); return; }
   const match = /^(recurring|review)-search$/.exec(event.target.name || "");
   if (match) {
     app[match[1] + "Filters"].query = event.target.value;
