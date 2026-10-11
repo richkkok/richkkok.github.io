@@ -97,7 +97,7 @@ try {
   await page.waitForSelector(".focus-more");
   await page.locator('[data-action="go-settings"]').click();
   await page.waitForSelector(".settings-simple-grid");
-  await page.locator('[data-action="cloud-members"]').click();
+  await page.locator('.settings-simple-grid [data-action="cloud-members"]').click();
   await page.waitForSelector("#dialog .cloud-member-list");
   assert.match(await page.locator("#dialog").innerText(),/QA 초대자/);
   assert.match(await page.locator("#dialog").innerText(),/QA 배우자/);
