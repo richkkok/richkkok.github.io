@@ -152,6 +152,8 @@ try {
     if (width > 700 && height >= 650) {
       assert.ok(dialog.gridHeight < 340, "Two desktop rows must be compact: " + JSON.stringify({ width, dialog }));
       assert.ok(dialog.dialogHeight < 650, "Desktop dialog must not fill the entire screen: " + JSON.stringify({ width, dialog }));
+      assert.ok(dialog.dialogHeight <= dialog.formHeight + 24,
+        "Popup must shrink-wrap its form without extra blank space: " + JSON.stringify({ width, dialog }));
     }
     for (const key of [["scrollWidth", "width"], ["bodyScrollWidth", "bodyWidth"], ["gridScrollWidth", "gridWidth"]]) {
       assert.ok(dialog[key[0]] <= dialog[key[1]] + 2, JSON.stringify({ width, dialog, key }));
