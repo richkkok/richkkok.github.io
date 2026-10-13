@@ -21,6 +21,23 @@ try{
  assert.equal(await page.locator('.focus-budget .focus-ratio').getAttribute('aria-label'),'실제 소비 사용액 500,000원, 설정한 소비한도 2,500,000원');
  assert.match(await page.locator('.focus-cash .focus-note').first().innerText(),/실제 입금/);
  assert.match(await page.locator('.focus-fixed .focus-label').innerText(),/실제 고정비 지출/);assert.equal(await page.locator('.income-schedule-panel').isVisible(),false);
+ assert.equal(await page.locator('.focus-cash-entry-actions > .focus-cash-entry-group').count(),2);
+ assert.equal(await page.locator('.focus-cash-entry-actions [data-action=cash-check]').count(),1);
+ assert.equal(await page.locator('.focus-cash-entry-actions [data-action=money-add-income]').count(),1);
+ assert.equal(await page.locator('.focus-cash-entry-links [data-action=cash-account]').count(),1);
+ assert.equal(await page.locator('.focus-cash-entry-links [data-action=month-income]').count(),1);
+ await page.locator('.focus-cash-entry-actions [data-action=cash-check]').click();
+ assert.match(await page.locator('#dialog h2').innerText(),/현재 현금잔액 입력/);
+ assert.equal(await page.locator('#dialog [name=actual]').count(),1);
+ await page.locator('#dialog [data-close]').first().click();
+ await page.locator('.focus-cash-entry-actions [data-action=money-add-income]').click();
+ assert.match(await page.locator('#dialog h2').innerText(),/실제 입금 기록/);
+ assert.equal(await page.locator('#dialog [name=amount]').count(),1);
+ await page.locator('#dialog [data-close]').first().click();
+ await page.locator('.focus-cash-entry-links [data-action=cash-account]').click();
+ assert.match(await page.locator('#dialog h2').innerText(),/첫 기준잔액 입력/);
+ assert.equal(await page.locator('#dialog [name=openingBalance]').count(),1);
+ await page.locator('#dialog [data-close]').first().click();
  const before=await read();await page.locator('.focus-budget [data-action=focus-plan]').click();await page.locator('[data-focus-cut="100000"]').click();assert.match(await page.locator('#focus-preview-remaining').innerText(),/1,900,000/);await page.locator('#dialog [data-close]').first().click();assert.deepEqual(await read(),before);
  await page.locator('.focus-budget [data-action=focus-plan]').click();await page.locator('[data-focus-cut="100000"]').click();await page.locator('#dialog [type=submit]').click();await page.waitForSelector('#dialog[open]',{state:'hidden'});assert.equal(await page.locator('[data-focus-value=remaining]').innerText(),'1,900,000원');
  const after=await read();assert.deepEqual(after.transactions,before.transactions);assert.deepEqual(after.cashAccounts,before.cashAccounts);assert.equal(after.settings.income,before.settings.income);assert.equal(after.settings.sharedBudget,before.settings.sharedBudget);
@@ -41,8 +58,20 @@ try{
   }));
   assert.ok(summaryLayout.boardOverflow<=1,JSON.stringify({width,summaryLayout}));
   assert.ok(summaryLayout.pairOverflow.every(n=>n<=1),JSON.stringify({width,summaryLayout}));
+  const cashEntries=await page.locator('.focus-cash-entry').evaluate(box=>{
+   const bounds=box.getBoundingClientRect();
+   const buttons=[...box.querySelectorAll('button')].map(b=>{
+     const rect=b.getBoundingClientRect();return {label:b.textContent.trim(),width:rect.width,height:rect.height,left:rect.left,right:rect.right}
+   });
+   return {overflow:box.scrollWidth-box.clientWidth,boxLeft:bounds.left,boxRight:bounds.right,buttons};
+  });
+  assert.ok(cashEntries.overflow<=1,JSON.stringify({width,cashEntries}));
+  for(const b of cashEntries.buttons){
+   assert.ok(b.height>=30,JSON.stringify({width,b}));
+   assert.ok(b.left>=cashEntries.boxLeft-1&&b.right<=cashEntries.boxRight+1,JSON.stringify({width,b,cashEntries}));
+  }
   await page.locator('.focus-budget [data-action=focus-plan]').click();const d=await page.locator('#dialog').evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));assert.ok(d.scroll<=d.width+1,JSON.stringify(d));if(width===390)await page.screenshot({path:'qa-results/focus-editor-390.png'});await page.locator('#dialog [data-close]').first().click();
  }
  await page.reload({waitUntil:'networkidle'});assert.equal(await page.locator('[data-focus-value=remaining]').innerText(),'1,900,000원');assert.equal(await page.locator('.focus-details details[open]').count(),0);assert.deepEqual(errors,[]);
- fs.writeFileSync('qa-results/focus-browser.json',JSON.stringify({result:'PASS',layouts,errors,checks:['3 primary regions','5 navigation items','hidden secondary detail','planned limit distinct from cash','cancel-no-write','preview-save','invalid plan rejected','income-settings-reachable','more-menu-routes','reload-preservation','60 responsive pages','three compact ratios','ratio labels distinguish actual income','no ratio overflow']},null,2));console.log('PASS focus dashboard, preview/edit/cancel, all routes and 60 responsive page combinations');
+ fs.writeFileSync('qa-results/focus-browser.json',JSON.stringify({result:'PASS',layouts,errors,checks:['3 primary regions','5 navigation items','hidden secondary detail','planned limit distinct from cash','cancel-no-write','preview-save','invalid plan rejected','income-settings-reachable','more-menu-routes','reload-preservation','60 responsive pages','three compact ratios','ratio labels distinguish actual income','no ratio overflow','cash baseline/income direct actions','cash action touch targets at six viewport widths']},null,2));console.log('PASS focus dashboard, preview/edit/cancel, all routes and 60 responsive page combinations');
 }finally{await browser?.close();server.kill();}
