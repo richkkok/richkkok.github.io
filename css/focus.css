@@ -44,3 +44,17 @@
 
 @media(prefers-reduced-motion:reduce){.focus-home *{scroll-behavior:auto;transition:none!important}}
 @media print{.focus-board{display:block}.focus-card{margin-bottom:12px;break-inside:avoid}.focus-budget{background:white;color:#153e5e}.focus-budget h2,.focus-budget .focus-label,.focus-budget .focus-note,.focus-budget-pair span,.focus-budget-pair b{color:#153e5e}.focus-quick,.focus-next-actions,.focus-home .btn,.focus-inline-warning{display:none}}
+
+
+/* Context-sensitive early-pay income alert; actionable instead of explanatory copy. */
+.focus-income-alert{display:flex;justify-content:space-between;align-items:center;gap:9px;flex-wrap:wrap;text-align:left;width:100%;margin:6px 0 8px;padding:10px 12px;border:1px solid #d8c3a1;border-radius:11px;background:#fffaf0;color:#76501e;cursor:pointer;font:inherit;font-size:.75rem;line-height:1.45}
+.focus-income-alert strong{font-weight:750;min-width:0}
+.focus-income-alert>span{display:flex;align-items:center;gap:2px;color:#6c4617;white-space:nowrap;font-size:.73rem}
+.focus-income-alert .icon{width:15px;height:15px}
+.focus-income-alert:focus-visible{outline:2px solid #b4772a;outline-offset:2px}
+.focus-cash .focus-status{margin:3px 0}
+.focus-cash-entry{gap:5px;padding-top:8px;margin-top:7px}
+.focus-cash-entry-links>.btn.text{text-decoration:none;font-weight:600}
+.focus-next h2{margin:0}
+.focus-next .focus-label{display:none}
+@media(max-width:700px){.focus-income-alert{padding:9px;font-size:.72rem}.focus-income-alert>span{font-size:.72rem}}
