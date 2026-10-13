@@ -32,7 +32,7 @@ try{
  await page.locator('#dialog [data-close]').first().click();
  await page.locator('.focus-cash-entry-actions [data-action=money-income]').click();
  assert.match(await page.locator('#dialog h2').innerText(),/실제 입금 내역/);
- assert.equal(await page.locator('#dialog [name=amount]').count(),1);
+ assert.equal(await page.locator('#dialog .income-ledger-head [data-action=money-add-income]').count(),1);
  await page.locator('#dialog [data-close]').first().click();
  await page.locator('.focus-cash-entry-links [data-action=cash-account]').click();
  assert.match(await page.locator('#dialog h2').innerText(),/첫 기준잔액 입력/);
