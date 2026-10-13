@@ -1,12 +1,26 @@
 import { moneyOverview } from './money.js';
 import { cashSummary, cashNow } from './cash.js';
-import { planFor } from './budget.js';
+import { planFor, monthBudget } from './budget.js';
+import { periodKey, startDay } from './period.js';
 
 // Presentation model only. Never rewrite stored transactions or infer actual bank balances.
 export function focusOverview(state, month, at = cashNow()) {
   const money = moneyOverview(state, month, at.slice(0, 10));
   const d = money.d, cash = cashSummary(state, at);
   const limit = d.requested, used = d.actual, remaining = limit - used;
+  // Cash is a CURRENT measured balance even when an older ledger month is selected.
+  // Compare with actual household income recorded in the current salary cycle,
+  // not the scheduled paydays or the selected historical month's planned income.
+  const cashMonth = periodKey(at.slice(0, 10), startDay(state));
+  const cashReceived = cashMonth === month
+    ? d.b.actualIncome
+    : monthBudget(state, cashMonth, at.slice(0, 10)).actualIncome;
+  // All entered fixed expenses (including unlinked ones), net of refunds.
+  // Registered recurring total is independent; an unlinked payment is not
+  // evidence that a particular scheduled item has been paid.
+  const fixedSpent = d.b.fixedActual;
+  const fixedPlanned = money.total;
+  const fixedDifference = fixedPlanned - fixedSpent;
   const cashChanged = cash.accounts.some(a => a.now.entries.some(r => r.leg.at > a.measuredAt) || a.recalculated);
   const cashStale = !!cash.oldest && cash.oldest.slice(0, 10) < at.slice(0, 10);
   const cashIssue = cash.mismatchCount > 0 || cash.pending.length > 0 || cashChanged || cashStale || cash.usable < 0;
@@ -18,7 +32,11 @@ export function focusOverview(state, month, at = cashNow()) {
   else if (remaining < 0) advice = { title: '계획한 소비한도를 넘었어', text: '한도를 늘려 초과를 감추기보다, 고정지출과 남은 현금을 확인하고 남은 소비를 조정해.', action: 'focus-plan', label: '절약계획 조정' };
   else if (limit > d.affordability) advice = { title: '수입·저축 목표에 맞춰 한도를 줄여봐', text: '정한 소비한도가 고정지출과 저축 목표를 뺀 범위보다 커. 실제 현금도 함께 확인해.', action: 'focus-plan', label: '절약계획 조정' };
   else advice = { title: '남은 한도 안에서 마감까지 쓰기', text: '한도를 줄여보면 앞으로 쓸 금액이 바로 보여. 고정지출은 납부내역을 확인한 뒤 조정해.', action: 'focus-plan', label: '절약계획 조정' };
-  return { money, cash, limit, used, remaining, cashChanged, cashStale, cashIssue, advice };
+  return {
+    money, cash, limit, used, remaining,
+    cashMonth, cashReceived, fixedSpent, fixedPlanned, fixedDifference,
+    cashChanged, cashStale, cashIssue, advice,
+  };
 }
 
 export function limitValues(total, p1, p2) {
