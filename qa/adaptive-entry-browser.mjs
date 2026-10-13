@@ -113,6 +113,12 @@ try {
         summaryValid: d.querySelector("#auto-entry-summary")?.parentElement?.classList.contains("quick-entry-primary"),
         footerValid: !!d.querySelector(".dialog-body + .dialog-footer"),
         dialogHeight: Math.round(rect.height),
+        formHeight: Math.round(d.querySelector(":scope > form")?.getBoundingClientRect().height || 0),
+        formScrollHeight: d.querySelector(":scope > form")?.scrollHeight,
+        dialogScrollHeight: d.scrollHeight,
+        children: [...d.children].map((node) => node.tagName.toLowerCase() + "." + node.className),
+        innerFormElements: d.querySelectorAll(":scope > form").length,
+        dialogComputedHeight: getComputedStyle(d).height,
         variant: d.className,
         names,
         width: d.clientWidth,
@@ -132,6 +138,8 @@ try {
     });
     assert.deepEqual(dialog.names, ["amount", "merchant", "paymentMethod", "owner"]);
     assert.equal(dialog.coreChildren, 4, "Exactly four cards; no accidentally nested fields");
+    assert.equal(dialog.innerFormElements, 1, "Dialog must contain a single form: " + JSON.stringify(dialog));
+    assert.deepEqual(dialog.children, ["form."], "Dialog must not have stray elements outside the form");
     assert.equal(dialog.merchantPlaceholder, "예: 스타벅스, 이마트, 병원", "Merchant placeholder must be valid HTML");
     assert.equal(dialog.paymentPlaceholder, "예: 우리카드, 현금, 네이버페이", "Payment placeholder must be valid HTML");
     assert.equal(dialog.merchantListValid, true, "Recent merchant suggestions must be outside the input label");
