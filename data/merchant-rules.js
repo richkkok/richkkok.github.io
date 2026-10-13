@@ -70,7 +70,7 @@ export const merchantRules = [
   },
   {
     words: ["배달의민족", "요기요", "쿠팡이츠"],
-    category: "delivery",
+    category: "dining",
   },
   {
     words: [
