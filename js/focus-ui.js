@@ -38,6 +38,7 @@ export function focusHome(s, month, extras = {}, at) {
         <span class="focus-label">사용가능 잔액 / 이번 운영월 실제 입금</span>
         ${c.accounts.length ? amountRatio(c.usable, f.cashReceived, 'cash', 'cash-income', '확인한 사용가능 잔액', '이번 운영월 실제 생활수입 누적') : `<div class="focus-ratio"><strong class="focus-amount" data-focus-value="cash">입력 필요</strong></div><p class="focus-counter">이번 운영월 실제 입금 <strong data-focus-value="cash-income">${won(f.cashReceived)}</strong></p>`}
         <p class="focus-note">왼쪽은 은행 잔액 − 확보액 · 오른쪽은 실제 등록한 입금액</p>
+        <p class="focus-note focus-cash-explain">이월잔액·계좌이체 때문에 두 금액은 서로 다를 수 있어</p>
         <p class="focus-status${f.cashIssue ? ' warn' : ''}">${e(cashStatus)}</p>${cashAt ? `<small class="focus-time">${e(cashAt)}</small>` : ''}
         <div class="focus-cash-entry" aria-label="현금 기준잔액과 실제 수입 입력">
           <strong class="focus-cash-entry-title">금액을 여기서 바로 입력해</strong>
