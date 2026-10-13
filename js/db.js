@@ -1,5 +1,5 @@
 import { mergeValue } from "./sync-merge.js";
-import { migrate } from "./migrate.js";
+import { migrate, PRODUCT_VERSION } from "./migrate.js";
 import { emptyState } from "../data/defaults.js";
 import { validateState } from "./models.js";
 export class Repository {
@@ -60,7 +60,7 @@ export class Repository {
         .objectStore("household")
         .get("state");
       r.onsuccess = () => {
-        if (r.result && r.result.productVersion !== 2)
+        if (r.result && r.result.productVersion !== PRODUCT_VERSION)
           this.mutate(() => {}).then(resolve, reject);
         else resolve(migrate(r.result || emptyState()));
       };
@@ -77,12 +77,17 @@ export class Repository {
       r.onsuccess = () => {
         try {
           const current = r.result || emptyState();
-          if (current.productVersion !== 2)
-            store.put(structuredClone(current), "pre-v2-backup");
+          if (current.productVersion !== PRODUCT_VERSION)
+            store.put(
+              structuredClone(current),
+              current.productVersion === 2 ? "pre-v3-backup" : "pre-v2-backup",
+            );
           migrate(current);
           next = change(current) || current;
           if (next instanceof Promise)
             throw Error("Storage changes must be synchronous");
+          // Backups/restores and cloud writes may replace the whole state.
+          migrate(next);
           validateState(next);
           next.revision = (current.revision || 0) + 1;
           store.put(next, "state");
@@ -113,10 +118,11 @@ export class Repository {
         try {
           const current = migrate(r.result || emptyState()),
             remote = structuredClone(received);
-          if (remote.productVersion !== 2)
+          if ((remote.productVersion || 0) < 2)
             remote.settings.trackingSince ||= current.settings.trackingSince;
           migrate(remote);
           const next = mergeValue(snapshot, current, remote);
+          migrate(next);
           validateState(next);
           const dirty = JSON.stringify(next) !== JSON.stringify(remote);
           store.put(next, "state");
@@ -146,7 +152,7 @@ export class Repository {
     return this.mutate(() => checked);
   }
   async replaceExact(state) {
-    const checked = validateState(state);
+    const checked = validateState(migrate(structuredClone(state)));
     const db = await this.open();
     return new Promise((resolve, reject) => {
       const tx = db.transaction("household", "readwrite");
