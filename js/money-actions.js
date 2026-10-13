@@ -69,25 +69,25 @@ export async function moneyAction(app, action, target) {
       const here = relevant && inPeriod(t, s, app.month);
       const privateEntry = hiddenPersonal(t, s);
       const name = privateEntry ? "개인 내역 숨김" : t.merchantRaw;
-      return \`<div class="income-record-row">
-        <div class="income-record-detail"><strong>\${e(t.date)} · \${e(name)}</strong>
-          <small>\${e(assigned)} 운영월 · \${relevant ? here ? "이번 달 반영" : "다른 달로 반영" : "생활수입 제외"}</small>
+      return `<div class="income-record-row">
+        <div class="income-record-detail"><strong>${e(t.date)} · ${e(name)}</strong>
+          <small>${e(assigned)} 운영월 · ${relevant ? here ? "이번 달 반영" : "다른 달로 반영" : "생활수입 제외"}</small>
         </div>
-        <strong class="income-record-amount">\${won(t.amount)}</strong>
-        \${privateEntry ? "" : \`<div class="income-record-actions">
-          \${relevant && !here ? button("귀속월 변경", "money-income-move", "secondary") .replace('data-action="money-income-move"', 'data-action="money-income-move" data-id="' + e(t.id) + '"') : ""}
-          <button type="button" class="btn text" data-edit="\${e(t.id)}">수정</button>
-        </div>\`}
-      </div>\`;
+        <strong class="income-record-amount">${won(t.amount)}</strong>
+        ${privateEntry ? "" : `<div class="income-record-actions">
+          ${relevant && !here ? button("귀속월 변경", "money-income-move", "secondary") .replace('data-action="money-income-move"', 'data-action="money-income-move" data-id="' + e(t.id) + '"') : ""}
+          <button type="button" class="btn text" data-edit="${e(t.id)}">수정</button>
+        </div>`}
+      </div>`;
     };
     const current = ledger.records.filter(t => liveIncome(t, s) && inPeriod(t, s, app.month));
     const other = ledger.records.filter(t => !(liveIncome(t, s) && inPeriod(t, s, app.month)));
-    openDialog("실제 입금 내역", \`<div class="income-ledger-head"><strong>\${e(app.month)} 운영월 · \${won(ledger.amount)}</strong>
-      \${button("새 입금", "money-add-income", "primary", "plus")}</div>
-      \${ledger.nearby.length ? \`<div class="income-ledger-attention"><strong>이전 운영월로 등록된 최근 입금 \${ledger.nearby.length}건 · \${won(ledger.nearbyAmount)}</strong><small>선입금이라면 아래에서 귀속월을 변경해 줘.</small></div>\` : ""}
-      <div class="income-ledger-list"><h3>이번 운영월 \${current.length}건</h3>\${current.map(row).join("") || '<p class="empty-inline">이 운영월에 집계된 실제 입금 없음</p>'}
-      <h3>다른 운영월 · 집계 제외 \${other.length}건</h3>\${other.slice(0, 60).map(row).join("") || '<p class="empty-inline">다른 입금 내역 없음</p>'}</div>
-      \${other.length > 60 ? '<p class="small muted">최근 60건 표시. 전체 거래는 기록 메뉴에서 볼 수 있어.</p>' : ""}\`);
+    openDialog("실제 입금 내역", `<div class="income-ledger-head"><strong>${e(app.month)} 운영월 · ${won(ledger.amount)}</strong>
+      ${button("새 입금", "money-add-income", "primary", "plus")}</div>
+      ${ledger.nearby.length ? `<div class="income-ledger-attention"><strong>이전 운영월로 등록된 최근 입금 ${ledger.nearby.length}건 · ${won(ledger.nearbyAmount)}</strong><small>선입금이라면 아래에서 귀속월을 변경해 줘.</small></div>` : ""}
+      <div class="income-ledger-list"><h3>이번 운영월 ${current.length}건</h3>${current.map(row).join("") || '<p class="empty-inline">이 운영월에 집계된 실제 입금 없음</p>'}
+      <h3>다른 운영월 · 집계 제외 ${other.length}건</h3>${other.slice(0, 60).map(row).join("") || '<p class="empty-inline">다른 입금 내역 없음</p>'}</div>
+      ${other.length > 60 ? '<p class="small muted">최근 60건 표시. 전체 거래는 기록 메뉴에서 볼 수 있어.</p>' : ""}`);
   } else if (action === "money-income-move") {
     const tx = s.transactions.find(t => t.id === target?.dataset.id);
     if (!tx || !liveIncome(tx, s) || tx.date > today())
@@ -96,9 +96,9 @@ export async function moneyAction(app, action, target) {
     const original = structuredClone(tx);
     const oldMonth = transactionPeriod(tx, s);
     openDialog("입금 귀속월 변경",
-      \`<div class="income-move-details"><strong>\${e(tx.date)} · \${won(tx.amount)}</strong><small>현재 \${e(oldMonth)} 운영월</small></div>
-        \${select("반영할 운영월", "assignedMonth", incomeAssignmentOptions(s, app.month, tx), app.month)}
-        <label class="check-field"><input type="checkbox" name="confirm" required>같은 입금을 중복 등록하지 않고 운영월만 변경</label>\`,
+      `<div class="income-move-details"><strong>${e(tx.date)} · ${won(tx.amount)}</strong><small>현재 ${e(oldMonth)} 운영월</small></div>
+        ${select("반영할 운영월", "assignedMonth", incomeAssignmentOptions(s, app.month, tx), app.month)}
+        <label class="check-field"><input type="checkbox" name="confirm" required>같은 입금을 중복 등록하지 않고 운영월만 변경</label>`,
       async form => {
         if (!form.get("confirm")) throw Error("귀속월 변경을 확인해 줘.");
         const month = String(form.get("assignedMonth"));
@@ -106,27 +106,27 @@ export async function moneyAction(app, action, target) {
         await app.update(st => {
           changed = reassignRecordedIncome(st, original.id, month, original);
         });
-        toast(changed ? \`\${month} 운영월에 반영했어. 기존 금액·날짜는 그대로야.\` : "이미 해당 운영월에 반영돼 있어.");
+        toast(changed ? `${month} 운영월에 반영했어. 기존 금액·날짜는 그대로야.` : "이미 해당 운영월에 반영돼 있어.");
       }, "운영월 반영");
   } else if (action === "money-add-income") {
     openDialog("실제 입금 기록",
-      \`<div class="income-entry-header">\${button("기존 입금 조회·귀속월 변경", "money-income", "secondary")}</div>
-       <div class="form-grid">\${field("입금일", "date", today(), "date", \`required max="\${today()}"\`)}
-       \${field("실제 입금액", "amount", "", "number", 'required min="1"')}
-       \${field("입금 내용", "merchant", "급여", "text", 'required maxlength="100"')}
-       \${select("입금 받은 사람", "owner", ["p1", "p2", "joint"].map(id => [id, memberName(id, s)]), "p1")}
-       \${field("입금 계좌명", "payment", "", "text", 'required maxlength="100"')}
-       \${field("귀속 운영월", "month", app.month, "month", "required")}</div>\`,
+      `<div class="income-entry-header">${button("기존 입금 조회·귀속월 변경", "money-income", "secondary")}</div>
+       <div class="form-grid">${field("입금일", "date", today(), "date", `required max="${today()}"`)}
+       ${field("실제 입금액", "amount", "", "number", 'required min="1"')}
+       ${field("입금 내용", "merchant", "급여", "text", 'required maxlength="100"')}
+       ${select("입금 받은 사람", "owner", ["p1", "p2", "joint"].map(id => [id, memberName(id, s)]), "p1")}
+       ${field("입금 계좌명", "payment", "", "text", 'required maxlength="100"')}
+       ${field("귀속 운영월", "month", app.month, "month", "required")}</div>`,
       async form => {
         const date = String(form.get("date")), month = String(form.get("month")),
           amount = amountInput(form.get("amount")),
           owner = String(form.get("owner")), merchant = String(form.get("merchant")).trim();
         if (!validDate(date) || date > today() ||
-            !/^\\d{4}-(0[1-9]|1[0-2])$/.test(month) || !amount || !merchant)
+            !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || !amount || !merchant)
           throw Error("입금일·금액·귀속월을 확인해 줘.");
         const existing = findDuplicateIncome(app.state, {date, amount, owner, merchant});
         if (existing)
-          throw Error(\`기존 입금이 있어 (\${existing.date}, \${won(existing.amount)}). 위 ‘기존 입금 조회’에서 귀속월을 확인해 줘.\`);
+          throw Error(`기존 입금이 있어 (${existing.date}, ${won(existing.amount)}). 위 ‘기존 입금 조회’에서 귀속월을 확인해 줘.`);
         const id = uid(), stamp = new Date().toISOString();
         await app.update(st => {
           if (findDuplicateIncome(st, {date, amount, owner, merchant}))
@@ -141,7 +141,7 @@ export async function moneyAction(app, action, target) {
             createdAt: stamp, updatedAt: stamp,
           });
         });
-        toast(\`\${month} 운영월 실제 입금을 기록했어.\`);
+        toast(`${month} 운영월 실제 입금을 기록했어.`);
       }, "입금 저장");
   } else if (action === "money-plan") {
     const p = b.plan;
