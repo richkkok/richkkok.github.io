@@ -19,8 +19,7 @@ export const PERFORMANCE = {
 };
 export const CATEGORIES = [
   ["groceries", "식비·마트", "basket"],
-  ["dining", "외식", "dining"],
-  ["delivery", "배달", "dining"],
+  ["dining", "외식·배달", "dining"],
   ["cafe", "카페", "dining"],
   ["living", "생활용품", "basket"],
   ["child", "육아", "heart"],
