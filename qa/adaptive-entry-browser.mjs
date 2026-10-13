@@ -60,8 +60,8 @@ try {
   const original = await read();
   const viewports = [
     [320, 700], [360, 800], [375, 667], [390, 844], [430, 932],
-    [600, 860], [768, 1024], [834, 1112], [1024, 768],
-    [1280, 800], [1440, 900], [1920, 1080], [844, 390],
+    [600, 860], [768, 1024], [821, 832], [834, 1112], [1024, 768],
+    [1280, 800], [1366, 768], [1440, 900], [1920, 1080], [844, 390],
   ];
   const layouts = [];
   fs.mkdirSync("qa-results", { recursive: true });
@@ -162,7 +162,7 @@ try {
     assert.ok(dialog.footerTop >= -1 && dialog.footerBottom <= height + 1, JSON.stringify({ width, dialog }));
     if (width <= 700) assert.ok(Math.abs(dialog.amountLeft - dialog.merchantLeft) <= 2, "Phone fields must stack");
     else assert.ok(dialog.merchantLeft > dialog.amountLeft + 50, "Tablet / desktop fields must be two columns");
-    if ([320, 390, 768, 1440].includes(width) || (width === 844 && height === 390)) {
+    if ([320, 390, 768, 821, 1366, 1440].includes(width) || (width === 844 && height === 390)) {
       await page.screenshot({ path: "qa-results/expense-" + width + "x" + height + ".png" });
     }
     layouts.push({ width, height, shell, dialog });
@@ -198,14 +198,16 @@ try {
     "qa-results/adaptive-entry-browser.json",
     JSON.stringify({
       result: "PASS", layouts, errors,
-      checks: ["13 viewport/orientation combinations", "5 navigation routes",
+      checks: ["15 viewport/orientation combinations", "5 navigation routes",
         "valid placeholders and datalists", "intact field DOM hierarchy", "compact input cards and short desktop dialog",
         "no overflow", "mobile single-column form", "tablet/PC two-column form",
         "dialog footer in view", "cancel does not save", "expense persists",
         "transaction edit dialog", "no production access"],
     }, null, 2),
   );
-  console.log("PASS adaptive spending form across 13 viewports, navigation, save/cancel and existing edit");
+  const pc = layouts.find((entry) => entry.width === 821);
+  console.log("PASS adaptive spending form across 15 viewports, navigation, save/cancel and existing edit; desktop " +
+    pc.dialog.dialogHeight + "px high, 2-row grid " + pc.dialog.gridHeight + "px high");
 } finally {
   await browser?.close();
   server.kill();
