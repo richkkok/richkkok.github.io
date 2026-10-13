@@ -98,6 +98,7 @@ export async function moneyAction(app, action, target) {
     openDialog("입금 귀속월 변경",
       `<div class="income-move-details"><strong>${e(tx.date)} · ${won(tx.amount)}</strong><small>현재 ${e(oldMonth)} 운영월</small></div>
         ${select("반영할 운영월", "assignedMonth", incomeAssignmentOptions(s, app.month, tx), app.month)}
+        ${tx.incomeScheduleId ? '<p class="small muted">기존 급여일 일정 연결은 해제돼.</p>' : ''}
         <label class="check-field"><input type="checkbox" name="confirm" required>같은 입금을 중복 등록하지 않고 운영월만 변경</label>`,
       async form => {
         if (!form.get("confirm")) throw Error("귀속월 변경을 확인해 줘.");
