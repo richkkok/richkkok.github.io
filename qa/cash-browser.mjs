@@ -26,12 +26,36 @@ try {
  await page.reload({waitUntil:'networkidle'});await page.waitForSelector('.focus-cash');
  const read=()=>page.evaluate(async()=>{const {Repository}=await import('./js/db.js'),{cashSummary}=await import('./js/cash.js');const r=new Repository(),s=await r.read();r.close();return {state:s,cash:cashSummary(s)};});
  const submit=async()=>{await page.locator('#dialog [type=submit]').click();await page.waitForTimeout(120);assert.equal(await page.locator('#dialog[open]').count(),0,await page.locator('#dialog').innerText());};
- await page.locator('[data-action="cash-account"]').first().click();
+ const firstEntry=page.locator('.focus-cash-entry-actions [data-action="cash-account"]');
+ assert.equal(await firstEntry.count(),1,'Home must clearly offer first bank baseline setup');
+ assert.match(await firstEntry.innerText(),/처음 기준잔액 입력/);
+ assert.equal(await page.locator('.focus-cash-entry-actions [data-action="money-add-income"]').count(),1);
+ await firstEntry.click();
+ assert.match(await page.locator('#dialog h2').innerText(),/첫 기준잔액 입력/);
+ assert.equal(await page.locator('#dialog [name=openingBalance]').count(),1);
  for(const [n,v]of [['name','QA 생활비 계좌'],['openingBalance','1000000'],['openingAt',dates.start],['reserved','100000']])await page.locator(`#dialog [name=${n}]`).fill(['at','openingAt'].includes(n)?inputTime(v):v);
  await submit();
  let d=await read();const a=d.cash.accounts[0].id;assert.equal(d.cash.accounts[0].difference,null);assert.equal(d.state.transactions.length,0);assert.equal(d.cash.usable,900000);
+ assert.match(await page.locator('.focus-cash-entry-actions [data-action="cash-check"]').innerText(),/현재 잔액 입력/);
+ assert.equal(await page.locator('.focus-cash-entry-links [data-action="cash-account"]').count(),1);
+ await page.locator('.focus-cash-entry-actions [data-action="cash-check"]').click();
+ assert.match(await page.locator('#dialog h2').innerText(),/현재 현금잔액 입력/);
+ assert.equal(await page.locator('#dialog [name=actual]').count(),1);
+ assert.equal(await page.locator('#dialog [name=openingBalance]').count(),0);
+ await page.locator('#dialog [data-close]').first().click();
+ await page.locator('.focus-cash-entry-actions [data-action="money-add-income"]').click();
+ assert.match(await page.locator('#dialog h2').innerText(),/실제 입금 기록/);
+ assert.equal(await page.locator('#dialog [name=amount]').count(),1);
+ await page.locator('#dialog [data-close]').first().click();
+ await page.locator('.focus-cash-entry-links [data-action="month-income"]').click();
+ assert.match(await page.locator('#dialog h2').innerText(),/날짜별 수입 설정/);
+ await page.locator('#dialog [data-close]').first().click();
+ assert.equal((await read()).state.transactions.length,0,'Opening cash/income dialogs must not create records');
  await page.goto('http://127.0.0.1:4175/#cash');await page.waitForSelector('.cash-page');
  assert.equal(await page.locator('#month-picker').isVisible(),false);
+ assert.match(await page.locator('.cash-page .page-intro [data-action=cash-account]').innerText(),/새 계좌 기준잔액 입력/);
+ assert.match(await page.locator('.cash-baseline-snapshot').innerText(),/1,000,000원/);
+ assert.match(await page.locator('.cash-notice').innerText(),/이후 현금잔액/);
  await page.locator('[data-action="cash-entry"]').first().click();
  await page.locator('#dialog [name=kind]').selectOption('expense');
  await page.locator('#dialog [name=category]').selectOption('work');
@@ -68,6 +92,6 @@ try {
   }
  }
  await page.reload({waitUntil:'networkidle'});d=await read();assert.equal(d.state.cashAccounts.length,2);assert.equal(d.state.cashLinks.length,3);assert.equal(d.state.cashChecks.length,1);assert.equal(d.cash.expected,1093000);assert.deepEqual(errors,[]);
- fs.writeFileSync('qa-results/cash-browser.json',JSON.stringify({result:'PASS',layouts,errors,checks:['baseline-not-income','work-category-save','cash-expense','actual-balance-difference','link-existing-no-new-expense','history-recalculation','transfer-no-double-count','void-observation-only','search','reload-preservation','54-responsive-pages']},null,2));
+ fs.writeFileSync('qa-results/cash-browser.json',JSON.stringify({result:'PASS',layouts,errors,checks:['baseline-not-income','work-category-save','cash-expense','actual-balance-difference','link-existing-no-new-expense','history-recalculation','transfer-no-double-count','void-observation-only','search','reload-preservation','54-responsive-pages','home first baseline direct save','registered balance check and actual income actions','clear and immutable baseline display']},null,2));
  console.log('PASS cash account forms, entries, reconciliation, transfer, reload and 54 responsive page combinations');
 }finally{await browser?.close();server.kill();}

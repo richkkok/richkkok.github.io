@@ -23,5 +23,24 @@
 @media(max-width:700px){.focus-ratio{margin:4px 0 8px;gap:4px 9px}.focus-ratio .focus-amount{font-size:1.68rem}.focus-ratio-total{font-size:1.32rem}.focus-ratio-right{gap:7px}.focus-counter{font-size:.77rem;margin:5px 0}.focus-counter strong{font-size:.86rem}.focus-cash-explain{font-size:.7rem}}
 @media(max-width:350px){.focus-ratio .focus-amount{font-size:1.47rem}.focus-ratio-total{font-size:1.18rem}}
 
+
+/* Home cash baseline and income entry: two clearly named in-place actions.
+   No fixed widths; buttons remain usable on a compact iPhone/PWA viewport. */
+.focus-cash-entry{display:grid;gap:9px;min-width:0;margin-top:13px;padding:12px 0 0;border-top:1px solid #cfdfd8}
+.focus-cash-entry-title{font-size:.84rem;color:#244e42;line-height:1.4}
+.focus-cash-entry-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;min-width:0}
+.focus-cash-entry-group{min-width:0;display:grid;align-content:start;gap:5px}
+.focus-cash-entry-group>span{font-size:.72rem;color:#546e64;line-height:1.45;font-weight:650}
+.focus-cash-entry-group>.btn{min-width:0;width:100%;min-height:44px;padding:9px 5px;font-size:.76rem;line-height:1.35;white-space:normal;overflow-wrap:anywhere;word-break:keep-all}
+.focus-cash-entry-group>.btn .icon{width:16px;height:16px;flex-shrink:0}
+.focus-cash-entry-links{display:flex;justify-content:space-between;align-items:flex-start;gap:2px 8px;flex-wrap:wrap;margin-top:0}
+.focus-cash-entry-links>.btn.text{min-height:32px;padding:5px 1px;font-size:.73rem;color:#255d75;text-decoration:underline;text-underline-offset:3px;line-height:1.4;white-space:normal;text-align:left;justify-content:flex-start}
+.focus-cash-entry-help{margin:0;color:#64776f;font-size:.7rem;line-height:1.55}
+.focus-cash .focus-status{margin-bottom:0}
+.focus-cash footer{margin-top:auto;text-align:right;padding-top:5px}
+.focus-cash footer .btn{font-size:.75rem}
+@media(max-width:700px){.focus-cash-entry{padding-top:10px;margin-top:10px;gap:7px}.focus-cash-entry-group>.btn{font-size:.8rem;min-height:46px}.focus-cash-entry-links>.btn.text{font-size:.72rem}.focus-cash-entry-help{font-size:.71rem}.focus-cash footer{margin-top:0}}
+@media(max-width:350px){.focus-cash-entry-actions{grid-template-columns:1fr}.focus-cash-entry-group>.btn{min-height:44px}.focus-cash-entry-links{display:grid;gap:2px}}
+
 @media(prefers-reduced-motion:reduce){.focus-home *{scroll-behavior:auto;transition:none!important}}
 @media print{.focus-board{display:block}.focus-card{margin-bottom:12px;break-inside:avoid}.focus-budget{background:white;color:#153e5e}.focus-budget h2,.focus-budget .focus-label,.focus-budget .focus-note,.focus-budget-pair span,.focus-budget-pair b{color:#153e5e}.focus-quick,.focus-next-actions,.focus-home .btn,.focus-inline-warning{display:none}}

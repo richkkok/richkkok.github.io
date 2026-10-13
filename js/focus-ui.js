@@ -34,13 +34,31 @@ export function focusHome(s, month, extras = {}, at) {
         ${f.limit > b.affordability ? '<button class="focus-inline-warning" type="button" data-action="money-explain">수입·저축 목표 기준으로는 한도 조정이 필요해</button>' : ''}
       </section>
       <section class="focus-card focus-cash" aria-label="사용가능 현금">
-        <header><h2>사용가능 현금</h2>${button(c.accounts.length ? '잔액 갱신' : '잔액 입력', c.accounts.length ? 'cash-check' : 'cash-account', 'text')}</header>
+        <header><h2>사용가능 현금</h2>${button('계좌 보기', 'go-cash', 'text')}</header>
         <span class="focus-label">사용가능 잔액 / 이번 운영월 실제 입금</span>
         ${c.accounts.length ? amountRatio(c.usable, f.cashReceived, 'cash', 'cash-income', '확인한 사용가능 잔액', '이번 운영월 실제 생활수입 누적') : `<div class="focus-ratio"><strong class="focus-amount" data-focus-value="cash">입력 필요</strong></div><p class="focus-counter">이번 운영월 실제 입금 <strong data-focus-value="cash-income">${won(f.cashReceived)}</strong></p>`}
-        <p class="focus-note">잔액은 확보액 차감 · 오른쪽은 계획이 아닌 실제 입금액</p>
-        <p class="focus-note focus-cash-explain">이월잔액·계좌이체 등으로 두 금액은 달라질 수 있어</p>
+        <p class="focus-note">왼쪽은 은행 잔액 − 확보액 · 오른쪽은 실제 입금액(등록한 거래)</p>
+        <p class="focus-note focus-cash-explain">이월잔액·계좌이체 때문에 두 금액은 서로 다를 수 있어</p>
         <p class="focus-status${f.cashIssue ? ' warn' : ''}">${e(cashStatus)}</p>${cashAt ? `<small class="focus-time">${e(cashAt)}</small>` : ''}
-        <footer>${button('계좌·확보액 편집', 'go-cash', 'text')}</footer>
+        <div class="focus-cash-entry" aria-label="현금 기준잔액과 실제 수입 입력">
+          <strong class="focus-cash-entry-title">금액을 여기서 바로 입력해</strong>
+          <div class="focus-cash-entry-actions">
+            <div class="focus-cash-entry-group">
+              <span>왼쪽 · 현금잔액</span>
+              ${button(c.accounts.length ? '현재 잔액 입력' : '처음 기준잔액 입력', c.accounts.length ? 'cash-check' : 'cash-account', 'primary', 'wallet')}
+            </div>
+            <div class="focus-cash-entry-group">
+              <span>오른쪽 · 실제 입금액</span>
+              ${button('입금금액 입력', 'money-add-income', 'secondary', 'plus')}
+            </div>
+          </div>
+          <div class="focus-cash-entry-links">
+            ${button('새 계좌 기준잔액 등록', 'cash-account', 'text')}
+            ${button('급여일·예정수입 설정', 'month-income', 'text')}
+          </div>
+          <p class="focus-cash-entry-help">예정수입만 설정하면 오른쪽 실제 입금액은 늘어나지 않아. 입금된 금액은 위 버튼에서 등록해 줘.</p>
+        </div>
+        <footer>${button('계좌별 내역·확보액 관리', 'go-cash', 'text')}</footer>
       </section>
       <section class="focus-card focus-fixed">
         <header><h2>월 고정지출</h2>${button('내역 편집', 'go-recurring', 'text')}</header>
