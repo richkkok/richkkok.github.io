@@ -2,41 +2,53 @@ import { focusOverview, limitValues, limitBasis, saveFocusLimit } from './focus.
 import { moneyOverview } from './money.js';
 import { incomeSchedulePanel } from './income-ui.js';
 import { memberName } from '../data/defaults.js';
-import { won, escape as e, amountInput } from './format.js';
+import { won, shortWon, escape as e, amountInput } from './format.js';
 import { button, icon, progress, field, openDialog, toast } from './ui.js';
 const actionLink = (title, text, action, glyph = 'list') => `<button type="button" class="focus-menu-item" data-action="${e(action)}">${icon(glyph)}<span><strong>${e(title)}</strong><small>${e(text)}</small></span>${icon('chevron')}</button>`;
 const fold = (id, title, description, body) => `<details class="focus-fold detail-disclosure" data-focus-fold="${id}"><summary><span><strong>${e(title)}</strong><small>${e(description)}</small></span>${icon('chevron')}</summary><div class="focus-fold-body">${body}</div></details>`;
 
-export function focusHome(s, month, extras = {}) {
-  const f = focusOverview(s, month), { money: o, cash: c } = f, b = o.d;
+
+/* Numbers have different accounting meanings on each card. Keep the labels
+   explicit; the right side is not necessarily a mathematical cap on the left. */
+const amountRatio = (left, right, leftKey, rightKey, leftLabel, rightLabel) =>
+  `<div class="focus-ratio" role="group" aria-label="${e(leftLabel)} ${won(left)}, ${e(rightLabel)} ${won(right)}"><strong class="focus-amount" data-focus-value="${e(leftKey)}" title="${won(left)}">${shortWon(left)}</strong><span class="focus-ratio-right"><span class="focus-ratio-divider" aria-hidden="true">/</span><span class="focus-ratio-total" data-focus-value="${e(rightKey)}" title="${won(right)}">${shortWon(right)}</span></span></div>`;
+
+export function focusHome(s, month, extras = {}, at) {
+  const f = focusOverview(s, month, at), { money: o, cash: c } = f, b = o.d;
   const cashStatus = !c.accounts.length ? '아직 입력하지 않았어' : c.usable < 0 ? '따로 확보할 돈이 잔액보다 많아' : c.mismatchCount ? '잔액 차이 있음 · 확인 필요' : f.cashChanged ? '입력 이후 거래 변경 · 재확인 필요' : f.cashStale ? '오늘 잔액 재확인 필요' : c.pending.length ? '연결하지 않은 입출금 확인 필요' : c.baselineCount ? '첫 잔액 등록 · 아직 대조 전' : '최근 확인시각의 연결 기록상 일치';
   const dates = c.accounts.map(a => a.measuredAt);
   const cashAt = c.oldest ? `${c.oldest.replace('T', ' ').slice(5, 16).replaceAll('-', '.')} 확인${new Set(dates).size > 1 ? ' · 계좌별 시각 다름' : ''}` : '';
   const fixedExtra = b.fixed > o.total;
+  const unlinkedFixed = f.fixedSpent > o.paid;
   const allowance = `<div class="focus-allowances">${o.allowances.map(p => `<div><span>${e(memberName(p.id, s))} 용돈</span><strong>${won(p.remaining)} 남음</strong><small>사용 ${won(p.used)} / 설정 ${won(p.budget)}</small></div>`).join('')}</div><p class="focus-note">용돈은 위 소비한도에 포함돼. 실제로 계좌에서 인출할 수 있는 돈과는 달라.</p>${button('용돈·한도 편집', 'focus-plan', 'secondary')}`;
   return `<div class="focus-home">
     <div class="focus-board" aria-label="핵심 가계부 요약">
       <section class="focus-card focus-budget${f.remaining < 0 ? ' is-over' : ''}">
         <header><h2>소비한도</h2>${button('한도 편집', 'focus-plan', 'text')}</header>
-        <span class="focus-label">${f.remaining < 0 ? '한도 초과' : '남은 한도'}</span><strong class="focus-amount" data-focus-value="remaining">${won(Math.abs(f.remaining))}</strong>
+        <span class="focus-label">사용 / 이번 기간 설정한도</span>
+        ${amountRatio(f.used, f.limit, 'used', 'limit', '실제 소비 사용액', '설정한 소비한도')}
         ${progress(f.used, f.limit, 'focus-progress')}
-        <div class="focus-budget-pair"><span>사용 <b data-focus-value="used">${won(f.used)}</b></span><span>한도 <b data-focus-value="limit">${won(f.limit)}</b></span></div>
+        <p class="focus-counter">${f.remaining < 0 ? '한도 초과' : '남은 소비한도'} <strong data-focus-value="remaining">${won(Math.abs(f.remaining))}</strong></p>
         <p class="focus-note">생활비·용돈 포함 · 고정지출 별도</p>
         ${o.stale ? '<p class="focus-status warn">기록 갱신 필요 · 입력된 지출 기준</p>' : ''}
         ${f.limit > b.affordability ? '<button class="focus-inline-warning" type="button" data-action="money-explain">수입·저축 목표 기준으로는 한도 조정이 필요해</button>' : ''}
       </section>
       <section class="focus-card focus-cash" aria-label="사용가능 현금">
         <header><h2>사용가능 현금</h2>${button(c.accounts.length ? '잔액 갱신' : '잔액 입력', c.accounts.length ? 'cash-check' : 'cash-account', 'text')}</header>
-        <span class="focus-label">${c.accounts.length ? '최근 입력 잔액 기준' : '은행에서 확인한 잔액'}</span><strong class="focus-amount" data-focus-value="cash">${c.accounts.length ? won(c.usable) : '입력 필요'}</strong>
-        <p class="focus-note">확인 잔액 − 따로 남겨둘 돈</p>
+        <span class="focus-label">사용가능 잔액 / 이번 운영월 실제 입금</span>
+        ${c.accounts.length ? amountRatio(c.usable, f.cashReceived, 'cash', 'cash-income', '확인한 사용가능 잔액', '이번 운영월 실제 생활수입 누적') : `<div class="focus-ratio"><strong class="focus-amount" data-focus-value="cash">입력 필요</strong></div><p class="focus-counter">이번 운영월 실제 입금 <strong data-focus-value="cash-income">${won(f.cashReceived)}</strong></p>`}
+        <p class="focus-note">잔액은 확보액 차감 · 오른쪽은 계획이 아닌 실제 입금액</p>
+        <p class="focus-note focus-cash-explain">이월잔액·계좌이체 등으로 두 금액은 달라질 수 있어</p>
         <p class="focus-status${f.cashIssue ? ' warn' : ''}">${e(cashStatus)}</p>${cashAt ? `<small class="focus-time">${e(cashAt)}</small>` : ''}
         <footer>${button('계좌·확보액 편집', 'go-cash', 'text')}</footer>
       </section>
       <section class="focus-card focus-fixed">
         <header><h2>월 고정지출</h2>${button('내역 편집', 'go-recurring', 'text')}</header>
-        <span class="focus-label">등록된 정기지출 · 선택 기간 기준</span><strong class="focus-amount" data-focus-value="fixed">${s.recurring.length ? won(o.total) : '등록 필요'}</strong>
-        <p class="focus-note">자동이체·정기결제 합계 · 실제 납부와 별개</p>
-        <p class="focus-status${o.unpaid || fixedExtra ? ' warn' : ''}">${fixedExtra ? '미등록 고정비·별도 준비액도 확인해줘' : o.unpaid ? '실제 납부 확인이 필요한 항목이 있어' : o.recurring.length ? '등록 항목의 납부내역 연결됨' : '이번 기간에 등록된 정기지출이 없어'}</p>
+        <span class="focus-label">실제 고정비 지출 / 이번 기간 등록 예정</span>
+        ${s.recurring.length ? amountRatio(f.fixedSpent, f.fixedPlanned, 'fixed-spent', 'fixed', '실제 기록된 고정지출', '등록된 고정지출 예정합계') : `<strong class="focus-amount" data-focus-value="fixed">등록 필요</strong>`}
+        ${s.recurring.length ? `<p class="focus-counter">${f.fixedDifference < 0 ? '예정 초과' : '예정 대비 잔여'} <strong data-focus-value="fixed-difference">${won(Math.abs(f.fixedDifference))}</strong></p>` : ''}
+        <p class="focus-note">실제 지출은 미연결 고정비도 포함 · 납부 확인은 상세에서</p>
+        <p class="focus-status${o.unpaid || fixedExtra || unlinkedFixed ? ' warn' : ''}">${unlinkedFixed ? '고정비 중 예정 항목과 연결되지 않은 기록이 있어' : fixedExtra ? '미등록 고정비·별도 준비액도 확인해줘' : o.unpaid ? '실제 납부 확인이 필요한 항목이 있어' : o.recurring.length ? '등록 항목의 납부내역 연결됨' : '이번 기간에 등록된 정기지출이 없어'}</p>
         <footer>${button('고정지출 추가', 'add-recurring', 'text', 'plus')}</footer>
       </section>
     </div>
