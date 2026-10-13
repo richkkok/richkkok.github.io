@@ -45,7 +45,7 @@ try {
  await page.locator('#dialog [data-close]').first().click();
  await page.locator('.focus-cash-entry-actions [data-action="money-income"]').click();
  assert.match(await page.locator('#dialog h2').innerText(),/실제 입금 내역/);
- assert.equal(await page.locator('#dialog [name=amount]').count(),1);
+ assert.equal(await page.locator('#dialog .income-ledger-head [data-action=money-add-income]').count(),1);
  await page.locator('#dialog [data-close]').first().click();
  await page.locator('.focus-cash-entry-links [data-action="money-add-income"]').click();
  assert.match(await page.locator('#dialog h2').innerText(),/실제 입금 기록/);
@@ -55,7 +55,7 @@ try {
  assert.equal(await page.locator('#month-picker').isVisible(),false);
  assert.match(await page.locator('.cash-page .page-intro [data-action=cash-account]').innerText(),/새 계좌 기준잔액 입력/);
  assert.match(await page.locator('.cash-baseline-snapshot').innerText(),/1,000,000원/);
- assert.match(await page.locator('.cash-notice').innerText(),/현재 잔액 입력/);
+ assert.match(await page.locator('.cash-notice').textContent(),/현재 잔액 입력/);
  await page.locator('[data-action="cash-entry"]').first().click();
  await page.locator('#dialog [name=kind]').selectOption('expense');
  await page.locator('#dialog [name=category]').selectOption('work');
