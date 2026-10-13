@@ -88,12 +88,12 @@ export function quickEntry(app, date = today()) {
   let touched = false;
   const dialog = openDialog(
     "지출 입력",
-    `<div class="quick-entry-primary"><p class="quick-entry-caption">금액과 사용처부터 입력해 줘. 나머지는 필요할 때 조정하면 돼.</p><div class="form-grid quick-core-grid"><div class="quick-field quick-field-amount"><div class="quick-amount">${field("얼마 썼어?", "amount", "", "number", 'required min="1" autofocus placeholder="0"')}</div></div><div class="quick-field quick-field-merchant">${field("어디서 썼어?", "merchant", "", "text", 'required maxlength="300" list="recent-merchants" placeholder="예: 스타벅스, 이마트, 병원"')}<datalist id="recent-merchants">${merchants.map((m) => `<option value="${e(m)}"></option>`).join("")}</datalist></div><div class="quick-field quick-field-payment">${field("어떻게 결제했어?", "paymentMethod", payment, "text", 'required maxlength="100" list="payment-options" placeholder="예: 우리카드, 현금, 네이버페이"')}<datalist id="payment-options">${[...new Set([...(state.settings.paymentMethods || []), ...recent.map((t) => t.paymentMethod)])].map((p) => `<option value="${e(p)}"></option>`).join("")}</datalist></div><div class="quick-field quick-field-owner">${select(
+    `<div class="quick-entry-primary"> <div class="form-grid quick-core-grid"><div class="quick-field quick-field-amount"><div class="quick-amount">${field("얼마 썼어?", "amount", "", "number", 'required min="1" autofocus placeholder="0"')}</div></div><div class="quick-field quick-field-merchant">${field("어디서 썼어?", "merchant", "", "text", 'required maxlength="300" list="recent-merchants" placeholder="예: 스타벅스, 이마트, 병원"')}<datalist id="recent-merchants">${merchants.map((m) => `<option value="${e(m)}"></option>`).join("")}</datalist></div><div class="quick-field quick-field-payment">${field("어떻게 결제했어?", "paymentMethod", payment, "text", 'required maxlength="100" list="payment-options" placeholder="예: 우리카드, 현금, 네이버페이"')}<datalist id="payment-options">${[...new Set([...(state.settings.paymentMethods || []), ...recent.map((t) => t.paymentMethod)])].map((p) => `<option value="${e(p)}"></option>`).join("")}</datalist></div><div class="quick-field quick-field-owner">${select(
       "누가 썼어?",
       "owner",
       ["p1", "p2", "joint"].map((p) => [p, memberName(p, state)]),
       owner,
-    )}</div></div><div id="auto-entry-summary" class="auto-entry-summary"><span class="auto-dot"></span><span><strong>자동으로 분류할게</strong><small>사용처를 입력하면 카테고리를 추천해.</small></span></div></div><details class="advanced quick-adjust"><summary>날짜 · 분류 수정</summary><div class="form-grid">${field("거래일", "date", date, "date", "required")}${select("카테고리", "category", cats, "other")}</div><details class="advanced secondary-advanced"><summary>고급 옵션</summary><div class="form-grid">${select(
+    )}</div></div><div id="auto-entry-summary" class="auto-entry-summary"><span class="auto-dot"></span><span><strong>자동으로 분류할게</strong> </span></div></div><details class="advanced quick-adjust"><summary>날짜 · 분류 수정</summary><div class="form-grid">${field("거래일", "date", date, "date", "required")}${select("카테고리", "category", cats, "other")}</div><details class="advanced secondary-advanced"><summary>고급 옵션</summary><div class="form-grid">${select(
       "거래 유형",
       "direction",
       [
@@ -247,7 +247,7 @@ export function quickEntry(app, date = today()) {
     }
     const summary = dialog.querySelector("#auto-entry-summary");
     if (summary)
-      summary.innerHTML = `<span class="auto-dot"></span><span><strong>${merchant ? e(categoryName(category)) + " 자동분류" : "자동으로 분류할게"}</strong><small>${merchant ? "필요하면 아래에서 분류만 바꿔줘." : "사용처를 입력하면 카테고리를 추천해."}</small></span>`;
+      summary.innerHTML = `<span class="auto-dot"></span><span><strong>${merchant ? e(categoryName(category)) + " 자동분류" : "자동으로 분류할게"}</strong><small></small></span>`;
   };
   dialog.querySelector("[name=category]").onchange = () => {
     touched = true;
