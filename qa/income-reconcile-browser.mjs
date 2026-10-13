@@ -32,6 +32,7 @@ try {
       paymentMethod:"QA 계좌",excluded:false,operatingMonth:shiftMonth(month,-1),
       sourceType:"manual",createdAt:"2026-10-01T00:00:00.000Z",updatedAt:"2026-10-01T00:00:00.000Z"
     }];
+    s.cashAccounts=[{id:"qa-bank",name:"QA 현금",owner:"p1",openingBalance:1500000,openingAt:date+"T08:00:00",reserved:0,paymentMethod:"",autoMatch:false}];
     const repo=new Repository();await repo.replace(s);repo.close();return {month,date,previous:shiftMonth(month,-1)};
   });
   await page.reload({waitUntil:"networkidle"});
@@ -75,6 +76,7 @@ try {
   assert.equal(after.transactions[0].amount,initial.transactions[0].amount);
   assert.equal(after.transactions[0].operatingMonth,preset.month);
   assert.equal(await page.locator('[data-focus-value="cash-income"]').innerText(),"300만원");
+  assert.equal(await page.locator('[data-focus-value="cash"]').innerText(),"150만원","Moving operating month must not fabricate cash");
   assert.equal(await page.locator(".focus-income-alert").count(),0);
   // The record remains editable and viewable without adding a new transaction.
   await page.locator(".focus-cash-entry-actions [data-action=money-income]").click();
@@ -101,6 +103,7 @@ try {
   }
   await page.reload({waitUntil:"networkidle"});
   assert.equal(await page.locator('[data-focus-value="cash-income"]').innerText(),"300만원");
+  assert.equal(await page.locator('[data-focus-value="cash"]').innerText(),"150만원","Moving operating month must not fabricate cash");
   assert.equal((await read()).transactions.length,1);
   assert.deepEqual(errors,[]);
   fs.writeFileSync("qa-results/income-reconcile-browser.json",JSON.stringify({result:"PASS",preset,layouts,checks:["early deposited actual stays in prior period until review","duplicate blocked with existing record link","existing income listed across operating months","reassignment retains amount and date","cash income updates immediately","six widths no overflow","reload preserved","no production data"],errors},null,2));
