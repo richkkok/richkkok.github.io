@@ -46,7 +46,7 @@ try {
  assert.equal(await page.locator('.focus-budget [data-focus-value=limit]').innerText(),'250만원');
  assert.match(await page.locator('.focus-budget .focus-ratio').getAttribute('aria-label'),/설정한 소비한도 2,500,000원/);
  const incomeBefore=(await overview()).d.b.actualIncome;
- await page.locator('[data-focus-fold="income"] > summary').click();await page.locator('[data-action="money-income"]').click();await page.locator('#dialog [data-action="money-add-income"]').click();
+ await page.locator('[data-focus-fold="income"] > summary').click();await page.locator('[data-focus-fold="income"] [data-action="money-income"]').click();await page.locator('#dialog [data-action="money-add-income"]').click();
  for(const [name,value]of [['amount','123456'],['merchant','QA 급여'],['payment','QA 계좌']])await page.locator(`#dialog [name=${name}]`).fill(value);
  await page.locator('#dialog [type=submit]').click();await page.waitForTimeout(150);
  assert.equal((await overview()).d.b.actualIncome,incomeBefore+123456);
