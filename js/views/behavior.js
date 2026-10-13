@@ -142,7 +142,7 @@ export function controlAnalysis(state, month) {
   const line = (l, v) =>
     `<div class="between data-line"><span>${e(l)}</span><strong>${won(v)}</strong></div>`;
 
-  return `<div class="page-intro compact-page-intro"><div><h1>분석</h1><p>리치콕이 먼저 요약하고, 필요할 때만 자세히 봐.</p></div>${button("자료 가져오기", "go-import", "secondary", "upload")}</div>
+  return `<div class="page-intro compact-page-intro"><div><h1>분석</h1></div>${button("자료 가져오기", "go-import", "secondary", "upload")}</div>
     <section class="card baseline-header compact-baseline"><div><span class="eyebrow">분석 기준</span><h2>${h.selected.start.replaceAll("-", ".")} – ${h.selected.end.replaceAll("-", ".")}</h2><p>${h.usable ? "3개월 자료 확인 완료" : "3개월 자료를 확인하면 추천 정확도가 올라가."}</p></div><div class="action-buttons">${button("기간 수정", "baseline-settings", "text")}${button(h.usable ? "추천 목표" : "자료 확인", h.usable ? "recommend-goals" : "baseline-settings", "primary")}</div></section>
     <div class="analysis-layout">
       ${analysisBrief(state, b, h)}
@@ -162,7 +162,7 @@ export function controlAnalysis(state, month) {
         )
         .join("") || "<p>기록된 변동지출이 없어.</p>"}</div></section>
       <details class="detail-disclosure full-width">
-        <summary><span><strong>상세 패턴 보기</strong><small>소비곡선 · 요일 · 반복소비 · 결제수단</small></span>${icon("chevron")}</summary>
+        <summary><span><strong>상세 패턴 보기</strong></span>${icon("chevron")}</summary>
         <div class="analysis-detail-grid">
           <section class="card">${sectionTitle("소비곡선", b.history.usable ? "우리집 과거패턴 반영" : "임시 계획선")}${paceChart(b)}${line("이전 운영월 지출", prev.b.spent)}${line("이번 운영월 지출", b.b.spent)}</section>
           <section class="card">${sectionTitle("언제 많이 쓸까?")}${line("평일 하루 평균", h.patterns.weekday)}${line("주말 하루 평균", h.patterns.weekend)}${line("급여일 전 3일", h.patterns.before)}${line("급여일~3일 뒤", h.patterns.after)}</section>
