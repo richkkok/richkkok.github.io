@@ -62,7 +62,7 @@ export function editTransaction(app, id) {
     );
     return;
   }
-  const body = `<div class="form-grid editor-primary">${field("사용처", "merchantRaw", tx.merchantRaw, "text", 'required maxlength="300"')}${field("금액", "amount", tx.amount, "number", "required")}${field("날짜와 시간", "datetime", tx.datetime.slice(0, 16), "datetime-local", "required")}${select("카테고리", "category", categoryOptions(state), tx.category)}</div><p class="auto-learn-note">카테고리를 바꾸면 다음부터 같은 사용처는 자동으로 기억해.</p><details class="advanced editor-advanced"><summary>사용자 · 결제 · 고급 설정</summary><div class="form-grid">${select(
+  const body = `<div class="form-grid editor-primary">${field("사용처", "merchantRaw", tx.merchantRaw, "text", 'required maxlength="300"')}${field("금액", "amount", tx.amount, "number", "required")}${field("날짜와 시간", "datetime", tx.datetime.slice(0, 16), "datetime-local", "required")}${select("카테고리", "category", categoryOptions(state), tx.category)}</div> <details class="advanced editor-advanced"><summary>사용자 · 결제 · 고급 설정</summary><div class="form-grid">${select(
     "사용자",
     "owner",
     ["p1", "p2", "joint"].map((p) => [p, memberName(p, state)]),
