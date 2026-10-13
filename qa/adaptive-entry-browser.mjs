@@ -100,7 +100,19 @@ try {
         .map((el) => el.name);
       const rect = d.getBoundingClientRect();
       const footer = d.querySelector(".dialog-footer").getBoundingClientRect();
+      const cards = [...grid.querySelectorAll(":scope > .quick-field")];
       return {
+        gridHeight: Math.round(grid.getBoundingClientRect().height),
+        cardHeights: cards.map((card) => Math.round(card.getBoundingClientRect().height)),
+        coreChildren: cards.length,
+        merchantPlaceholder: selector("merchant").getAttribute("placeholder"),
+        paymentPlaceholder: selector("paymentMethod").getAttribute("placeholder"),
+        merchantListValid: d.querySelector("#recent-merchants")?.parentElement?.classList.contains("quick-field-merchant"),
+        paymentListValid: d.querySelector("#payment-options")?.parentElement?.classList.contains("quick-field-payment"),
+        dateSettingsValid: !!d.querySelector(".dialog-body > details.quick-adjust"),
+        summaryValid: d.querySelector("#auto-entry-summary")?.parentElement?.classList.contains("quick-entry-primary"),
+        footerValid: !!d.querySelector(".dialog-body + .dialog-footer"),
+        dialogHeight: Math.round(rect.height),
         variant: d.className,
         names,
         width: d.clientWidth,
@@ -119,6 +131,20 @@ try {
       };
     });
     assert.deepEqual(dialog.names, ["amount", "merchant", "paymentMethod", "owner"]);
+    assert.equal(dialog.coreChildren, 4, "Exactly four cards; no accidentally nested fields");
+    assert.equal(dialog.merchantPlaceholder, "예: 스타벅스, 이마트, 병원", "Merchant placeholder must be valid HTML");
+    assert.equal(dialog.paymentPlaceholder, "예: 우리카드, 현금, 네이버페이", "Payment placeholder must be valid HTML");
+    assert.equal(dialog.merchantListValid, true, "Recent merchant suggestions must be outside the input label");
+    assert.equal(dialog.paymentListValid, true, "Payment suggestions must be outside the input label");
+    assert.equal(dialog.dateSettingsValid, true, "Date / category options must be outside the core cards");
+    assert.equal(dialog.summaryValid, true, "Auto classification summary must follow the field grid");
+    assert.equal(dialog.footerValid, true, "Save / cancel buttons must remain in the form footer");
+    assert.ok(dialog.cardHeights.every((cardHeight) => cardHeight > 75 && cardHeight < 180),
+      "Input cards should fit their content, never stretch to fill the dialog: " + JSON.stringify({ width, dialog }));
+    if (width > 700 && height >= 650) {
+      assert.ok(dialog.gridHeight < 340, "Two desktop rows must be compact: " + JSON.stringify({ width, dialog }));
+      assert.ok(dialog.dialogHeight < 650, "Desktop dialog must not fill the entire screen: " + JSON.stringify({ width, dialog }));
+    }
     for (const key of [["scrollWidth", "width"], ["bodyScrollWidth", "bodyWidth"], ["gridScrollWidth", "gridWidth"]]) {
       assert.ok(dialog[key[0]] <= dialog[key[1]] + 2, JSON.stringify({ width, dialog, key }));
     }
@@ -163,6 +189,7 @@ try {
     JSON.stringify({
       result: "PASS", layouts, errors,
       checks: ["13 viewport/orientation combinations", "5 navigation routes",
+        "valid placeholders and datalists", "intact field DOM hierarchy", "compact input cards and short desktop dialog",
         "no overflow", "mobile single-column form", "tablet/PC two-column form",
         "dialog footer in view", "cancel does not save", "expense persists",
         "transaction edit dialog", "no production access"],
