@@ -27,7 +27,9 @@ dialog.dialog-transaction-editor {
 dialog.dialog-expense-entry {
   width: min(740px, calc(100vw - 48px));
   max-width: 740px;
-  height: auto;
+  /* A modal with auto height stretched to its 900px max-height in Chromium.
+     Fit to the single form; keep the body scrollable when space is limited. */
+  height: fit-content;
 }
 .dialog-expense-entry .dialog-header,
 .dialog-transaction-editor .dialog-header {
