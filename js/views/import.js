@@ -26,9 +26,9 @@ export function importView(state, session) {
     sheet = sheets?.[session.sheet || 0],
     preview = session.preview,
     cardMeta = session.cardMeta;
-  return `<div class="page-intro"><div><h1>내역 가져오기</h1><p>카드사 원본 PDF·엑셀도 자동으로 읽고, 일반 CSV·엑셀은 열을 연결해서 가져와.</p></div><span class="status-pill">${icon("shield")}원본은 기기 안에서 처리</span></div>${state.demo ? '<div class="notice">샘플 공간이에요. 실제 금융파일은 샘플을 종료한 뒤 가져와 주세요.</div>' : ""}<section class="card import-card"><div class="owner-choice">${["p1", "p2"].map((p) => `<button class="owner-button ${session.owner === p ? "selected" : ""}" data-import-owner="${p}" aria-pressed="${session.owner === p}"><span class="avatar">${e(state.settings.members[p].slice(0, 1))}</span><span>${e(state.settings.members[p])} 기준</span>${icon("upload")}</button>`).join("")}</div><p class="small muted">이름이 적힌 카드 명세서는 자동 연결해. 박*영처럼 가운데가 가려진 이름도 등록된 구성원 이름과 패턴이 맞으면 박태영으로 연결해. ‘본인회원/가족회원’만 표시된 엑셀은 위에서 명세서의 본인회원을 선택하면 가족회원은 다른 구성원으로 자동 분리해.</p><input id="import-file" type="file" accept=".pdf,.csv,.xlsx,.xls" multiple hidden><div class="dropzone" tabindex="0" role="button" aria-label="거래파일 선택 또는 여기에 놓기"><span class="drop-icon">${icon("upload")}</span><h2>${session.busy ? "파일을 읽고 있어요…" : "카드사 원본 파일을 여기에 놓아 주세요"}</h2><p>또는 눌러서 파일 선택 · PDF, XLSX, XLS, CSV · 최대 20MB</p><span class="small">원본 파일은 저장·업로드하지 않아요</span></div><p class="form-error" id="import-error" role="alert">${e(session.error || "")}</p>${session.fileName ? `<div class="import-file-info"><span>${icon("list")}${e(session.fileName)}</span><span>${session.queue?.length ? `뒤에 ${session.queue.length}개 대기` : ""}</span></div>` : ""}</section>${
+  return `<div class="page-intro"><div><h1>내역 가져오기</h1></div><span class="status-pill">${icon("shield")}원본은 기기 안에서 처리</span></div>${state.demo ? '<div class="notice">샘플 공간이에요. 실제 금융파일은 샘플을 종료한 뒤 가져와 주세요.</div>' : ""}<section class="card import-card"><div class="owner-choice">${["p1", "p2"].map((p) => `<button class="owner-button ${session.owner === p ? "selected" : ""}" data-import-owner="${p}" aria-pressed="${session.owner === p}"><span class="avatar">${e(state.settings.members[p].slice(0, 1))}</span><span>${e(state.settings.members[p])} 기준</span>${icon("upload")}</button>`).join("")}</div><input id="import-file" type="file" accept=".pdf,.csv,.xlsx,.xls" multiple hidden><div class="dropzone" tabindex="0" role="button" aria-label="거래파일 선택 또는 여기에 놓기"><span class="drop-icon">${icon("upload")}</span><h2>${session.busy ? "파일을 읽고 있어요…" : "카드사 원본 파일을 여기에 놓아 주세요"}</h2><p>PDF · XLSX · XLS · CSV (20MB 이하)</p></div><p class="form-error" id="import-error" role="alert">${e(session.error || "")}</p>${session.fileName ? `<div class="import-file-info"><span>${icon("list")}${e(session.fileName)}</span><span>${session.queue?.length ? `뒤에 ${session.queue.length}개 대기` : ""}</span></div>` : ""}</section>${
     cardMeta
-      ? `<section class="card mapping-card"><div class="section-heading"><div><h2>${e(cardMeta.sourceLabel)} 자동 인식</h2><p>날짜·가맹점·카드·사용자를 자동 분리하고, 카드 혜택이 있으면 실제 납부금액을 지출로 저장해. 이용금액과 할인액은 별도로 보존하고 소계·합계 행은 저장하지 않아.</p></div><span class="status-pill">자동분류</span></div><div class="notice"><strong>${cardOwnerSummary(state, preview) || `${cardMeta.entriesCount || 0}건 인식`}</strong><p>${cardMeta.requiresPrimaryOwner ? `‘본인회원’은 현재 ${e(memberName(session.owner, state))} 기준으로 연결했어. 기준이 다르면 위 사용자만 바꾸면 미리보기가 다시 계산돼.` : "명세서에 적힌 이름을 현재 구성원과 자동으로 연결했어."}</p></div>${
+      ? `<section class="card mapping-card"><div class="section-heading"><div><h2>${e(cardMeta.sourceLabel)} 자동 인식</h2></div><span class="status-pill">자동분류</span></div><div class="notice"><strong>${cardOwnerSummary(state, preview) || `${cardMeta.entriesCount || 0}건 인식`}</strong><p>${cardMeta.requiresPrimaryOwner ? `‘본인회원’은 현재 ${e(memberName(session.owner, state))} 기준으로 연결했어. 기준이 다르면 위 사용자만 바꾸면 미리보기가 다시 계산돼.` : "명세서에 적힌 이름을 현재 구성원과 자동으로 연결했어."}</p></div>${
           preview?.ownerWarnings?.length
             ? `<div class="notice warning"><strong>사용자 연결 확인</strong><ul>${preview.ownerWarnings.map((warning) => `<li>${e(warning)}</li>`).join("")}</ul></div>`
             : ""
@@ -36,7 +36,7 @@ export function importView(state, session) {
       : ""
   }${
     sheet
-      ? `<section class="card mapping-card"><div class="section-heading"><div><h2>열 연결 확인</h2><p>일반 파일은 실제 헤더가 다르면 행 번호와 열을 직접 고르세요.</p></div></div><div class="form-grid">${select(
+      ? `<section class="card mapping-card"><div class="section-heading"><div><h2>열 연결 확인</h2></div></div><div class="form-grid">${select(
           "시트",
           "import-sheet",
           sheets.map((s, i) => [i, s.name]),
@@ -79,7 +79,7 @@ export function importView(state, session) {
             ["signed", "계좌형: 음수 지출, 양수 수입"],
           ],
           session.negativeMode || "refund",
-        )}<p class="small muted">입금·출금 열을 연결하면 금액 열보다 우선해요. 수입·지출 구분이 있으면 부호보다 우선해요. 미리보기에서 확인해 주세요.</p>${button("미리보기 새로 확인", "preview-import", "secondary")}</section>`
+        )}${button("미리보기 새로 확인", "preview-import", "secondary")}</section>`
       : ""
   }${
     preview
