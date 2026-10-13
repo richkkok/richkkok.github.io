@@ -36,3 +36,12 @@
 @media(max-width:700px){.instrument-panel{gap:11px}.instrument-panel .section-heading>.btn{width:100%}.instrument-panel .section-heading h2{font-size:1.05rem}.instrument-controls{gap:8px}.instrument-controls .field span{font-size:.72rem}.instrument-controls select{font-size:.8rem;min-height:44px}.instrument-totals{gap:6px}.instrument-totals>div{padding:10px 8px}.instrument-totals strong{font-size:.93rem}.instrument-totals small{font-size:.68rem}.instrument-row-copy strong{font-size:.83rem}.instrument-row-side strong{font-size:.93rem}.instrument-row-side .btn{min-height:38px}.instrument-search-and-add .btn{flex:1 1 140px}}
 @media(max-width:360px){.instrument-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.instrument-totals>div:last-child{grid-column:1/-1}.instrument-row{gap:6px}.instrument-row-side strong{font-size:.86rem}}
 @media print{.instrument-panel .btn,.instrument-controls,.instrument-search-and-add,.instrument-custom-dates{display:none}.instrument-row{break-inside:avoid}}
+
+
+/* Keep the immutable original baseline visible separately from later checks. */
+.cash-baseline-snapshot{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;border:1px solid #d3e4dc;border-radius:11px;background:#f3faf6;padding:10px 12px}
+.cash-baseline-snapshot>span{font-size:.76rem;color:#44675c;font-weight:650}
+.cash-baseline-snapshot>strong{font-size:1.08rem;font-weight:800;color:#235548;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.cash-baseline-snapshot>small{display:block;flex:0 0 100%;font-size:.72rem;line-height:1.5;color:#61786f}
+.cash-page .page-intro>.btn{max-width:100%;text-align:center}
+@media(max-width:700px){.cash-baseline-snapshot{padding:10px}.cash-baseline-snapshot>strong{font-size:1rem}.cash-page .page-intro>.btn{width:100%}}
