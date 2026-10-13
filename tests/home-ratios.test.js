@@ -66,7 +66,7 @@ test("only actually recorded income raises cash comparison on payday; scheduled 
   assert.equal(value(document, "cash"), "150만원",
     "Recorded pay must never fabricate new measured bank balances");
   assert.match(document.querySelector(".focus-cash .focus-ratio").getAttribute("aria-label"), /실제 생활수입 누적 6,500,000원/);
-  assert.match(document.querySelector(".focus-cash").textContent, /이월잔액·계좌이체/);
+  assert.match(document.querySelector(".focus-cash").textContent, /잔액은 직접 확인 · 수입은 귀속월 기준/);
   assert.equal(original.includes("pay-10"), true);
 });
 
