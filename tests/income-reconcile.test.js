@@ -7,8 +7,8 @@ import { monthBudget } from "../js/budget.js";
 import { focusOverview } from "../js/focus.js";
 import { focusHome } from "../js/focus-ui.js";
 import { moneyAction } from "../js/money-actions.js";
-import { period, periodKey, shiftMonth, addDays, transactionPeriod, startDay } from "../js/period.js";
-import { today } from "../js/format.js";
+import { period, periodKey, addDays, transactionPeriod } from "../js/period.js";
+import { today, shiftMonth } from "../js/format.js";
 const curr = periodKey(today(), 10), prev = shiftMonth(curr, -1);
 const beforeStart = addDays(period(curr, 10).start, -2);
 const tx = (extra = {}) => ({
