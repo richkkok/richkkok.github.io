@@ -85,9 +85,11 @@ export function openDialog(
   body,
   onSubmit = null,
   submitLabel = "저장하기",
+  variant = "",
 ) {
   const dialog = document.querySelector("#dialog");
   if (dialog.open) dialog.close();
+  dialog.className = variant ? `dialog-${variant}` : "";
   const focus = document.activeElement;
   dialog.innerHTML = `<form method="dialog"><header class="dialog-header"><h2 id="dialog-title">${e(title)}</h2><button class="icon-button" type="button" data-close aria-label="닫기">${icon("close")}</button></header><div class="dialog-body">${body}<p class="form-error" role="alert"></p></div>${onSubmit ? `<footer class="dialog-footer"><button type="button" class="btn secondary" data-close>취소</button><button type="submit" class="btn primary">${e(submitLabel)}</button></footer>` : ""}</form>`;
   dialog

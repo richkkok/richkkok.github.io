@@ -144,7 +144,7 @@ export function editTransaction(app, id) {
       syncAutoRecurring(s);
     });
     toast("내역을 저장했어요.");
-  });
+  }, "저장하기", "transaction-editor");
 }
 export function splitEditor(app, id) {
   const tx = app.state.transactions.find((t) => t.id === id);

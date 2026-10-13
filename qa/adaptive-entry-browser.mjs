@@ -1,0 +1,175 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
+
+const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
+const executablePath = [
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/chromium",
+].find((path) => fs.existsSync(path));
+assert.ok(executablePath, "Chromium / Chrome executable is required");
+const server = spawn(process.execPath, ["scripts/serve.cjs"], {
+  env: { ...process.env, PORT: "4181" },
+  stdio: "inherit",
+});
+let browser;
+try {
+  await new Promise((resolve) => setTimeout(resolve, 750));
+  browser = await chromium.launch({
+    headless: true,
+    executablePath,
+    args: ["--no-sandbox"],
+  });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    timezoneId: "Asia/Seoul",
+    serviceWorkers: "block",
+    hasTouch: true,
+  });
+  await context.route(/supabase\.co/, (route) => route.abort());
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.setDefaultTimeout(8000);
+  await page.goto("http://127.0.0.1:4181/#home", { waitUntil: "networkidle" });
+  // The test state exists ONLY in the temporary browser context.
+  await page.evaluate(async () => {
+    const { emptyState } = await import("./data/defaults.js");
+    const { Repository } = await import("./js/db.js");
+    const s = emptyState();
+    s.configured = true;
+    s.settings.privacy = false;
+    s.settings.income = 6000000;
+    s.settings.sharedBudget = 1800000;
+    const r = new Repository();
+    await r.replace(s);
+    r.close();
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector(".focus-board");
+  const read = () =>
+    page.evaluate(async () => {
+      const { Repository } = await import("./js/db.js");
+      const r = new Repository();
+      const state = await r.read();
+      r.close();
+      return state;
+    });
+  const original = await read();
+  const viewports = [
+    [320, 700], [360, 800], [375, 667], [390, 844], [430, 932],
+    [600, 860], [768, 1024], [834, 1112], [1024, 768],
+    [1280, 800], [1440, 900], [1920, 1080], [844, 390],
+  ];
+  const layouts = [];
+  fs.mkdirSync("qa-results", { recursive: true });
+  for (const [width, height] of viewports) {
+    await page.setViewportSize({ width, height });
+    await page.goto("http://127.0.0.1:4181/#home", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".focus-board");
+    const shell = await page.evaluate(() => {
+      const nav = document.querySelector("#navigation");
+      const sidebar = document.querySelector(".sidebar");
+      const navigation = nav.getBoundingClientRect();
+      return {
+        viewport: innerWidth,
+        pageWidth: document.documentElement.scrollWidth,
+        count: nav.querySelectorAll("a.nav-item").length,
+        navTop: Math.round(navigation.top),
+        sidebarTop: Math.round(sidebar.getBoundingClientRect().top),
+      };
+    });
+    assert.equal(shell.count, 5, "All main navigation routes remain present");
+    assert.ok(shell.pageWidth <= width + 1, JSON.stringify({ width, shell }));
+    if (width <= 700) {
+      assert.ok(shell.navTop > height / 2, "Bottom navigation must stay at screen bottom");
+    } else {
+      assert.ok(shell.navTop < height / 2, "Tablet / desktop navigation must stay in side rail");
+    }
+    await page.locator(".import-entry[data-action=quick-expense]").click();
+    assert.equal(await page.locator("#dialog.dialog-expense-entry[open]").count(), 1);
+    const dialog = await page.evaluate(() => {
+      const d = document.querySelector("#dialog");
+      const body = d.querySelector(".dialog-body");
+      const grid = d.querySelector(".quick-core-grid");
+      const selector = (name) => d.querySelector("[name=" + name + "]");
+      const x = (name) => Math.round(selector(name).getBoundingClientRect().left);
+      const names = [...grid.querySelectorAll(":scope > .quick-field input, :scope > .quick-field select")]
+        .map((el) => el.name);
+      const rect = d.getBoundingClientRect();
+      const footer = d.querySelector(".dialog-footer").getBoundingClientRect();
+      return {
+        variant: d.className,
+        names,
+        width: d.clientWidth,
+        scrollWidth: d.scrollWidth,
+        bodyWidth: body.clientWidth,
+        bodyScrollWidth: body.scrollWidth,
+        gridWidth: grid.clientWidth,
+        gridScrollWidth: grid.scrollWidth,
+        amountLeft: x("amount"),
+        merchantLeft: x("merchant"),
+        rectLeft: rect.left,
+        rectRight: rect.right,
+        rectBottom: rect.bottom,
+        footerTop: footer.top,
+        footerBottom: footer.bottom,
+      };
+    });
+    assert.deepEqual(dialog.names, ["amount", "merchant", "paymentMethod", "owner"]);
+    for (const key of [["scrollWidth", "width"], ["bodyScrollWidth", "bodyWidth"], ["gridScrollWidth", "gridWidth"]]) {
+      assert.ok(dialog[key[0]] <= dialog[key[1]] + 2, JSON.stringify({ width, dialog, key }));
+    }
+    assert.ok(dialog.rectLeft >= -1 && dialog.rectRight <= width + 1, JSON.stringify({ width, dialog }));
+    assert.ok(dialog.footerTop >= -1 && dialog.footerBottom <= height + 1, JSON.stringify({ width, dialog }));
+    if (width <= 700) assert.ok(Math.abs(dialog.amountLeft - dialog.merchantLeft) <= 2, "Phone fields must stack");
+    else assert.ok(dialog.merchantLeft > dialog.amountLeft + 50, "Tablet / desktop fields must be two columns");
+    if ([320, 390, 768, 1440].includes(width) || (width === 844 && height === 390)) {
+      await page.screenshot({ path: "qa-results/expense-" + width + "x" + height + ".png" });
+    }
+    layouts.push({ width, height, shell, dialog });
+    await page.locator("#dialog .dialog-header [data-close]").click();
+    assert.equal(await page.locator("#dialog[open]").count(), 0);
+  }
+  assert.deepEqual(await read(), original, "Opening and cancelling form must never mutate money");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("http://127.0.0.1:4181/#home");
+  await page.waitForSelector(".focus-board");
+  await page.locator(".import-entry[data-action=quick-expense]").click();
+  await page.locator("#dialog [name=amount]").fill("12340");
+  await page.locator("#dialog [name=merchant]").fill("QA 반응형마트");
+  await page.locator("#dialog [name=owner]").selectOption("p2");
+  await page.locator("#dialog [name=paymentMethod]").fill("QA 체크카드");
+  await page.locator("#dialog [type=submit]").click();
+  await page.waitForSelector("#dialog[open]", { state: "hidden" });
+  const after = await read();
+  assert.equal(after.transactions.length, original.transactions.length + 1);
+  const saved = after.transactions.find((tx) => tx.merchantRaw === "QA 반응형마트");
+  assert.ok(saved);
+  assert.equal(saved.amount, 12340);
+  assert.equal(saved.owner, "p2");
+  assert.equal(saved.paymentMethod, "QA 체크카드");
+  await page.goto("http://127.0.0.1:4181/#transactions");
+  await page.waitForSelector(".transactions-list");
+  await page.locator(".transaction-row", { hasText: "QA 반응형마트" }).click();
+  assert.equal(await page.locator("#dialog.dialog-transaction-editor[open]").count(), 1);
+  await page.locator("#dialog [data-close]").first().click();
+  assert.deepEqual(await read(), after, "Cancel edit must not mutate saved transaction");
+  assert.deepEqual(errors, [], "Browser must have no runtime errors");
+  fs.writeFileSync(
+    "qa-results/adaptive-entry-browser.json",
+    JSON.stringify({
+      result: "PASS", layouts, errors,
+      checks: ["13 viewport/orientation combinations", "5 navigation routes",
+        "no overflow", "mobile single-column form", "tablet/PC two-column form",
+        "dialog footer in view", "cancel does not save", "expense persists",
+        "transaction edit dialog", "no production access"],
+    }, null, 2),
+  );
+  console.log("PASS adaptive spending form across 13 viewports, navigation, save/cancel and existing edit");
+} finally {
+  await browser?.close();
+  server.kill();
+}
