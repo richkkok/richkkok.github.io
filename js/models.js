@@ -2,6 +2,7 @@ import { validateIncomeSchedules } from "./income-schedule.js";
 import { validateCash } from "./cash.js";
 import { validatePaymentProfiles } from "./payment-channels.js";
 import { emptyState } from "../data/defaults.js";
+import { keyText } from "./format.js";
 const scopes = ["shared", "fixed", "p1", "p2", "excluded"],
   directions = ["expense", "income", "refund", "transfer"];
 const isMoney = (n) => Number.isSafeInteger(n) && n >= 0 && n <= 1e12;
@@ -166,6 +167,16 @@ export function validateState(input) {
   }
   validateIncomeSchedules(state);
   validatePaymentProfiles(state);
+  if (s.paymentAliases !== undefined) {
+    if (!s.paymentAliases || Array.isArray(s.paymentAliases) ||
+        typeof s.paymentAliases !== 'object' || Object.keys(s.paymentAliases).length > 2000)
+      throw Error('결제수단 이전 이름 목록을 확인해 줘.');
+    for (const [k,v] of Object.entries(s.paymentAliases))
+      if (!k || k.length > 100 || keyText(k) !== k ||
+          typeof v !== 'string' || !v.trim() || v.length > 100 ||
+          keyText(v) === k)
+        throw Error('결제수단 이전 이름과 새 이름을 확인해 줘.');
+  }
   validateCash(state);
   return state;
 }
