@@ -99,6 +99,59 @@ export function cashSummary(s, at = cashNow()) {
     absoluteDifference:accounts.reduce((n,a)=>n+Math.abs(a.difference||0),0),
     baselineCount:accounts.filter(a=>!a.last).length,oldest:accounts.map(a=>a.measuredAt).sort()[0]||''};
 }
+// The last manually verified bank balance already contains all movements before
+// that observation. Project only later movements, otherwise a recorded fixed
+// payment would be deducted twice when a user confirms the current balance.
+// Unlinked *actual* fixed debits can be shown as provisional cash outflows,
+// but credit-card usage, unknown instruments and same-day ambiguous records
+// must not be treated as verified bank withdrawals.
+export function cashProjection(s, cash = cashSummary(s), at = cashNow()) {
+  if (!cash.accounts.length)
+    return { usable: null, linkedChange: 0, unlinkedFixed: 0, unlinkedCount: 0 };
+  let linkedChange = 0;
+  for (const account of cash.accounts)
+    for (const row of account.now.entries)
+      if (row.leg.at > account.measuredAt && row.leg.at <= at)
+        linkedChange += row.leg.direction === 'in' ? row.t.amount : -row.t.amount;
+
+  // If accounts were checked at different times, use the most recent
+  // observation as the conservative cutoff for unassigned expenses.
+  const latestCheck = cash.accounts.reduce(
+    (latest, account) => account.measuredAt > latest ? account.measuredAt : latest, ''
+  );
+  const children = new Map();
+  for (const tx of s.transactions) if (tx.parentId && !tx.deletedAt) {
+    const pieces = children.get(tx.parentId) || [];
+    pieces.push(tx);
+    children.set(tx.parentId, pieces);
+  }
+  let unlinkedFixed = 0, unlinkedCount = 0;
+  for (const row of cash.rows) {
+    const tx = row.t;
+    // Explicitly ignored, disputed, auto-linked and card transactions must
+    // never be heuristically deducted as additional fixed cash debits.
+    if (row.status !== 'unlinked' || cardRecord(tx) ||
+        !String(tx.paymentMethod || '').trim() ||
+        tx.date <= latestCheck.slice(0, 10) || tx.date > at.slice(0, 10))
+      continue;
+    // A split transaction is one bank movement, but only its fixed portion
+    // contributes to the provisional fixed payment amount.
+    const parts = children.get(tx.id) || [tx];
+    const fixed = parts.reduce((sum, part) =>
+      !part.deletedAt && !part.excluded && part.scope !== 'excluded' &&
+      (part.scope === 'fixed' || part.costKind === 'fixed' || part.recurringId)
+        ? sum + (part.direction === 'expense' ? part.amount :
+                 part.direction === 'refund' ? -part.amount : 0)
+        : sum, 0);
+    if (!fixed) continue;
+    unlinkedFixed += fixed;
+    unlinkedCount++;
+  }
+  const usable = cash.usable + linkedChange - unlinkedFixed;
+  if (!Number.isSafeInteger(usable)) throw Error('현금 예상 잔액이 안전한 계산 범위를 넘었어요.');
+  return { usable, linkedChange, unlinkedFixed, unlinkedCount };
+}
+
 export function saveCashAccount(s, input, original = null, at=cashNow()) {
   ensureCash(s);
   const existing=s.cashAccounts.find(a=>a.id===input.id);
