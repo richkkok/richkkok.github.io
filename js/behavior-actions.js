@@ -17,6 +17,7 @@ import { planFor } from "./budget.js";
 import { memberName } from "../data/defaults.js";
 import { exactApprovalDuplicate, fixedManualDuplicate } from "./import/duplicates.js";
 import { instrumentChoices } from "./instrument-ledger.js";
+import { resolvePaymentAlias } from "./payment-rename.js";
 
 export function resolveEntryOwner(
   app,
@@ -59,13 +60,11 @@ export function resolveEntryPayment(
 ) {
   try {
     const saved = storage?.getItem(`richkkok-payment-${owner}`);
-    if (saved) return saved;
+    if (saved) return resolvePaymentAlias(state,saved);
   } catch {}
-  return (
+  return resolvePaymentAlias(state,
     recent.find((t) => t.owner === owner && t.paymentMethod)?.paymentMethod ||
-    state.settings.paymentMethods?.[0] ||
-    "미지정"
-  );
+    state.settings.paymentMethods?.[0] || "미지정");
 }
 
 export function quickEntry(app, date = today()) {
@@ -150,7 +149,7 @@ export function quickEntry(app, date = today()) {
           excluded: direction === "transfer",
           category: String(f.get("category")),
           costKind: scope === "fixed" ? "fixed" : String(f.get("costKind")),
-          paymentMethod: String(f.get("paymentMethod")).trim() || "미지정",
+          paymentMethod: resolvePaymentAlias(state,String(f.get("paymentMethod")).trim() || "미지정"),
           paymentChannel: String(f.get("paymentChannel")).trim(),
           operatingMonth: String(f.get("operatingMonth")) || null,
           note: String(f.get("note")),
