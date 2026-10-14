@@ -297,7 +297,16 @@ function openPaymentProfileEditor(app, existingName = '') {
 export async function instrumentLedgerAction(app, action, target) {
   if (!action.startsWith("instrument-")) return false;
   const s = app.state;
-  if (action === "instrument-more") {
+  if (action === "instrument-select") {
+    const selected = instrumentChoices(s).find(x => x.key === target?.dataset.key);
+    if (!selected) throw Error("카드·계좌 목록이 변경됐어. 다시 선택해 줘.");
+    app.cashFilters.instrument = selected.key;
+    app.cashFilters.instrumentOwner = "";
+    app.cashFilters.instrumentDirection = "";
+    app.cashFilters.instrumentQuery = "";
+    app.cashFilters.instrumentLimit = 40;
+    app.render();
+  } else if (action === "instrument-more") {
     app.cashFilters.instrumentLimit = (app.cashFilters.instrumentLimit || 40) + 40;
     app.render();
   } else if (action === "instrument-method" || action === "instrument-profile") {
