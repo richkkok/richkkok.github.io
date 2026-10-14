@@ -121,7 +121,7 @@ try {
   assert.equal(await page.locator('[name=instrument-target] option').filter({hasText:'태영 신한카드'}).count(),1);
   assert.equal(await page.locator('[name=instrument-target] option').filter({hasText:'태영 생활비 계좌'}).count(),1);
   await page.goto('http://127.0.0.1:4189/#home');
-  await page.locator('[data-action=quick-expense]').click();
+  await page.locator('.focus-quick [data-action=quick-expense]').click();
   assert.equal(await page.locator('#dialog [name=paymentMethod]').inputValue(),'태영 신한카드');
   await page.locator('#dialog [data-close]').first().click();
   // All UI and latest settings must survive reload without disturbing history.
