@@ -72,6 +72,34 @@ try{
   }
   await page.locator('.focus-budget [data-action=focus-plan]').click();const d=await page.locator('#dialog').evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));assert.ok(d.scroll<=d.width+1,JSON.stringify(d));if(width===390)await page.screenshot({path:'qa-results/focus-editor-390.png'});await page.locator('#dialog [data-close]').first().click();
  }
- await page.reload({waitUntil:'networkidle'});assert.equal(await page.locator('[data-focus-value=remaining]').innerText(),'1,900,000원');assert.equal(await page.locator('.focus-details details[open]').count(),0);assert.deepEqual(errors,[]);
+ // Synthetic fixed-bank-payment regression: a payment after the measured
+ // balance must lower home cash, but must not overwrite that bank observation.
+ await page.evaluate(async()=>{
+  const {Repository}=await import('./js/db.js');
+  const {cashNow}=await import('./js/cash.js');
+  const {addDays,periodKey}=await import('./js/period.js');
+  const now=cashNow(), date=addDays(now.slice(0,10),-1), start=addDays(date,-1);
+  const r=new Repository(),s=await r.read();
+  s.cashAccounts[0].openingAt=start+'T10:00:00';
+  s.transactions.push({
+   id:'qa-fixed-cash-after-check',sourceId:'qa-fixed-cash-after-check',
+   date,datetime:date+'T14:00:00',amount:200000,
+   direction:'expense',scope:'fixed',costKind:'fixed',recurringId:'qa-fixed',
+   owner:'joint',category:'housing',categoryConfirmed:true,
+   merchantRaw:'QA 실제 고정비 출금',merchantNormalized:'qa 실제 고정비 출금',
+   paymentMethod:'QA 은행계좌',operatingMonth:periodKey(now.slice(0,10),10),
+   sourceType:'manual',deletedAt:null
+  });
+  await r.replace(s);r.close();
+ });
+ await page.reload({waitUntil:'networkidle'});
+ assert.equal(await page.locator('[data-focus-value=cash]').innerText(),'60만원');
+ assert.equal(await page.locator('[data-focus-value=fixed-spent]').innerText(),'20만원');
+ assert.match(await page.locator('.focus-cash .focus-status').innerText(),/고정비 출금 추정 반영/);
+ await page.setViewportSize({width:390,height:900});
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Paid fixed cash status must not overflow iPhone width');
+ assert.equal(await page.locator('[data-focus-value=remaining]').innerText(),'1,900,000원');
+ assert.equal(await page.locator('.focus-details details[open]').count(),0);
+ assert.deepEqual(errors,[]);
  fs.writeFileSync('qa-results/focus-browser.json',JSON.stringify({result:'PASS',layouts,errors,checks:['3 primary regions','5 navigation items','hidden secondary detail','planned limit distinct from cash','cancel-no-write','preview-save','invalid plan rejected','income-settings-reachable','more-menu-routes','reload-preservation','60 responsive pages','three compact ratios','ratio labels distinguish actual income','no ratio overflow','cash baseline/income direct actions','cash action touch targets at six viewport widths']},null,2));console.log('PASS focus dashboard, preview/edit/cancel, all routes and 60 responsive page combinations');
 }finally{await browser?.close();server.kill();}
