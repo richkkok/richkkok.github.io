@@ -33,7 +33,7 @@ export function focusHome(s, month, extras = {}, at) {
     `<button type="button" class="btn text" data-action="instrument-profile" data-method="${e(name)}">${e(name)} 분류</button>`).join('');
   const paymentDates = f.cardDue.payments.map(card => {
     const date = card.paymentDate.replaceAll('-', '.');
-    const state = card.paymentDate < (at || new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10))
+    const state = card.paymentDate < (at ? at.slice(0, 10) : new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10))
       ? '결제일 경과 · 납부 여부 미확인' : '결제 예정';
     const unfinished = card.incomplete ? ' · 청구기간 진행 중' : '';
     const detail = card.recordCount
