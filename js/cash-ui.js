@@ -1,4 +1,5 @@
 import { matchRecurring } from "./recurring.js";
+import { paymentNameSummary, saveRenamedCashAccount } from './payment-rename.js';
 import { cashNow, cashTime, cashSummary, cashLedger, cashRoots, cashConnection, cashFingerprint, cashHidden, ensureCash, saveCashAccount, saveCashCheck, saveCashLink } from './cash.js';
 import { escape as e, won, amountInput, uid, normalizeText, keyText } from './format.js';
 import { memberName } from '../data/defaults.js';
@@ -35,9 +36,24 @@ export async function cashAction(app, action, target) {
   if(action==='cash-more'||action==='cash-history-more') {app.cashFilters ||= {};const k=action==='cash-more'?'limit':'historyLimit';app.cashFilters[k]=(app.cashFilters[k]||(k==='limit'?50:20))+(k==='limit'?50:20);app.render();}
   else if(action==='cash-account') {
     const old=(s.cashAccounts||[]).find(a=>a.id===id), initial=old||{id:uid(),name:'',owner:'p1',paymentMethod:'',openingBalance:0,openingAt:at,reserved:0,autoMatch:false};
-    const dialog=openDialog(old?'계좌 설정':'첫 기준잔액 입력',`<p>${old ? '이 계좌의 처음 기준잔액은 이력 보존을 위해 유지돼. 지금 잔액을 새로 입력하려면 홈의 ‘현재 잔액 입력’을 이용해 줘.' : '처음 등록하는 계좌의 은행 앱 잔액과 확인시각을 입력해 줘. 이 금액을 이후 입출금 대조의 시작점으로 사용해. 대출·카드 한도는 잔액에 포함하지 않고, 계좌번호 전체는 입력하지 않아도 돼.'}</p><div class="form-grid">${field('계좌 이름','name',initial.name,'text','required maxlength="80" placeholder="예: 신한 생활비"')}${select('계좌 사용자','owner',['p1','p2','joint'].map(p=>[p,memberName(p,s)]),initial.owner)}${!old?field('처음 기준잔액 (원)','openingBalance','','number','required min="0" placeholder="은행 앱에 표시된 잔액"')+field('처음 기준잔액 확인시각 (한국시간)','openingAt',initial.openingAt,'datetime-local',`required step="1" max="${at.slice(0,10)}T23:59:59"`):''}${field('따로 확보할 돈','reserved',initial.reserved,'number','required min="0"')}</div><p class="cash-small">확보액은 카드대금·저축 등 사용하지 않을 돈이에요. 현금 표시에서만 빼고, 계좌 입출금 검증이나 소비 예산에서 다시 빼지 않아요.</p><details><summary>은행 거래내역 자동 연결 (선택)</summary>${field('거래내역의 결제수단과 동일한 계좌명','paymentMethod',initial.paymentMethod,'text','maxlength="100" placeholder="은행계좌 거래내역의 결제수단 이름"')}<label class="check-field"><input name="autoMatch" type="checkbox" ${initial.autoMatch?'checked':''}>이 이름·사용자의 내역은 실제 은행 입출금임을 확인했어요</label><p class="cash-small">같은 이름의 카드 이용내역은 연결하지 않아요. 입출금 방향을 모르는 이체나 시각이 불명확한 건은 직접 확인해요.</p></details>${old?`<p class="notice">시작 기준 ${when(old.openingAt)} · ${won(old.openingBalance)}은 이력 보존을 위해 유지해요. 처음 잘못 등록했다면 사용 종료 후 다시 등록해 주세요.</p><label class="check-field"><input name="archived" type="checkbox" ${old.archived?'checked':''}>이 계좌 사용 종료 (거래·이력은 보존)</label>`:''}`,async f=>{
+    const named = old ? paymentNameSummary(s,old.name) : null;
+    const alias = old?.paymentMethod && keyText(old.name)!==keyText(old.paymentMethod) ?
+      paymentNameSummary(s,old.paymentMethod) : null;
+    const affected = (named?.transactions||0)+(alias?.transactions||0);
+    const dialog=openDialog(old?'계좌 설정':'첫 기준잔액 입력',`<p>${old ? '이 계좌의 처음 기준잔액은 이력 보존을 위해 유지돼. 지금 잔액을 새로 입력하려면 홈의 ‘현재 잔액 입력’을 이용해 줘.' : '처음 등록하는 계좌의 은행 앱 잔액과 확인시각을 입력해 줘. 이 금액을 이후 입출금 대조의 시작점으로 사용해. 대출·카드 한도는 잔액에 포함하지 않고, 계좌번호 전체는 입력하지 않아도 돼.'}</p><div class="form-grid">${field('계좌 이름','name',initial.name,'text','required maxlength="80" placeholder="예: 신한 생활비"')}${select('계좌 사용자','owner',['p1','p2','joint'].map(p=>[p,memberName(p,s)]),initial.owner)}${!old?field('처음 기준잔액 (원)','openingBalance','','number','required min="0" placeholder="은행 앱에 표시된 잔액"')+field('처음 기준잔액 확인시각 (한국시간)','openingAt',initial.openingAt,'datetime-local',`required step="1" max="${at.slice(0,10)}T23:59:59"`):''}${field('따로 확보할 돈','reserved',initial.reserved,'number','required min="0"')}</div><p class="cash-small">확보액은 카드대금·저축 등 사용하지 않을 돈이에요. 현금 표시에서만 빼고, 계좌 입출금 검증이나 소비 예산에서 다시 빼지 않아요.</p><details><summary>은행 거래내역 자동 연결 (선택)</summary>${field('거래내역의 결제수단과 동일한 계좌명','paymentMethod',initial.paymentMethod,'text','maxlength="100" placeholder="은행계좌 거래내역의 결제수단 이름"')}<label class="check-field"><input name="autoMatch" type="checkbox" ${initial.autoMatch?'checked':''}>이 이름·사용자의 내역은 실제 은행 입출금임을 확인했어요</label><p class="cash-small">같은 이름의 카드 이용내역은 연결하지 않아요. 입출금 방향을 모르는 이체나 시각이 불명확한 건은 직접 확인해요.</p></details>${old?`<p class="notice">시작 기준 ${when(old.openingAt)} · ${won(old.openingBalance)}은 이력 보존을 위해 유지해요. 처음 잘못 등록했다면 사용 종료 후 다시 등록해 주세요.</p><div class="instrument-rename-preview"><strong>계좌 이름·거래내역 결제수단명 일괄 변경</strong><p>이 계좌 이름과 결제수단명을 사용한 저장 거래 ${affected}건 (삭제 보관함 포함). 새 이름을 저장하면 해당 과거 거래·고정지출·계좌 연결도 함께 변경해. 금액, 사용자, 계좌 ID, 확인 잔액은 유지해.</p><label class="check-field"><input type="checkbox" name="bulkRenameConfirmed">기존 이름의 전체 내역까지 일괄 변경하는 데 동의해</label></div><label class="check-field"><input name="archived" type="checkbox" ${old.archived?'checked':''}>이 계좌 사용 종료 (거래·이력은 보존)</label>`:''}`,async f=>{
       const input={...initial,name:String(f.get('name')).trim(),owner:String(f.get('owner')),paymentMethod:String(f.get('paymentMethod')||'').trim(),reserved:amountInput(f.get('reserved')),autoMatch:!!f.get('autoMatch'),archived:!!f.get('archived'),openingAt:old?old.openingAt:cashTime(f.get('openingAt')),openingBalance:old?old.openingBalance:amountInput(f.get('openingBalance'))};
-      await app.update(st=>{saveCashAccount(st,input,old||null);});toast(old?'계좌 설정을 저장했어요.':'기준잔액을 등록했어요. 이후 실제 잔액을 한 번 더 확인하면 차이를 비교해요.');
+      // If the bank import alias was the old account display name, keep them
+      // synchronized. A separately named import alias changes only when edited.
+      if(old && keyText(old.paymentMethod) && keyText(old.paymentMethod)===keyText(old.name) &&
+         keyText(input.paymentMethod)===keyText(old.paymentMethod) && input.name!==old.name)
+        input.paymentMethod=input.name;
+      let changed;
+      await app.update(st=>{
+        if(old) changed=saveRenamedCashAccount(st,input,old,!!f.get('bulkRenameConfirmed'));
+        else saveCashAccount(st,input,null);
+      });
+      toast(old ? '계좌 설정을 저장했고 과거 거래 '+changed.transactions+'건의 이름을 함께 갱신했어.' :
+        '기준잔액을 등록했어요. 이후 실제 잔액을 한 번 더 확인하면 차이를 비교해요.');
     });
     void dialog;
   } else if(action==='cash-check') {
