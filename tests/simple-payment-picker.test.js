@@ -41,6 +41,7 @@ test("cards and accounts can be chosen immediately, without expanding any hidden
   assert.ok([...picker.options].some(o => o.textContent.includes("생활비 통장")));
   assert.ok(document.querySelector('.instrument-choice[data-action="instrument-select"]'));
   assert.ok(document.querySelector('.instrument-selected [data-action="instrument-profile"][data-method="M107"]'));
+  assert.match(document.querySelector('.instrument-selected-meta')?.textContent || "", /구성원 2 1건/);
   assert.ok(document.querySelector('.instrument-picker [data-action="instrument-method"]'));
   assert.ok(document.querySelector('.instrument-picker [data-action="cash-account"]'));
   assert.equal(document.querySelector("details.instrument-advanced").open, false);
