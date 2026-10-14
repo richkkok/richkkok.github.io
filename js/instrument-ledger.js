@@ -143,7 +143,9 @@ export function instrumentLedgerView(s, f = {}) {
     '<div class="instrument-picker">' +
       '<div class="instrument-picker-heading"><div><h2>카드·계좌 선택</h2>' +
       '<p>이름을 바꿀 카드를 먼저 선택해 줘.</p></div>' +
-      choiceButton("새 카드 추가", "instrument-method", "", "secondary") + '</div>' +
+      '<div class="instrument-picker-actions">' +
+        choiceButton("새 카드", "instrument-method", "", "secondary") +
+        '<button type="button" class="btn text" data-action="cash-account">새 계좌</button></div></div>' +
       (selected ?
         '<div class="instrument-choice-list" aria-label="자주 찾는 카드와 계좌">' + quickChoices + '</div>' +
         '<div class="instrument-picker-all">' +
@@ -163,7 +165,8 @@ export function instrumentLedgerView(s, f = {}) {
           '</div>' +
         '</div>' :
         '<div class="instrument-picker-empty"><p>등록된 카드나 계좌가 없어. 먼저 카드 또는 계좌를 추가해 줘.</p>' +
-        '<button class="btn primary" type="button" data-action="instrument-method">카드 추가하기</button></div>') +
+        '<button class="btn primary" type="button" data-action="instrument-method">카드 추가하기</button>' +
+        '<button class="btn secondary" type="button" data-action="cash-account">계좌 추가하기</button></div>') +
     '</div>' +
     (selected ?
       '<div class="instrument-ledger-heading"><h3>이 결제수단의 내역</h3><small>' +
