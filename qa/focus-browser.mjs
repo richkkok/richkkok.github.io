@@ -159,8 +159,8 @@ try{
  await page.waitForSelector('#dialog[open]',{state:'hidden'});
  const confirmed=await read();
  assert.deepEqual(confirmed.transactions,prior.transactions);
- assert.equal(await page.locator('[data-focus-value=immediate-spent]').innerText(),'150,000원');
  await page.locator(".focus-spend-detail>summary").click();
+ assert.equal(await page.locator('[data-focus-value=immediate-spent]').innerText(),'150,000원');
  assert.equal(await page.locator('[data-focus-value=credit-spent]').innerText(),'500,000원');
  assert.equal(await page.locator('[data-focus-value=unknown-spent]').count(),0);
  for(const width of [320,390,768,1440]){
