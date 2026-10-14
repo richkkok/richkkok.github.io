@@ -1,5 +1,5 @@
 import { daysInMonth, keyText, shiftMonth } from './format.js';
-import { addDays } from './period.js';
+import { addDays, period, startDay, inPeriod } from './period.js';
 import { liveExpense, costKind } from './behavior.js';
 import { expenseValue } from './budget.js';
 
@@ -133,4 +133,89 @@ export function cardBillingSummary(state, asOf) {
       ? { ...previousWindow, usage: usage(previousWindow) } : null;
     return { name, profile, window, estimatedUsage: usage(window), upcomingPayment };
   }).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+}
+
+
+// Card purchases and their later bank debits have different accounting dates.
+// This function is a READ-ONLY cash-flow planning projection; it never creates
+// a second spending transaction or implies a card issuer has confirmed a bill.
+// Current-cycle variable purchases already count in ordinary consumption.
+// Only variable charges attributed to another operating month are added to
+// the same month's management burden when their card payment date falls here.
+export function cardDueForOperatingMonth(state, month, asOf) {
+  const cycle = period(month, startDay(state));
+  const cards = cardBillingSummary(state, asOf);
+  const payments = [];
+  const missingProfiles = [];
+  let dueTotal = 0, addedToLimit = 0, dueFixed = 0, dueExcluded = 0;
+  const rowsByMethod = new Map();
+  for (const t of state.transactions) {
+    if (t.deletedAt || t.splitParent || !['expense', 'refund'].includes(t.direction) || t.date > asOf)
+      continue;
+    const key = methodKey(t.paymentMethod);
+    if (!rowsByMethod.has(key)) rowsByMethod.set(key, []);
+    rowsByMethod.get(key).push(t);
+  }
+  for (const card of cards) {
+    const profile = card.profile;
+    if (!profile?.closingDay || !profile?.paymentDay) {
+      missingProfiles.push(card.name);
+      continue;
+    }
+    const key = methodKey(card.name);
+    const cardRows = rowsByMethod.get(key) || [];
+    const seen = new Set();
+    // Up to two months of lag, plus a 31-day salary cycle crossing month end.
+    // Iterate nearby statement closing months and filter by actual payment date.
+    for (let offset = -4; offset <= 3; offset++) {
+      const closeMonth = shiftMonth(cycle.start.slice(0, 7), offset);
+      const closeDate = dayInMonth(closeMonth, profile.closingDay);
+      const window = billingWindow(closeDate, profile);
+      if (!window || window.payment < cycle.start || window.payment > cycle.end ||
+          seen.has(window.payment)) continue;
+      seen.add(window.payment);
+      let gross = 0, fixed = 0, excluded = 0, variable = 0, alreadyCounted = 0, recordCount = 0;
+      for (const t of cardRows) {
+        if (t.date < window.start || t.date > window.end) continue;
+        const amount = expenseValue(t);
+        if (!amount) continue;
+        gross += amount;
+        recordCount++;
+        if (t.excluded || t.scope === 'excluded') excluded += amount;
+        else if (costKind(t) === 'fixed') fixed += amount;
+        else {
+          variable += amount;
+          if (inPeriod(t, state, month)) alreadyCounted += amount;
+        }
+      }
+      // An already-recognized purchase must not consume the monthly limit
+      // again simply because the same card bill happens to fall in this month.
+      const priorVariable = variable - alreadyCounted;
+      const paymentAmount = Math.max(0, gross);
+      // Refunds and fixed/excluded charges can offset a statement. Do not
+      // reserve more extra variable spending than the full payable statement.
+      const additional = Math.min(paymentAmount, Math.max(0, priorVariable));
+      if (![gross, fixed, excluded, variable, alreadyCounted, paymentAmount, additional]
+          .every(Number.isSafeInteger)) throw Error('카드별 청구예상 계산 금액이 너무 커.');
+      dueTotal += paymentAmount;
+      dueFixed += fixed;
+      dueExcluded += excluded;
+      addedToLimit += additional;
+      payments.push({
+        name: card.name, paymentDate: window.payment, start: window.start, end: window.end,
+        estimatedAmount: paymentAmount, statementNet: gross, fixedAmount: fixed,
+        excludedAmount: excluded, variableAmount: variable, alreadyCounted,
+        additional, recordCount, incomplete: window.end > asOf,
+        pastDue: window.payment < asOf,
+      });
+    }
+  }
+  payments.sort((a, b) => a.paymentDate.localeCompare(b.paymentDate) ||
+    a.name.localeCompare(b.name, 'ko'));
+  if (![dueTotal, addedToLimit, dueFixed, dueExcluded].every(Number.isSafeInteger))
+    throw Error('카드대금 합계가 안전한 계산 범위를 넘었어.');
+  return {
+    cycle, payments, dueTotal, addedToLimit, dueFixed, dueExcluded,
+    missingProfiles: missingProfiles.sort((a, b) => a.localeCompare(b, 'ko')),
+  };
 }
