@@ -58,3 +58,27 @@
 .focus-next h2{margin:0}
 .focus-next .focus-label{display:none}
 @media(max-width:700px){.focus-income-alert{padding:9px;font-size:.72rem}.focus-income-alert>span{font-size:.72rem}}
+
+
+/* A single salary-cycle consumption limit, split by when money leaves the bank.
+   Credit-card statement cycles are disclosed separately and never added again. */
+.focus-spend-split{display:grid;gap:7px;margin:12px 0 3px;padding:12px 13px;border-radius:11px;background:rgba(255,255,255,.095)}
+.focus-spend-split>div{display:flex;align-items:baseline;justify-content:space-between;gap:6px 12px;min-width:0;flex-wrap:wrap}
+.focus-spend-split span{font-size:.75rem;color:#e1edf6;line-height:1.45}
+.focus-spend-split strong{font-size:.91rem;font-weight:780;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums}
+.focus-spend-split .focus-spend-unknown span{color:#ffe7b0}
+.focus-spend-caption{font-size:.7rem;color:#c8dbe9;line-height:1.6;margin:6px 0 2px}
+.focus-billing-detail{min-width:0;margin-top:8px;border-top:1px solid rgba(255,255,255,.23);padding-top:9px}
+.focus-billing-detail>summary{cursor:pointer;color:#e8f2fa;font-size:.76rem;font-weight:650;min-height:35px;display:flex;align-items:center;line-height:1.5}
+.focus-billing-body{display:grid;gap:10px;margin-top:6px}
+.focus-billing-body>p{font-size:.73rem;line-height:1.6;color:#d6e4ef;margin:0}
+.focus-billing-row{display:flex;justify-content:space-between;align-items:center;gap:6px 12px;flex-wrap:wrap;min-width:0;padding:11px 0;border-top:1px solid rgba(255,255,255,.18)}
+.focus-billing-row>div{display:grid;min-width:0;flex:1;gap:4px;overflow-wrap:anywhere}
+.focus-billing-row strong{font-size:.81rem;color:#fff}
+.focus-billing-row small,.focus-billing-row span{color:#d2e2ee;font-size:.72rem;line-height:1.5}
+.focus-billing-row .btn.text,.focus-billing-body>.btn.text{flex-shrink:0;min-height:36px;border:1px solid rgba(255,255,255,.28);border-radius:8px;color:#fff}
+.focus-unknown-methods{border-top:1px solid rgba(255,255,255,.18);padding-top:10px;display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+.focus-unknown-methods>strong{font-size:.75rem;flex-basis:100%}
+.focus-unknown-methods .btn{font-size:.7rem;min-height:36px;padding:6px 9px;border:1px solid rgba(255,255,255,.28);border-radius:8px}
+@media(max-width:700px){.focus-spend-split{margin-top:9px;padding:11px}.focus-spend-split span{font-size:.73rem}.focus-spend-split strong{font-size:.85rem}.focus-spend-caption{font-size:.68rem}.focus-billing-detail>summary{min-height:39px}}
+@media(max-width:350px){.focus-spend-split>div{gap:4px}.focus-billing-row .btn.text{font-size:.71rem}}
