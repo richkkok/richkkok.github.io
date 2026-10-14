@@ -98,7 +98,9 @@ test('different card statement periods do not follow the salary cycle and never 
   assert.equal(sh.estimatedUsage,130000);
   assert.deepEqual(sh.upcomingPayment, {start:'2026-09-10',end:'2026-10-09',payment:'2026-11-05',usage:40000});
   assert.equal(w.upcomingPayment,null);
-  assert.equal(focusOverview(s,month,at).used,320000);
+  assert.equal(focusOverview(s,month,at).purchaseUsed,320000);
+  assert.equal(focusOverview(s,month,at).cardDue.addedToLimit,140000);
+  assert.equal(focusOverview(s,month,at).used,460000);
   assert.equal(s.transactions.find(x=>x.id==='w-old').date,'2026-09-25');
   assert.equal(s.transactions.find(x=>x.id==='w-current').date,'2026-10-10');
 });
