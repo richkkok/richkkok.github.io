@@ -1,5 +1,6 @@
 import { validateIncomeSchedules } from "./income-schedule.js";
 import { validateCash } from "./cash.js";
+import { validatePaymentProfiles } from "./payment-channels.js";
 import { emptyState } from "../data/defaults.js";
 const scopes = ["shared", "fixed", "p1", "p2", "excluded"],
   directions = ["expense", "income", "refund", "transfer"];
@@ -164,6 +165,7 @@ export function validateState(input) {
       if (!isMoney(value)) throw Error("월별 예산을 확인해 주세요.");
   }
   validateIncomeSchedules(state);
+  validatePaymentProfiles(state);
   validateCash(state);
   return state;
 }
