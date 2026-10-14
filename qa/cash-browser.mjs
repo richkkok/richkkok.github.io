@@ -71,6 +71,7 @@ try {
  // An existing bank movement is linked without creating another household expense.
  await page.evaluate(async({movement})=>{const {Repository}=await import('./js/db.js');const r=new Repository();await r.mutate(s=>{s.transactions.push({...s.transactions[0],id:'cash-existing',sourceId:'cash-existing',merchantRaw:'QA 기존 환불',merchantNormalized:'qa 기존 환불',amount:5000,direction:'refund',datetime:movement,date:movement.slice(0,10),categoryConfirmed:false});});r.close();},dates);
  await page.reload({waitUntil:'networkidle'});
+ await page.locator('.cash-admin>summary').click();
  await page.locator('[data-action="cash-link"][data-id="cash-existing"]').first().click();
  await page.locator('#dialog [name=mode]').selectOption('in');await page.locator('#dialog [name=accountId]').selectOption(a);await page.locator('#dialog [name=checked]').check();await submit();
  d=await read();assert.equal(d.cash.expected,993000);assert.equal(d.state.transactions.length,2);assert.equal(d.cash.accounts[0].difference,-8000);assert.equal(d.cash.accounts[0].recalculated,true);
