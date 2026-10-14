@@ -28,7 +28,11 @@ try {
   await page.goto("http://127.0.0.1:4178/#cash");await page.waitForSelector(".instrument-panel");
   const read=()=>page.evaluate(async()=>{const {Repository}=await import("./js/db.js"),{cashSummary}=await import("./js/cash.js");const r=new Repository(),s=await r.read();r.close();return {s,cash:cashSummary(s)};});
   const submit=async()=>{await page.locator("#dialog [type=submit]").click();await page.waitForTimeout(150);assert.equal(await page.locator("#dialog[open]").count(),0,await page.locator("#dialog").innerText());};
-  assert.match(await page.locator(".instrument-panel h2").innerText(),/계좌·카드별/);
+  assert.match(await page.locator(".instrument-picker h2").innerText(),/카드·계좌 선택/);
+  assert.equal(await page.locator(".instrument-picker-all select[name=instrument-target]").isVisible(),true);
+  assert.equal(await page.locator(".cash-admin").getAttribute("open"),null);
+  await page.locator(".instrument-choice[data-action=instrument-select]").first().click();
+  assert.equal(await page.locator(".instrument-choice[aria-pressed=true]").count(),1);
   assert.equal(await page.locator('[name=instrument-target] option').count(),3);
   await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent("우리카드"));
   await page.locator('.instrument-panel [data-action="instrument-add"]').click();
@@ -55,6 +59,7 @@ try {
   d=await read();assert.equal(d.s.transactions.length,3);assert.equal(d.cash.expected,1000000);
   assert.match(await page.locator(".instrument-totals").innerText(),/14,000원/);
   assert.match(await page.locator(".instrument-totals").innerText(),/2,000원/);
+  await page.locator(".instrument-advanced>summary").click();
   await page.locator('[name=instrument-owner]').selectOption("p2");assert.equal(await page.locator(".instrument-row").count(),0);
   await page.locator('[name=instrument-owner]').selectOption("");
   await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent("신한카드"));

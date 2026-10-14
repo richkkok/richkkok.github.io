@@ -57,7 +57,9 @@ test("existing bank baseline: an obvious action updates CURRENT balance without 
 test("cash account page visibly distinguishes immutable first baseline and later verification", () => {
   const s = state(true);
   const doc = render(cashView(s));
-  assert.equal(doc.querySelector(".cash-page .page-intro [data-action='cash-account']").textContent.trim(), "새 계좌 기준잔액 입력");
+  assert.equal(doc.querySelector(".cash-admin .cash-admin-toolbar [data-action='cash-account']").textContent.trim(), "새 계좌 등록");
+  assert.equal(doc.querySelector(".cash-admin").open, false);
+  assert.match(doc.querySelector(".cash-admin>summary").textContent, /계좌 잔액/);
   assert.equal(doc.querySelector(".cash-baseline-snapshot strong").textContent, "1,500,000원");
   assert.match(doc.querySelector(".cash-baseline-snapshot").textContent, /이력 보존으로 수정 불가/);
   assert.match(doc.querySelector(".cash-notice").textContent, /처음 기준잔액/);

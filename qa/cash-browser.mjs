@@ -53,7 +53,9 @@ try {
  assert.equal((await read()).state.transactions.length,0,'Opening cash/income dialogs must not create records');
  await page.goto('http://127.0.0.1:4175/#cash');await page.waitForSelector('.cash-page');
  assert.equal(await page.locator('#month-picker').isVisible(),false);
- assert.match(await page.locator('.cash-page .page-intro [data-action=cash-account]').innerText(),/새 계좌 기준잔액 입력/);
+ assert.equal(await page.locator('.cash-admin').getAttribute('open'),null);
+ await page.locator('.cash-admin>summary').click();
+ assert.match(await page.locator('.cash-admin-toolbar [data-action=cash-account]').innerText(),/새 계좌 등록/);
  assert.match(await page.locator('.cash-baseline-snapshot').innerText(),/1,000,000원/);
  assert.match(await page.locator('.cash-notice').textContent(),/현재 잔액 입력/);
  await page.locator('[data-action="cash-entry"]').first().click();
@@ -69,6 +71,7 @@ try {
  // An existing bank movement is linked without creating another household expense.
  await page.evaluate(async({movement})=>{const {Repository}=await import('./js/db.js');const r=new Repository();await r.mutate(s=>{s.transactions.push({...s.transactions[0],id:'cash-existing',sourceId:'cash-existing',merchantRaw:'QA 기존 환불',merchantNormalized:'qa 기존 환불',amount:5000,direction:'refund',datetime:movement,date:movement.slice(0,10),categoryConfirmed:false});});r.close();},dates);
  await page.reload({waitUntil:'networkidle'});
+ await page.locator('.cash-admin>summary').click();
  await page.locator('[data-action="cash-link"][data-id="cash-existing"]').first().click();
  await page.locator('#dialog [name=mode]').selectOption('in');await page.locator('#dialog [name=accountId]').selectOption(a);await page.locator('#dialog [name=checked]').check();await submit();
  d=await read();assert.equal(d.cash.expected,993000);assert.equal(d.state.transactions.length,2);assert.equal(d.cash.accounts[0].difference,-8000);assert.equal(d.cash.accounts[0].recalculated,true);

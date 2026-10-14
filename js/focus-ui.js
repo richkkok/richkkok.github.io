@@ -59,22 +59,23 @@ export function focusHome(s, month, extras = {}, at) {
           <div><span>이번 기간 실제 소비 (사용일 기준)</span><strong data-focus-value="purchase-used">${won(f.purchaseUsed)}</strong></div>
           <div><span>이번 기간 카드대금 추가반영</span><strong data-focus-value="card-due-added">${won(f.cardDue.addedToLimit)}</strong></div>
         </div>
-        <div class="focus-spend-split" aria-label="신규 소비 결제방식별 구성">
+        <details class="focus-spend-detail"><summary>카드·현금 소비 구분 보기</summary><div class="focus-spend-split" aria-label="신규 소비 결제방식별 구성">
           <div><span>신용카드 · 나중에 결제</span><strong data-focus-value="credit-spent">${won(f.channels.credit)}</strong></div>
           <div><span>현금 · 계좌 · 체크카드</span><strong data-focus-value="immediate-spent">${won(f.channels.immediate)}</strong></div>
           ${f.channels.unknown || f.channels.unknownMethods.length ? `<div class="focus-spend-unknown"><span>결제수단 미확인</span><strong data-focus-value="unknown-spent">${won(f.channels.unknown)}</strong></div>` : ''}
         </div>
-        <p class="focus-spend-caption">신규 카드 승인액은 사용한 달에 반영하고, 이전 기간 카드 사용분은 결제일이 속한 달의 추가 부담으로 계산해. 같은 기간에 이미 반영한 승인액과 카드대금은 중복 차감하지 않아.</p>
+        </details>
+        <div class="focus-payment-manage">${button('카드·계좌 선택 · 이름 바꾸기', 'go-cash', 'secondary', 'wallet')}</div>
         <div class="focus-due-summary" aria-label="이번 운영월 카드별 결제예정금액">
           <div class="focus-due-title"><span>이번 기간 카드대금 결제예정 합계</span><strong data-focus-value="card-due-total">${won(f.cardDue.dueTotal)}</strong></div>
           ${paymentDates || '<p>결제일이 이번 운영월에 속하는 카드의 기록이 없어. 카드별 결제주기를 설정하면 표시돼.</p>'}
           ${missingCardProfiles ? `<div class="focus-due-missing"><span>청구기간 미설정 카드 · 금액 집계 제외</span>${missingCardProfiles}</div>` : ''}
-          <p>합계는 고정비·개인·제외 거래가 포함될 수 있는 <strong>카드 사용내역 기준 추정액</strong>이야. 관리한도에는 이전 기간의 변동소비분만 추가 반영하고, 고정비나 이미 반영한 카드 소비액은 다시 빼지 않아. 카드사 청구 확정액·할부·할인·납부 여부는 별도 확인해야 해.</p>
+          <p>등록된 카드 내역으로 계산한 예상액이야. 확정 청구금액이나 실제 출금액은 카드사·은행에서 확인해 줘.</p>
         </div>
         <details class="focus-billing-detail">
           <summary>카드별 청구기간 · 결제일 확인</summary>
           <div class="focus-billing-body">
-            <p>카드별 청구기간은 가계부 운영월과 달라. 입력한 이용 마감일·결제일을 기준으로 추정하며 실제 청구서, 할부, 할인, 영업일 조정과는 다를 수 있어.</p>
+            <p>청구기간은 카드별로 다르고 카드대금이 실제 출금되면 현금 잔액에 반영돼. 청구할인·할부·영업일 조정 등은 카드사 명세서가 우선이야.</p>
             ${bills || '<p>등록된 신용카드가 없어. 카드 결제수단을 등록하거나 거래 결제수단을 확인해 줘.</p>'}
             ${unknownMethods ? `<div class="focus-unknown-methods"><strong>결제방법 확인 필요</strong>${unknownMethods}</div>` : ''}
             ${f.cardBills.length > 20 ? '<p>나머지 카드 내역은 계좌·카드 메뉴에서 확인해 줘.</p>' : ''}
@@ -95,11 +96,11 @@ export function focusHome(s, month, extras = {}, at) {
           
           <div class="focus-cash-entry-actions">
             <div class="focus-cash-entry-group">
-              <span>왼쪽 · 현금잔액</span>
+              <span>현금잔액</span>
               ${button(c.accounts.length ? '현재 잔액 입력' : '처음 기준잔액 입력', c.accounts.length ? 'cash-check' : 'cash-account', 'primary', 'wallet')}
             </div>
             <div class="focus-cash-entry-group">
-              <span>오른쪽 · 실제 입금액</span>
+              <span>실제 입금</span>
               ${button('입금 조회·반영', 'money-income', 'secondary', 'list')}
             </div>
           </div>
