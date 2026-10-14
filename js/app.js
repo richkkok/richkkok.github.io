@@ -198,6 +198,8 @@ app.render = () => {
   document.querySelector("#app-header").hidden = !app.state.configured;
   const main = document.querySelector("#main");
   const openFolds = new Set([...main.querySelectorAll('details[data-focus-fold][open]')].map(el => el.dataset.focusFold));
+  const cashAdminWasOpen = !!main.querySelector('details[data-cash-admin][open]');
+  const instrumentAdvancedWasOpen = !!main.querySelector('details.instrument-advanced[open]');
   const focused = document.activeElement,
     focusName = focused?.name,
     caret = focused?.selectionStart;
@@ -218,6 +220,12 @@ app.render = () => {
     }[current]();
   if (app.state.configured && current !== "cash") main.insertAdjacentHTML("afterbegin", cycleStrip(app.state, app.month));
   main.querySelectorAll('details[data-focus-fold]').forEach(el => { el.open = openFolds.has(el.dataset.focusFold); });
+  if (current === 'cash') {
+    const cashAdmin = main.querySelector('details[data-cash-admin]');
+    const instrumentAdvanced = main.querySelector('details.instrument-advanced');
+    if (cashAdmin) cashAdmin.open = cashAdminWasOpen;
+    if (instrumentAdvanced) instrumentAdvanced.open = instrumentAdvancedWasOpen;
+  }
   if (app.state.configured && current === "import") mountImport(app);
   if (["transaction-search", "recurring-search", "review-search", "cash-search", "instrument-query"].includes(focusName)) {
     const input = main.querySelector(`[name="${focusName}"]`);
