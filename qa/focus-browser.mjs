@@ -100,6 +100,62 @@ try{
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Paid fixed cash status must not overflow iPhone width');
  assert.equal(await page.locator('[data-focus-value=remaining]').innerText(),'1,900,000원');
  assert.equal(await page.locator('.focus-details details[open]').count(),0);
+ // End-to-end payment-channel and billing-cycle checks use synthetic local data.
+ await page.evaluate(async()=>{
+  const {Repository}=await import('./js/db.js');
+  const {cashNow}=await import('./js/cash.js');
+  const date=cashNow().slice(0,10),r=new Repository(),s=await r.read();
+  for(const [id,amount,method] of [['qa-immediate',120000,'QA 계좌이체'],['qa-wallet',30000,'네이버페이']]){
+   s.transactions.push({
+    id,sourceId:id,date,datetime:date+'T09:00:00',amount,direction:'expense',
+    scope:'shared',costKind:'variable',owner:'p1',category:'groceries',
+    paymentMethod:method,merchantRaw:'QA '+id,merchantNormalized:id,
+    sourceType:'manual',categoryConfirmed:true,deletedAt:null
+   });
+  }
+  await r.replace(s);r.close();
+ });
+ await page.reload({waitUntil:'networkidle'});
+ const prior=await read();
+ assert.equal(await page.locator('[data-focus-value=used]').innerText(),'65만원');
+ assert.equal(await page.locator('[data-focus-value=credit-spent]').innerText(),'500,000원');
+ assert.equal(await page.locator('[data-focus-value=immediate-spent]').innerText(),'120,000원');
+ assert.equal(await page.locator('[data-focus-value=unknown-spent]').innerText(),'30,000원');
+ assert.equal(await page.locator('[data-focus-value=remaining]').innerText(),'1,750,000원');
+ await page.locator('.focus-billing-detail > summary').click();
+ await page.locator('.focus-billing-detail [data-action=instrument-profile][data-method="QA 카드"]').click();
+ assert.match(await page.locator('#dialog h2').innerText(),/청구주기/);
+ await page.locator('#dialog [name=closingDay]').fill('25');
+ await page.locator('#dialog [name=paymentDay]').fill('15');
+ await page.locator('#dialog [name=lagMonths]').selectOption('1');
+ await page.locator('#dialog [type=submit]').click();
+ await page.waitForSelector('#dialog[open]',{state:'hidden'});
+ const afterCard=await read();
+ assert.deepEqual(afterCard.transactions,prior.transactions,'Payment settings must not change original transactions');
+ assert.equal(afterCard.settings.paymentProfiles['qa카드'].closingDay,25);
+ await page.reload({waitUntil:'networkidle'});
+ await page.locator('.focus-billing-detail > summary').click();
+ assert.match(await page.locator('.focus-billing-detail').innerText(),/결제일 예상/);
+ await page.locator('.focus-billing-detail [data-action=instrument-profile][data-method="네이버페이"]').click();
+ await page.locator('#dialog [name=methodKind]').selectOption('immediate');
+ assert.equal(await page.locator('#dialog [data-billing-fields]').evaluate(e=>getComputedStyle(e).display),'none');
+ await page.locator('#dialog [type=submit]').click();
+ await page.waitForSelector('#dialog[open]',{state:'hidden'});
+ const confirmed=await read();
+ assert.deepEqual(confirmed.transactions,prior.transactions);
+ assert.equal(await page.locator('[data-focus-value=immediate-spent]').innerText(),'150,000원');
+ assert.equal(await page.locator('[data-focus-value=credit-spent]').innerText(),'500,000원');
+ assert.equal(await page.locator('[data-focus-value=unknown-spent]').count(),0);
+ for(const width of [320,390,768,1440]){
+  await page.setViewportSize({width,height:900});
+  const x=await page.locator('.focus-budget').evaluate(el=>({
+   screen:innerWidth,full:document.documentElement.scrollWidth,overflow:el.scrollWidth-el.clientWidth
+  }));
+  assert.ok(x.full<=width+1&&x.overflow<=1,JSON.stringify({width,x}));
+  if(width===390||width===1440)await page.screenshot({path:'qa-results/focus-payment-split-'+width+'.png',fullPage:true});
+ }
+ await page.reload({waitUntil:'networkidle'});
+ assert.equal(await page.locator('[data-focus-value=used]').innerText(),'65만원');
  assert.deepEqual(errors,[]);
  fs.writeFileSync('qa-results/focus-browser.json',JSON.stringify({result:'PASS',layouts,errors,checks:['3 primary regions','5 navigation items','hidden secondary detail','planned limit distinct from cash','cancel-no-write','preview-save','invalid plan rejected','income-settings-reachable','more-menu-routes','reload-preservation','60 responsive pages','three compact ratios','ratio labels distinguish actual income','no ratio overflow','cash baseline/income direct actions','cash action touch targets at six viewport widths']},null,2));console.log('PASS focus dashboard, preview/edit/cancel, all routes and 60 responsive page combinations');
 }finally{await browser?.close();server.kill();}

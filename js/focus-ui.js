@@ -23,15 +23,39 @@ export function focusHome(s, month, extras = {}, at) {
   const fixedExtra = b.fixed > o.total;
   const unlinkedFixed = f.fixedSpent > o.paid;
   const allowance = `<div class="focus-allowances">${o.allowances.map(p => `<div><span>${e(memberName(p.id, s))} 용돈</span><strong>${won(p.remaining)} 남음</strong><small>사용 ${won(p.used)} / 설정 ${won(p.budget)}</small></div>`).join('')}</div>${button('용돈·한도 편집', 'focus-plan', 'secondary')}`;
+  const bills = f.cardBills.slice(0, 20).map(card => {
+    const period = card.window
+      ? `${card.window.start.replaceAll('-', '.')} ~ ${card.window.end.replaceAll('-', '.')} 사용 · ${card.window.payment.replaceAll('-', '.')} 결제일 예상`
+      : '청구주기 미설정';
+    return `<div class="focus-billing-row"><div><strong>${e(card.name)}</strong><small>${e(period)}</small>${card.window ? `<span>이번 청구기간 사용 ${won(card.estimatedUsage)} · 청구 확정금액 아님</span>` : ''}${card.upcomingPayment ? `<span>직전 마감분 ${won(card.upcomingPayment.usage)} · ${card.upcomingPayment.payment.replaceAll('-', '.')} 결제 예정 (추정)</span>` : ''}</div><button type="button" class="btn text" data-action="instrument-profile" data-method="${e(card.name)}">설정</button></div>`;
+  }).join('');
+  const unknownMethods = f.channels.unknownMethods.slice(0, 12).map(name =>
+    `<button type="button" class="btn text" data-action="instrument-profile" data-method="${e(name)}">${e(name)} 분류</button>`).join('');
+
   return `<div class="focus-home">
     <div class="focus-board" aria-label="핵심 가계부 요약">
       <section class="focus-card focus-budget${f.remaining < 0 ? ' is-over' : ''}">
-        <header><h2>소비한도</h2>${button('한도 편집', 'focus-plan', 'text')}</header>
+        <header><h2>종합 소비한도</h2>${button('한도 편집', 'focus-plan', 'text')}</header>
         <span class="focus-label">사용 / 이번 기간 설정한도</span>
         ${amountRatio(f.used, f.limit, 'used', 'limit', '실제 소비 사용액', '설정한 소비한도')}
         ${progress(f.used, f.limit, 'focus-progress')}
         <p class="focus-counter">${f.remaining < 0 ? '한도 초과' : '남은 소비한도'} <strong data-focus-value="remaining">${won(Math.abs(f.remaining))}</strong></p>
-        
+        <div class="focus-spend-split" aria-label="종합 소비 중 결제방식별 사용액">
+          <div><span>신용카드 · 나중에 결제</span><strong data-focus-value="credit-spent">${won(f.channels.credit)}</strong></div>
+          <div><span>현금 · 계좌 · 체크카드</span><strong data-focus-value="immediate-spent">${won(f.channels.immediate)}</strong></div>
+          ${f.channels.unknown || f.channels.unknownMethods.length ? `<div class="focus-spend-unknown"><span>결제수단 미확인</span><strong data-focus-value="unknown-spent">${won(f.channels.unknown)}</strong></div>` : ''}
+        </div>
+        <p class="focus-spend-caption">위 소비액은 가계부 운영월의 사용·환불 기준 · 카드대금 출금은 중복 소비 제외</p>
+        <details class="focus-billing-detail">
+          <summary>카드별 청구기간 · 결제일 확인</summary>
+          <div class="focus-billing-body">
+            <p>카드별 청구기간은 가계부 운영월과 달라. 입력한 이용 마감일·결제일을 기준으로 추정하며 실제 청구서, 할부, 할인, 영업일 조정과는 다를 수 있어.</p>
+            ${bills || '<p>등록된 신용카드가 없어. 카드 결제수단을 등록하거나 거래 결제수단을 확인해 줘.</p>'}
+            ${unknownMethods ? `<div class="focus-unknown-methods"><strong>결제방법 확인 필요</strong>${unknownMethods}</div>` : ''}
+            ${f.cardBills.length > 20 ? '<p>나머지 카드 내역은 계좌·카드 메뉴에서 확인해 줘.</p>' : ''}
+            ${button('계좌·카드 관리', 'go-cash', 'text')}
+          </div>
+        </details>
         ${o.stale ? '<p class="focus-status warn">기록 갱신 필요 · 입력된 지출 기준</p>' : ''}
         ${f.limit > b.affordability ? '<button class="focus-inline-warning" type="button" data-action="money-explain">수입·저축 목표 기준으로는 한도 조정이 필요해</button>' : ''}
       </section>
