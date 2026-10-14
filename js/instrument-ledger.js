@@ -87,55 +87,115 @@ const choiceButton = (label, action, key, extra = "") =>
   '<button type="button" class="btn ' + extra + '" data-action="' + e(action) + '" data-key="' + e(key) + '">' + e(label) + '</button>';
 export function instrumentLedgerView(s, f = {}) {
   const choices = instrumentChoices(s);
-  const selected = choices.find(x => x.key === f.instrument) || choices[0];
+  const cards = choices.filter(x => x.type === "method");
+  const selected = choices.find(x => x.key === f.instrument) || cards[0] || choices[0];
   const data = instrumentRows(s, selected, f);
+  const isAccount = selected?.type === "account";
   const options = [
     ...choices.filter(x => x.type === "account").map(x => [x.key, "계좌 · " + x.name]),
-    ...choices.filter(x => x.type === "method").map(x => [x.key, "카드·결제수단 · " + x.name]),
+    ...cards.map(x => [x.key, "카드·결제수단 · " + x.name]),
   ];
-  const isAccount = selected?.type === "account";
+  const featured = [];
+  for (const item of [selected, ...cards, ...choices.filter(x => x.type === "account")]) {
+    if (item && !featured.some(x => x.key === item.key)) featured.push(item);
+    if (featured.length === 5) break;
+  }
+  const quickChoices = featured.map(x =>
+    '<button type="button" class="instrument-choice' + (selected?.key === x.key ? ' is-active' : '') +
+      '" data-action="instrument-select" data-key="' + e(x.key) +
+      '" aria-pressed="' + (selected?.key === x.key) + '">' +
+      '<small>' + (x.type === "account" ? "계좌" : "카드·결제수단") + '</small>' +
+      '<strong>' + e(x.name) + '</strong></button>'
+  ).join("");
   const limit = f.instrumentLimit || 40;
-  const range = data.from ? data.from.replaceAll("-", ".") + " ~ " + data.to.replaceAll("-", ".") : "전체 ~ " + data.to.replaceAll("-", ".");
+  const range = data.from ? data.from.replaceAll("-", ".") + " ~ " + data.to.replaceAll("-", ".")
+    : "전체 ~ " + data.to.replaceAll("-", ".");
   const totals = isAccount
-    ? '<div class="instrument-totals"><div><small>연결된 입금</small><strong>+' + won(data.incoming) + '</strong></div><div><small>연결된 출금</small><strong>−' + won(data.outgoing) + '</strong></div><div><small>미연결·재확인</small><strong>' + data.pending + '건</strong></div></div>'
-    : '<div class="instrument-totals"><div><small>이용·지출</small><strong>' + won(data.outgoing) + '</strong></div><div><small>취소·환불·입금</small><strong>' + won(data.incoming) + '</strong></div><div><small>순사용 기록</small><strong>' + won(data.outgoing - data.incoming) + '</strong></div></div>';
+    ? '<div class="instrument-totals"><div><small>계좌 입금</small><strong>+' + won(data.incoming) +
+      '</strong></div><div><small>계좌 출금</small><strong>−' + won(data.outgoing) +
+      '</strong></div><div><small>확인할 연결</small><strong>' + data.pending + '건</strong></div></div>'
+    : '<div class="instrument-totals"><div><small>사용액</small><strong>' + won(data.outgoing) +
+      '</strong></div><div><small>환불·취소</small><strong>' + won(data.incoming) +
+      '</strong></div><div><small>순사용</small><strong>' + won(data.outgoing - data.incoming) +
+      '</strong></div></div>';
   const list = data.rows.slice(0, limit).map(r => {
-    const label = r.movement === "in" ? (isAccount ? "입금" : "환불·입금") : r.movement === "out" ? (isAccount ? "출금" : "사용") : "이체·결제대금";
-    const status = isAccount ? r.needsLink ? " · 연결 필요(잔액 미반영)" : r.status === "auto" ? " · 자동 연결" : " · 확인된 연결" : "";
+    const label = r.movement === "in" ? (isAccount ? "입금" : "환불") :
+      r.movement === "out" ? (isAccount ? "출금" : "사용") : "이체·결제대금";
+    const status = isAccount ? r.needsLink ? " · 연결 필요" : r.status === "auto"
+      ? " · 자동 연결" : " · 확인된 연결" : "";
     const merchant = r.hidden ? "개인 내역 숨김" : r.t.merchantRaw;
     const secondary = r.stamp.slice(0, 16).replace("T", " ") + " · " + label + status;
     const signed = r.movement === "in" ? "+" : r.movement === "out" ? "−" : "";
     return '<div class="instrument-row' + (r.needsLink ? ' needs-link' : '') + '">' +
       '<div class="instrument-row-copy"><strong>' + e(merchant) + '</strong><small>' + e(secondary) + '</small></div>' +
-      '<div class="instrument-row-side"><strong class="' + (r.movement === "in" ? "positive" : "") + '">' + signed + won(r.t.amount) + '</strong>' +
+      '<div class="instrument-row-side"><strong class="' + (r.movement === "in" ? "positive" : "") + '">' +
+      signed + won(r.t.amount) + '</strong>' +
       (r.hidden ? '' : isAccount ?
-        '<button type="button" class="btn text" data-action="cash-link" data-id="' + e(r.t.id) + '">' + (r.needsLink ? "계좌 연결" : "연결 수정") + '</button>' :
+        '<button type="button" class="btn text" data-action="cash-link" data-id="' + e(r.t.id) +
+        '">' + (r.needsLink ? "계좌 연결" : "연결 수정") + '</button>' :
         '<button type="button" class="btn text" data-edit="' + e(r.t.id) + '">수정</button>') +
       '</div></div>';
   }).join("");
-  return '<section class="card instrument-panel" id="instrument-panel" aria-label="계좌 카드별 거래내역">' +
-    '<div class="section-heading"><div><h2>계좌·카드별 거래내역</h2><p>결제수단을 선택해 내역을 보고, 누락분을 바로 기록해요.</p></div>' +
-    choiceButton("카드·결제수단 추가", "instrument-method", "", "secondary") + '</div>' +
-    (selected ? '<div class="instrument-controls">' +
-      select("조회할 계좌·카드", "instrument-target", options, selected.key) +
-      select("조회기간", "instrument-period", [["cycle", "이번 운영월(10일~9일)"], ["30", "최근 30일"], ["90", "최근 90일"], ["all", "전체"], ["custom", "기간 직접 지정"]], f.instrumentPeriod || "cycle") +
-      select("사용자", "instrument-owner", [["", "전체 사용자"], ["p1", memberName("p1", s)], ["p2", memberName("p2", s)], ["joint", "공동"]], f.instrumentOwner || "") +
-      select("방향", "instrument-direction", [["", "입금·출금 모두"], ["out", isAccount ? "출금" : "사용"], ["in", isAccount ? "입금" : "환불·입금"]], f.instrumentDirection || "") + '</div>' +
-      (f.instrumentPeriod === "custom" ? '<div class="instrument-custom-dates">' +
-        field("시작일", "instrument-from", f.instrumentFrom || "", "date") +
-        field("종료일", "instrument-to", f.instrumentTo || cashNow().slice(0, 10), "date") + '</div>' : '') +
-      '<div class="instrument-search-and-add"><label class="field"><span>내역 검색</span><input type="search" name="instrument-query" placeholder="사용처·금액 검색" value="' + e(f.instrumentQuery || "") + '"></label>' +
-      choiceButton("빠진 " + (isAccount ? "입출금" : "카드 거래") + " 입력", "instrument-add", selected.key, "primary") +
-      (isAccount
-        ? '<button class="btn secondary" type="button" data-action="cash-account" data-id="' + e(selected.accountId) + '">계좌 이름·과거 내역 일괄 수정</button>'
-        : '<button class="btn secondary" type="button" data-action="instrument-profile" data-method="' + e(selected.name) + '">카드명·과거 내역 일괄 수정</button>') + '</div>' +
-      '<p class="cash-small">' + e(range) + ' · 검색 조건에 맞는 ' + data.rows.length + '건' + (isAccount ? " · 미연결 내역은 합계 제외" : " · 카드 청구잔액이 아닌 거래 기록") + '</p>' +
+  const editAction = isAccount ? "cash-account" : "instrument-profile";
+  const editTarget = isAccount ? ' data-id="' + e(selected.accountId) + '"' :
+    ' data-method="' + e(selected?.name || "") + '"';
+  return '<section class="card instrument-panel" id="instrument-panel" aria-label="카드와 계좌 선택">' +
+    '<div class="instrument-picker">' +
+      '<div class="instrument-picker-heading"><div><h2>카드·계좌 선택</h2>' +
+      '<p>이름을 바꿀 카드를 먼저 선택해 줘.</p></div>' +
+      choiceButton("새 카드 추가", "instrument-method", "", "secondary") + '</div>' +
+      (selected ?
+        '<div class="instrument-choice-list" aria-label="자주 찾는 카드와 계좌">' + quickChoices + '</div>' +
+        '<div class="instrument-picker-all">' +
+          select("전체 카드·계좌 목록에서 선택", "instrument-target", options, selected.key,
+            'aria-label="카드·계좌 선택"') +
+        '</div>' +
+        '<div class="instrument-selected">' +
+          '<div class="instrument-selected-name"><small>현재 선택 · ' +
+          (isAccount ? '은행계좌' : '카드·결제수단') + '</small><strong>' +
+          e(selected.name) + '</strong></div>' +
+          '<div class="instrument-selected-actions">' +
+            '<button class="btn primary" type="button" data-action="' + editAction + '"' +
+              editTarget + '>이름 바꾸기</button>' +
+            choiceButton(isAccount ? "입출금 입력" : "카드 사용 입력", "instrument-add", selected.key, "secondary") +
+            (isAccount ? '<button class="btn secondary" type="button" data-action="cash-check" data-id="' +
+              e(selected.accountId) + '">잔액 확인</button>' : '') +
+          '</div>' +
+        '</div>' :
+        '<div class="instrument-picker-empty"><p>등록된 카드나 계좌가 없어. 먼저 카드 또는 계좌를 추가해 줘.</p>' +
+        '<button class="btn primary" type="button" data-action="instrument-method">카드 추가하기</button></div>') +
+    '</div>' +
+    (selected ?
+      '<div class="instrument-ledger-heading"><h3>이 결제수단의 내역</h3><small>' +
+        e(range) + ' · ' + data.rows.length + '건</small></div>' +
       totals +
-      (isAccount ? '<p class="cash-small">실제 계좌 잔액은 위 잔액 확인 정보가 기준이에요. 아래 입출금 합계는 연결된 거래만 표시하며, 카드를 긁은 금액은 계좌 출금으로 처리하지 않아요.</p>' :
-        '<p class="cash-small">카드 사용·환불만 보여 줘요. 카드대금이 계좌에서 빠져나간 내역은 계좌에서 따로 기록하고 소비에 두 번 더하지 않아요.</p>') +
-      '<div class="instrument-list">' + (list || '<p class="empty-inline">선택한 조건의 거래가 없어요. 빠진 거래를 입력하거나 조회기간을 변경해 주세요.</p>') + '</div>' +
-      (data.rows.length > limit ? choiceButton("내역 40건 더 보기", "instrument-more", selected.key, "secondary") : '') :
-      '<p class="empty-inline">등록된 계좌나 결제수단이 없어요. 위에서 카드·결제수단을 추가하거나 계좌를 먼저 등록해 주세요.</p>') +
+      '<details class="instrument-advanced"><summary>기간·사용자·검색 설정</summary><div class="instrument-advanced-inner">' +
+        '<div class="instrument-controls">' +
+          select("조회기간", "instrument-period",
+            [["cycle", "이번 운영월"], ["30", "최근 30일"], ["90", "최근 90일"],
+             ["all", "전체 기간"], ["custom", "기간 직접 지정"]],
+            f.instrumentPeriod || "cycle") +
+          select("사용자", "instrument-owner",
+            [["", "전체 사용자"], ["p1", memberName("p1", s)], ["p2", memberName("p2", s)],
+             ["joint", "공동"]], f.instrumentOwner || "") +
+          select("거래 방향", "instrument-direction",
+            [["", "모두"], ["out", isAccount ? "출금" : "사용"], ["in", isAccount ? "입금" : "환불"]],
+            f.instrumentDirection || "") +
+        '</div>' +
+        (f.instrumentPeriod === "custom" ?
+          '<div class="instrument-custom-dates">' +
+          field("시작일", "instrument-from", f.instrumentFrom || "", "date") +
+          field("종료일", "instrument-to", f.instrumentTo || cashNow().slice(0, 10), "date") + '</div>' : '') +
+        '<div class="instrument-search-and-add">' +
+          field("거래내역 검색", "instrument-query", f.instrumentQuery || "", "search",
+            'placeholder="사용처 또는 금액"') + '</div>' +
+      '</div></details>' +
+      '<div class="instrument-list">' +
+        (list || '<p class="empty-inline">조건에 맞는 내역이 없어. 기간을 바꾸거나 새 거래를 입력해 줘.</p>') +
+      '</div>' +
+      (data.rows.length > limit ? choiceButton("40건 더 보기", "instrument-more", selected.key, "secondary") : '') +
+      '<p class="instrument-hint">이름을 바꾸면 같은 결제수단으로 저장된 과거 내역도 함께 바뀌어. 금액과 사용자는 그대로야.</p>' :
+      '') +
     '</section>';
 }
 export function saveCardTransaction(s, data, options = {}) {
