@@ -45,3 +45,6 @@
 .cash-baseline-snapshot>small{display:block;flex:0 0 100%;font-size:.72rem;line-height:1.5;color:#61786f}
 .cash-page .page-intro>.btn{max-width:100%;text-align:center}
 @media(max-width:700px){.cash-baseline-snapshot{padding:10px}.cash-baseline-snapshot>strong{font-size:1rem}.cash-page .page-intro>.btn{width:100%}}
+
+/* A registered debit/cash method does not require credit-card statement dates. */
+[data-billing-fields][hidden]{display:none!important}
