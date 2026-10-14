@@ -100,3 +100,13 @@
 .focus-due-missing>span{font-size:.7rem;color:#ffe1ae;flex-basis:100%}
 .focus-due-missing>.btn.text{border:1px solid rgba(255,255,255,.28);border-radius:8px;color:white;font-size:.7rem;min-height:36px;white-space:normal}
 @media(max-width:700px){.focus-due-summary{padding:10px;margin-top:9px}.focus-due-title>strong{font-size:1.02rem}.focus-due-item>strong{font-size:.87rem}}
+
+
+/* Keep the headline and card due summary visible; secondary channel detail is optional. */
+.focus-payment-manage{margin:9px 0 1px;display:grid}
+.focus-payment-manage .btn{width:100%;min-height:46px;border-radius:10px;background:#e9f4fc;border:1px solid #c1ddf0;color:#164d75;font-size:.83rem;font-weight:750;justify-content:center;white-space:normal;word-break:keep-all}
+.focus-payment-manage .btn:hover{background:#d8ecfa}
+.focus-spend-detail{border-top:1px solid rgba(255,255,255,.18);padding-top:5px;margin-top:5px}
+.focus-spend-detail>summary{cursor:pointer;min-height:39px;display:flex;align-items:center;color:#e3eef7;font-size:.77rem;font-weight:650;line-height:1.4}
+.focus-spend-detail>.focus-spend-split{margin:2px 0 7px}
+@media(max-width:700px){.focus-payment-manage .btn{font-size:.78rem;min-height:46px}.focus-spend-detail>summary{font-size:.74rem}}
