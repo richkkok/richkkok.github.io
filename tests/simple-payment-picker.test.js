@@ -29,7 +29,7 @@ const doc = html => new JSDOM(html).window.document;
 
 test("cards and accounts can be chosen immediately, without expanding any hidden pane", () => {
   const s = fixture(), original = structuredClone(s);
-  const html = instrumentLedgerView(s);
+  const html = instrumentLedgerView(s, { instrument: "m:" + encodeURIComponent("M107") });
   const document = doc(html);
   assert.ok(document.querySelector(".instrument-picker"));
   assert.match(document.querySelector(".instrument-picker h2").textContent, /카드·계좌 선택/);
