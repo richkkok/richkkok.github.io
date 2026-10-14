@@ -31,21 +31,46 @@ export function focusHome(s, month, extras = {}, at) {
   }).join('');
   const unknownMethods = f.channels.unknownMethods.slice(0, 12).map(name =>
     `<button type="button" class="btn text" data-action="instrument-profile" data-method="${e(name)}">${e(name)} 분류</button>`).join('');
+  const paymentDates = f.cardDue.payments.map(card => {
+    const date = card.paymentDate.replaceAll('-', '.');
+    const state = card.paymentDate < (at || new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10))
+      ? '결제일 경과 · 납부 여부 미확인' : '결제 예정';
+    const unfinished = card.incomplete ? ' · 청구기간 진행 중' : '';
+    const detail = card.recordCount
+      ? `기록 기준 예상 ${card.start.replaceAll('-', '.')} ~ ${card.end.replaceAll('-', '.')} · ${card.recordCount}건${unfinished}`
+      : '이용내역 미등록 · 0원은 카드사 청구액 확인 전 수치';
+    return `<div class="focus-due-item" data-card-payment="${e(card.paymentDate)}">
+      <div><strong>${e(card.name)} · ${e(date)}</strong><small>${e(state)} · ${e(detail)}</small></div>
+      <strong data-card-due-amount="${e(card.name)}">${won(card.estimatedAmount)}</strong>
+    </div>`;
+  }).join('');
+  const missingCardProfiles = f.cardDue.missingProfiles.slice(0, 10).map(name =>
+    `<button type="button" class="btn text" data-action="instrument-profile" data-method="${e(name)}">${e(name)} 결제일 설정</button>`).join('');
 
   return `<div class="focus-home">
     <div class="focus-board" aria-label="핵심 가계부 요약">
       <section class="focus-card focus-budget${f.remaining < 0 ? ' is-over' : ''}">
         <header><h2>종합 소비한도</h2>${button('한도 편집', 'focus-plan', 'text')}</header>
-        <span class="focus-label">사용 / 이번 기간 설정한도</span>
-        ${amountRatio(f.used, f.limit, 'used', 'limit', '실제 소비 사용액', '설정한 소비한도')}
+        <span class="focus-label">이번 기간 소비·카드결제 부담 / 설정한도</span>
+        ${amountRatio(f.used, f.limit, 'used', 'limit', '소비액과 이번 기간 카드대금 추가반영 합계', '설정한 소비한도')}
         ${progress(f.used, f.limit, 'focus-progress')}
-        <p class="focus-counter">${f.remaining < 0 ? '한도 초과' : '남은 소비한도'} <strong data-focus-value="remaining">${won(Math.abs(f.remaining))}</strong></p>
-        <div class="focus-spend-split" aria-label="종합 소비 중 결제방식별 사용액">
+        <p class="focus-counter">${f.remaining < 0 ? '관리한도 초과' : '남은 관리한도'} <strong data-focus-value="remaining">${won(Math.abs(f.remaining))}</strong></p>
+        <div class="focus-spend-split" aria-label="종합 한도 사용액 구성">
+          <div><span>이번 기간 실제 소비 (사용일 기준)</span><strong data-focus-value="purchase-used">${won(f.purchaseUsed)}</strong></div>
+          <div><span>이번 기간 카드대금 추가반영</span><strong data-focus-value="card-due-added">${won(f.cardDue.addedToLimit)}</strong></div>
+        </div>
+        <div class="focus-spend-split" aria-label="신규 소비 결제방식별 구성">
           <div><span>신용카드 · 나중에 결제</span><strong data-focus-value="credit-spent">${won(f.channels.credit)}</strong></div>
           <div><span>현금 · 계좌 · 체크카드</span><strong data-focus-value="immediate-spent">${won(f.channels.immediate)}</strong></div>
           ${f.channels.unknown || f.channels.unknownMethods.length ? `<div class="focus-spend-unknown"><span>결제수단 미확인</span><strong data-focus-value="unknown-spent">${won(f.channels.unknown)}</strong></div>` : ''}
         </div>
-        <p class="focus-spend-caption">위 소비액은 가계부 운영월의 사용·환불 기준 · 카드대금 출금은 중복 소비 제외</p>
+        <p class="focus-spend-caption">신규 카드 승인액은 사용한 달에 반영하고, 이전 기간 카드 사용분은 결제일이 속한 달의 추가 부담으로 계산해. 같은 기간에 이미 반영한 승인액과 카드대금은 중복 차감하지 않아.</p>
+        <div class="focus-due-summary" aria-label="이번 운영월 카드별 결제예정금액">
+          <div class="focus-due-title"><span>이번 기간 카드대금 결제예정 합계</span><strong data-focus-value="card-due-total">${won(f.cardDue.dueTotal)}</strong></div>
+          ${paymentDates || '<p>결제일이 이번 운영월에 속하는 카드의 기록이 없어. 카드별 결제주기를 설정하면 표시돼.</p>'}
+          ${missingCardProfiles ? `<div class="focus-due-missing"><span>청구기간 미설정 카드 · 금액 집계 제외</span>${missingCardProfiles}</div>` : ''}
+          <p>합계는 고정비·개인·제외 거래가 포함될 수 있는 <strong>카드 사용내역 기준 추정액</strong>이야. 관리한도에는 이전 기간의 변동소비분만 추가 반영하고, 고정비나 이미 반영한 카드 소비액은 다시 빼지 않아. 카드사 청구 확정액·할부·할인·납부 여부는 별도 확인해야 해.</p>
+        </div>
         <details class="focus-billing-detail">
           <summary>카드별 청구기간 · 결제일 확인</summary>
           <div class="focus-billing-body">
@@ -113,7 +138,7 @@ export async function focusAction(app, action) {
   if (action !== 'focus-plan') return false;
   const month = app.month, original = limitBasis(app.state, month);
   const f = focusOverview(app.state, month), p = f.money.d.plan;
-  openDialog('소비한도 · 절약계획 조정', `<p class="focus-note">${e(f.money.d.p.start)} ~ ${e(f.money.d.p.end)}에만 적용해. 저장 전에는 아무것도 바뀌지 않아.</p>${field('이번 기간 전체 소비한도 (원)', 'focus-total', f.limit, 'number', 'required')}<div class="focus-presets"><button class="btn secondary" type="button" data-focus-cut="50000">5만원 줄이기</button><button class="btn secondary" type="button" data-focus-cut="100000">10만원 줄이기</button><button class="btn text" type="button" data-focus-reset>원래대로</button></div><div class="focus-plan-preview" aria-live="polite"><span>이미 쓴 돈 <b>${won(f.used)}</b></span><strong id="focus-preview-remaining"></strong><small id="focus-preview-shared"></small></div><details class="focus-editor-fold"><summary>용돈 배분도 함께 바꾸기</summary><div class="form-grid">${field(`${memberName('p1', app.state)} 용돈`, 'focus-p1', p.personalBudgets.p1, 'number', 'required')}${field(`${memberName('p2', app.state)} 용돈`, 'focus-p2', p.personalBudgets.p2, 'number', 'required')}</div></details>`, async form => {
+  openDialog('소비한도 · 절약계획 조정', `<p class="focus-note">${e(f.money.d.p.start)} ~ ${e(f.money.d.p.end)}에만 적용해. 저장 전에는 아무것도 바뀌지 않아.</p>${field('이번 기간 전체 소비한도 (원)', 'focus-total', f.limit, 'number', 'required')}<div class="focus-presets"><button class="btn secondary" type="button" data-focus-cut="50000">5만원 줄이기</button><button class="btn secondary" type="button" data-focus-cut="100000">10만원 줄이기</button><button class="btn text" type="button" data-focus-reset>원래대로</button></div><div class="focus-plan-preview" aria-live="polite"><span>소비·카드대금 추가부담 <b>${won(f.used)}</b></span><strong id="focus-preview-remaining"></strong><small id="focus-preview-shared"></small></div><details class="focus-editor-fold"><summary>용돈 배분도 함께 바꾸기</summary><div class="form-grid">${field(`${memberName('p1', app.state)} 용돈`, 'focus-p1', p.personalBudgets.p1, 'number', 'required')}${field(`${memberName('p2', app.state)} 용돈`, 'focus-p2', p.personalBudgets.p2, 'number', 'required')}</div></details>`, async form => {
     const values = limitValues(amountInput(form.get('focus-total')), amountInput(form.get('focus-p1')), amountInput(form.get('focus-p2')));
     await app.update(s => { saveFocusLimit(s, month, values, original); });
     toast('이 기간의 한도만 바꿨어. 거래내역과 실제 현금은 그대로야.');
@@ -128,7 +153,7 @@ export async function focusAction(app, action) {
       const left = v.variableBudget - f.used;
       output.textContent = `${left < 0 ? '적용 후 초과' : '적용 후 남은 한도'} ${won(Math.abs(left))}`;
       output.classList.toggle('negative', left < 0);
-      note.textContent = `공동 생활비 배분 ${won(v.sharedBudget)} · 고정지출 별도`;
+      note.textContent = `공동 생활비 배분 ${won(v.sharedBudget)} · 카드대금 추가부담 ${won(f.cardDue.addedToLimit)} · 고정지출 별도`;
     } catch (error) { output.textContent = '입력 확인 필요'; note.textContent = error.message; }
   };
   dialog.querySelectorAll('input').forEach(input => input.addEventListener('input', preview));
