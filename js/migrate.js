@@ -24,6 +24,7 @@ export function migrate(state) {
   state.settings.salaryDays ??= [10, 15];
   state.settings.paymentMethods ??= [];
   state.settings.paymentProfiles ??= {};
+  state.settings.paymentAliases ??= {};
   state.dailyCloses ??= {};
   state.reconciliations ??= [];
   state.cashAccounts ??= [];
