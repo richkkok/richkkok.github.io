@@ -138,7 +138,7 @@ function replacePaymentReferences(state, map) {
     }
   }
   for (const r of state.rules || []) {
-    if (r.field !== 'payment' || r.match !== 'exact') continue;
+    if (r.field !== 'payment' || !['exact','keyword'].includes(r.match)) continue;
     const name = map.get(key(r.pattern));
     if (name !== undefined) r.pattern = name;
   }
