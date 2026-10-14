@@ -82,3 +82,21 @@
 .focus-unknown-methods .btn{font-size:.7rem;min-height:36px;padding:6px 9px;border:1px solid rgba(255,255,255,.28);border-radius:8px}
 @media(max-width:700px){.focus-spend-split{margin-top:9px;padding:11px}.focus-spend-split span{font-size:.73rem}.focus-spend-split strong{font-size:.85rem}.focus-spend-caption{font-size:.68rem}.focus-billing-detail>summary{min-height:39px}}
 @media(max-width:350px){.focus-spend-split>div{gap:4px}.focus-billing-row .btn.text{font-size:.71rem}}
+
+/* Monthly card repayments are visible without opening a secondary disclosure.
+   All amounts are estimates based only on recorded purchase/refund entries. */
+.focus-due-summary{min-width:0;display:grid;gap:8px;margin:12px 0 4px;padding:12px;border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.07);border-radius:12px}
+.focus-due-title{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:5px 12px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.16)}
+.focus-due-title span{font-size:.77rem;font-weight:650;color:#e2edf6}
+.focus-due-title>strong{font-size:1.13rem;font-weight:800;color:#fff;white-space:nowrap;font-variant-numeric:tabular-nums}
+.focus-due-item{min-width:0;display:flex;justify-content:space-between;align-items:center;gap:8px 12px;padding:6px 0;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.12)}
+.focus-due-item>div{min-width:0;flex:1 1 130px;display:grid;gap:3px}
+.focus-due-item>div>strong{font-size:.8rem;line-height:1.4;color:#fff;overflow-wrap:anywhere}
+.focus-due-item small{font-size:.69rem;line-height:1.55;color:#d8e5ef;overflow-wrap:anywhere}
+.focus-due-item>strong{font-size:.93rem;font-weight:800;white-space:nowrap;color:#fff;font-variant-numeric:tabular-nums}
+.focus-due-summary>p{margin:0;color:#d1e0ec;font-size:.7rem;line-height:1.65;overflow-wrap:anywhere}
+.focus-due-summary>p strong{color:#fff}
+.focus-due-missing{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.focus-due-missing>span{font-size:.7rem;color:#ffe1ae;flex-basis:100%}
+.focus-due-missing>.btn.text{border:1px solid rgba(255,255,255,.28);border-radius:8px;color:white;font-size:.7rem;min-height:36px;white-space:normal}
+@media(max-width:700px){.focus-due-summary{padding:10px;margin-top:9px}.focus-due-title>strong{font-size:1.02rem}.focus-due-item>strong{font-size:.87rem}}
