@@ -54,7 +54,8 @@ export function validatePaymentProfiles(state) {
     if (hasDates && (p.kind !== 'credit' ||
         !Number.isInteger(p.closingDay) || p.closingDay < 1 || p.closingDay > 31 ||
         !Number.isInteger(p.paymentDay) || p.paymentDay < 1 || p.paymentDay > 31 ||
-        !Number.isInteger(p.lagMonths) || p.lagMonths < 0 || p.lagMonths > 2))
+        !Number.isInteger(p.lagMonths) || p.lagMonths < 0 || p.lagMonths > 2 ||
+        (p.lagMonths === 0 && p.paymentDay < p.closingDay)))
       throw Error('카드 이용 마감일·결제일·결제월을 확인해 주세요.');
   }
 }
@@ -71,7 +72,8 @@ export function savePaymentProfile(state, name, kind, closingDay = null, payment
   if (kind === 'credit' && daysPresent &&
       (!Number.isInteger(closingDay) || closingDay < 1 || closingDay > 31 ||
        !Number.isInteger(paymentDay) || paymentDay < 1 || paymentDay > 31 ||
-       !Number.isInteger(lagMonths) || lagMonths < 0 || lagMonths > 2))
+       !Number.isInteger(lagMonths) || lagMonths < 0 || lagMonths > 2 ||
+       (lagMonths === 0 && paymentDay < closingDay)))
     throw Error('카드 이용 마감일·결제일·결제월을 함께 확인해 주세요.');
   const before = state.settings.paymentProfiles?.[key];
   if (expected !== undefined && JSON.stringify(before) !== JSON.stringify(expected))
@@ -121,12 +123,14 @@ export function cardBillingSummary(state, asOf) {
     const window = billingWindow(asOf, profile);
     // Card bill estimates include recorded fixed, personal and excluded usage.
     // Transfers/card-payment debits never create fresh consumption or card usage.
-    let estimatedUsage = null;
-    if (window) estimatedUsage = state.transactions.reduce((sum, t) => {
+    const usage = cycle => cycle ? state.transactions.reduce((sum, t) => {
       if (t.deletedAt || t.splitParent || methodKey(t.paymentMethod) !== key ||
-          t.date < window.start || t.date > window.end || t.date > asOf) return sum;
+          t.date < cycle.start || t.date > cycle.end || t.date > asOf) return sum;
       return sum + (t.direction === 'expense' ? t.amount : t.direction === 'refund' ? -t.amount : 0);
-    }, 0);
-    return { name, profile, window, estimatedUsage };
+    }, 0) : null;
+    const previousWindow = window ? billingWindow(addDays(window.start, -1), profile) : null;
+    const upcomingPayment = previousWindow?.payment >= asOf
+      ? { ...previousWindow, usage: usage(previousWindow) } : null;
+    return { name, profile, window, estimatedUsage: usage(window), upcomingPayment };
   }).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 }
