@@ -56,3 +56,92 @@
 .instrument-rename-preview .check-field{display:flex;align-items:flex-start;gap:9px;font-size:.78rem;line-height:1.5;font-weight:650;color:#224c6c;cursor:pointer}
 .instrument-rename-preview .check-field input{flex-shrink:0;width:19px;height:19px}
 @media(max-width:700px){.instrument-rename-preview{padding:11px}.instrument-rename-preview>p{font-size:.75rem}}
+
+
+/* Card/account page: select first, rename second, detailed bank proof on demand. */
+.cash-simple-intro{padding:1px 2px 0}
+.cash-simple-intro h1{margin:0;font-size:1.48rem;color:#153b55}
+.cash-simple-intro p{margin:4px 0 0;color:#62788b;font-size:.79rem;line-height:1.5}
+.instrument-panel{gap:14px;padding:19px;border:1px solid #d5e4ed;background:#fff;box-shadow:none}
+.instrument-picker{display:grid;gap:13px;min-width:0}
+.instrument-picker-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.instrument-picker-heading>div{min-width:0}
+.instrument-picker-heading h2{font-size:1.11rem;color:#173e5d;line-height:1.4;margin:0}
+.instrument-picker-heading p{font-size:.76rem;color:#627588;line-height:1.55;margin:3px 0 0}
+.instrument-picker-heading .btn{min-height:42px}
+.instrument-choice-list{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;min-width:0}
+.instrument-choice{min-width:0;display:grid;align-content:center;gap:4px;text-align:left;padding:11px 9px;min-height:66px;color:#34566d;border:1px solid #dae7ef;border-radius:11px;background:#f7fafc;cursor:pointer;font-family:inherit}
+.instrument-choice small{font-size:.67rem;color:#678299}
+.instrument-choice strong{font-size:.79rem;line-height:1.4;font-weight:700;overflow-wrap:anywhere;word-break:keep-all}
+.instrument-choice.is-active{border:2px solid #2674a9;padding:10px 8px;color:#164c71;background:#eef7ff}
+.instrument-choice.is-active small{color:#286a9b}
+.instrument-choice:hover{background:#eef7ff}
+.instrument-picker-all{min-width:0}
+.instrument-picker-all .field{display:grid;gap:6px;min-width:0}
+.instrument-picker-all .field span{font-weight:750;font-size:.82rem;color:#264e6c}
+.instrument-picker-all select{width:100%;min-width:0;min-height:52px;padding:12px 14px;border:2px solid #3986b8;border-radius:11px;background:#fff;color:#173f5a;font-size:.94rem;font-weight:740;cursor:pointer}
+.instrument-selected{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 16px;border-radius:12px;background:#eff6fc;border:1px solid #d7e7f3;min-width:0;flex-wrap:wrap}
+.instrument-selected-name{min-width:0;flex:1 1 160px;display:grid;gap:3px}
+.instrument-selected-name small{font-size:.72rem;color:#607d91}
+.instrument-selected-name strong{font-size:1.07rem;color:#164765;overflow-wrap:anywhere;word-break:keep-all}
+.instrument-selected-actions{display:flex;gap:7px;flex-wrap:wrap}
+.instrument-selected-actions .btn{min-height:44px;white-space:normal;word-break:keep-all}
+.instrument-selected-actions .btn.primary{background:#17638f;color:#fff}
+.instrument-picker-empty{display:grid;gap:9px}
+.instrument-picker-empty p{font-size:.82rem;margin:0;color:#536d80}
+.instrument-ledger-heading{display:flex;justify-content:space-between;gap:7px 15px;flex-wrap:wrap;align-items:baseline;padding-top:7px;border-top:1px solid #e5eef5}
+.instrument-ledger-heading h3{margin:0;font-size:.92rem;color:#294d67}
+.instrument-ledger-heading small{color:#698092;font-size:.72rem}
+.instrument-advanced{border:1px solid #e0eaf0;border-radius:10px;background:#fafcfe}
+.instrument-advanced>summary{min-height:46px;display:flex;align-items:center;padding:10px 13px;font-size:.8rem;color:#3b6580;cursor:pointer}
+.instrument-advanced-inner{padding:0 13px 13px;display:grid;gap:10px;min-width:0}
+.instrument-advanced .instrument-controls{grid-template-columns:repeat(3,minmax(0,1fr))}
+.instrument-advanced .instrument-search-and-add{display:grid}
+.instrument-advanced .instrument-search-and-add .field{width:100%;min-width:0}
+.instrument-hint{font-size:.73rem;color:#6a7d8a;line-height:1.6;margin:0}
+.instrument-list .empty-inline{font-size:.8rem;color:#62788a}
+.cash-admin{border:1px solid #d9e5ee;border-radius:15px;background:#fff;min-width:0}
+.cash-admin>summary{padding:17px 19px;min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none}
+.cash-admin>summary::-webkit-details-marker{display:none}
+.cash-admin>summary span{display:grid;gap:5px;min-width:0}
+.cash-admin>summary strong{font-size:.89rem;color:#31556f}
+.cash-admin>summary small{font-size:.73rem;color:#72869a;line-height:1.5}
+.cash-admin>summary .icon{flex-shrink:0;width:19px;height:19px;color:#52758f}
+.cash-admin[open]>summary .icon{transform:rotate(90deg)}
+.cash-admin-body{padding:0 17px 18px;display:grid;gap:14px;min-width:0}
+.cash-admin-body .cash-home,.cash-admin-body .cash-account,.cash-admin-body .cash-links{box-shadow:none}
+.cash-admin-toolbar{display:flex;flex-wrap:wrap;gap:8px}
+.cash-admin-toolbar .btn{min-height:44px}
+.cash-admin-body>.card{box-shadow:none}
+@media(max-width:1050px){.instrument-choice-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){
+ .cash-page{gap:12px}
+ .instrument-panel{padding:13px;gap:11px}
+ .instrument-picker-heading h2{font-size:1rem}
+ .instrument-picker-heading .btn{min-height:38px;font-size:.75rem}
+ .instrument-choice-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .instrument-choice{min-height:57px;padding:8px}
+ .instrument-choice.is-active{padding:7px}
+ .instrument-choice strong{font-size:.75rem}
+ .instrument-choice small{font-size:.66rem}
+ .instrument-picker-all select{min-height:50px;font-size:.88rem}
+ .instrument-selected{padding:12px;gap:10px}
+ .instrument-selected-name strong{font-size:1.01rem}
+ .instrument-selected-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+ .instrument-selected-actions .btn{min-width:0;padding:10px 8px;font-size:.77rem}
+ .instrument-selected-actions .btn:last-child:nth-child(3){grid-column:1/-1}
+ .instrument-advanced .instrument-controls{grid-template-columns:1fr 1fr}
+ .instrument-advanced .instrument-controls>.field:last-child{grid-column:1/-1}
+ .cash-admin>summary{padding:13px;min-height:65px}
+ .cash-admin-body{padding:0 12px 12px}
+ .cash-admin-toolbar .btn{flex:1 1 135px}
+}
+@media(max-width:350px){
+ .instrument-choice-list{grid-template-columns:1fr 1fr}
+ .instrument-choice{min-height:58px}
+ .instrument-selected-actions .btn{font-size:.73rem}
+}
+@media print{
+ .cash-admin{break-inside:avoid}
+ .instrument-choice-list,.instrument-selected-actions,.instrument-picker-heading .btn{display:none}
+}
