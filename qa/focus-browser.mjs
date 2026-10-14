@@ -132,7 +132,7 @@ try{
  await page.waitForSelector('#dialog[open]',{state:'hidden'});
  const afterCard=await read();
  assert.deepEqual(afterCard.transactions,prior.transactions,'Payment settings must not change original transactions');
- assert.equal(afterCard.settings.paymentProfiles.qacard.closingDay,25);
+ assert.equal(afterCard.settings.paymentProfiles['qa카드'].closingDay,25);
  await page.reload({waitUntil:'networkidle'});
  await page.locator('.focus-billing-detail > summary').click();
  assert.match(await page.locator('.focus-billing-detail').innerText(),/결제일 예상/);
