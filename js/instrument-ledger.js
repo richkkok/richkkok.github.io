@@ -5,6 +5,7 @@ import { memberName } from "../data/defaults.js";
 import { select, field, openDialog, toast } from "./ui.js";
 import { matchRecurring } from "./recurring.js";
 import { cashAction } from "./cash-ui.js";
+import { paymentKind, savePaymentProfile } from "./payment-channels.js";
 
 // An account is a real-cash ledger. A card/payment method is a spending list,
 // never another bank balance. No financial record is created by these views.
@@ -119,7 +120,8 @@ export function instrumentLedgerView(s, f = {}) {
         field("시작일", "instrument-from", f.instrumentFrom || "", "date") +
         field("종료일", "instrument-to", f.instrumentTo || cashNow().slice(0, 10), "date") + '</div>' : '') +
       '<div class="instrument-search-and-add"><label class="field"><span>내역 검색</span><input type="search" name="instrument-query" placeholder="사용처·금액 검색" value="' + e(f.instrumentQuery || "") + '"></label>' +
-      choiceButton("빠진 " + (isAccount ? "입출금" : "카드 거래") + " 입력", "instrument-add", selected.key, "primary") + '</div>' +
+      choiceButton("빠진 " + (isAccount ? "입출금" : "카드 거래") + " 입력", "instrument-add", selected.key, "primary") +
+      (!isAccount ? '<button class="btn secondary" type="button" data-action="instrument-profile" data-method="' + e(selected.name) + '">결제방식·청구주기 설정</button>' : '') + '</div>' +
       '<p class="cash-small">' + e(range) + ' · 검색 조건에 맞는 ' + data.rows.length + '건' + (isAccount ? " · 미연결 내역은 합계 제외" : " · 카드 청구잔액이 아닌 거래 기록") + '</p>' +
       totals +
       (isAccount ? '<p class="cash-small">실제 계좌 잔액은 위 잔액 확인 정보가 기준이에요. 아래 입출금 합계는 연결된 거래만 표시하며, 카드를 긁은 금액은 계좌 출금으로 처리하지 않아요.</p>' :
@@ -157,29 +159,59 @@ export function saveCardTransaction(s, data, options = {}) {
   s.transactions.push(t);
   return t;
 }
+function openPaymentProfileEditor(app, existingName = '') {
+  const s = app.state;
+  const existing = existingName ? instrumentChoices(s).find(
+    x => x.type === 'method' && keyText(x.name) === keyText(existingName)) : null;
+  if (existingName && !existing) throw Error('해당 결제수단을 찾지 못했어. 다시 조회해 줘.');
+  const name = existing?.name || '';
+  const original = s.settings.paymentProfiles?.[keyText(name)];
+  const kind = original?.kind || (name ? paymentKind(s, name) : 'credit');
+  const dialog = openDialog(existing ? '결제방식 · 카드 청구주기 설정' : '카드·결제수단 등록',
+    '<div class="form-grid">' +
+      field('결제수단 이름', 'methodName', name, 'text', existing ? 'required readonly maxlength="100"' : 'required maxlength="100" placeholder="예: 우리카드, 신한카드, 현금"') +
+      select('결제방식', 'methodKind', [
+        ['credit', '신용카드 · 나중에 일괄 결제'],
+        ['immediate', '현금·계좌·체크카드 · 바로 지출'],
+      ], kind === 'unknown' ? 'credit' : kind) +
+    '</div><div data-billing-fields class="form-grid">' +
+      field('카드사 이용 마감일 (매월 1~31일)', 'closingDay', original?.closingDay ?? '', 'number', 'min="1" max="31" placeholder="카드사에서 확인"') +
+      field('결제 예정일 (매월 1~31일)', 'paymentDay', original?.paymentDay ?? '', 'number', 'min="1" max="31" placeholder="카드사에서 확인"') +
+      select('마감월 기준 결제 예정월', 'lagMonths',
+        [['0', '마감한 당월'], ['1', '다음 달'], ['2', '다다음 달']], String(original?.lagMonths ?? 1)) +
+    '</div><p class="cash-small">신용카드 이용·결제기간은 카드사 청구서에서 확인해 입력해 줘. 모르면 날짜를 비워 두어도 결제방식 구분은 저장돼. 표시된 결제일은 공휴일 조정·할부·할인 등이 반영되지 않은 예상일이야.</p>',
+    async f => {
+      const newName = String(f.get('methodName') || '').trim();
+      const newKind = String(f.get('methodKind'));
+      const first = String(f.get('closingDay') || '').trim();
+      const second = String(f.get('paymentDay') || '').trim();
+      if (newKind === 'credit' && !!first !== !!second)
+        throw Error('카드 이용 마감일과 결제일은 둘 다 입력하거나 둘 다 비워 줘.');
+      const closing = newKind === 'credit' && first ? Number(first) : null;
+      const payment = newKind === 'credit' && second ? Number(second) : null;
+      const lag = newKind === 'credit' ? Number(f.get('lagMonths')) : 1;
+      await app.update(st => { savePaymentProfile(st, newName, newKind, closing, payment, lag, existing ? original : undefined); });
+      if (!existing) {
+        app.cashFilters.instrument = 'm:' + encodeURIComponent(newName);
+        app.cashFilters.instrumentLimit = 40;
+        app.render();
+      }
+      toast('결제방식과 카드 청구주기 설정을 저장했어. 거래 원본은 변경하지 않았어.');
+    }, '설정 저장');
+  const selector = dialog.querySelector('[name="methodKind"]');
+  const fields = dialog.querySelector('[data-billing-fields]');
+  const toggle = () => { fields.hidden = selector.value !== 'credit'; };
+  selector.addEventListener('change', toggle);
+  toggle();
+}
 export async function instrumentLedgerAction(app, action, target) {
   if (!action.startsWith("instrument-")) return false;
   const s = app.state;
   if (action === "instrument-more") {
     app.cashFilters.instrumentLimit = (app.cashFilters.instrumentLimit || 40) + 40;
     app.render();
-  } else if (action === "instrument-method") {
-    openDialog("카드·결제수단 등록", '<p>카드번호를 입력할 필요 없어요. 거래에 표시할 이름만 등록해요.</p>' +
-      field("카드·결제수단 이름", "name", "", "text", 'required maxlength="100" placeholder="예: 신한카드, 우리카드"'), async f => {
-        const name = String(f.get("name") || "").trim(), norm = keyText(name);
-        if (!name || name.length > 100 || norm === keyText("미지정")) throw Error("결제수단 이름을 확인해 주세요.");
-        await app.update(st => {
-          if ((st.cashAccounts || []).some(a => !a.archived && [a.name, a.paymentMethod].filter(Boolean).some(v => keyText(v) === norm)))
-            throw Error("같은 이름의 계좌가 있어요. 계좌에서 내역을 관리해 주세요.");
-          st.settings.paymentMethods ||= [];
-          if (!st.settings.paymentMethods.some(v => keyText(v) === norm))
-            st.settings.paymentMethods.push(name);
-        });
-        app.cashFilters.instrument = "m:" + encodeURIComponent(name);
-        app.cashFilters.instrumentLimit = 40;
-        app.render();
-        toast("결제수단을 추가했어요. 이제 누락 거래를 입력할 수 있어요.");
-      });
+  } else if (action === "instrument-method" || action === "instrument-profile") {
+    openPaymentProfileEditor(app, action === 'instrument-profile' ? String(target?.dataset.method || '') : '');
   } else if (action === "instrument-add") {
     const chosen = instrumentChoices(s).find(x => x.key === target.dataset.key);
     if (!chosen) throw Error("계좌·카드가 변경됐어요. 다시 선택해 주세요.");
