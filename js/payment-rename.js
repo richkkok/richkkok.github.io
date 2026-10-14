@@ -65,7 +65,7 @@ function validateRenameMap(state, pairs, allowOwnedAccountId = '') {
   const targetOwner = new Map();
   for (const [from, name] of map) {
     const dest = key(name);
-    if (targetOwner.has(dest) && targetOwner.get(dest) !== from)
+    if (targetOwner.has(dest) && targetOwner.get(dest) !== from && !allowOwnedAccountId)
       throw Error('서로 다른 결제수단을 같은 이름으로 합칠 수 없어. 하나씩 확인해 줘.');
     targetOwner.set(dest, from);
     if (dest !== from && !reserved.has(dest) &&
