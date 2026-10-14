@@ -91,6 +91,14 @@ export function instrumentLedgerView(s, f = {}) {
   const selected = choices.find(x => x.key === f.instrument) || cards[0] || choices[0];
   const data = instrumentRows(s, selected, f);
   const isAccount = selected?.type === "account";
+  const paymentCounts = selected && !isAccount ? paymentNameSummary(s, selected.name) : null;
+  const ownerNumbers = paymentCounts ? [["p1", paymentCounts.owners.p1],
+    ["p2", paymentCounts.owners.p2], ["joint", paymentCounts.owners.joint]]
+    .filter(([, count]) => count > 0) : [];
+  const ambiguousCode = selected && !isAccount && /^[A-Za-z]{1,5}[- ]?\d{2,}$/.test(selected.name);
+  const ownerHint = (ambiguousCode || ownerNumbers.length > 1) && ownerNumbers.length
+    ? ownerNumbers.map(([owner, count]) => memberName(owner, s) + " " + count + "건").join(" · ")
+    : "";
   const options = [
     ...choices.filter(x => x.type === "account").map(x => [x.key, "계좌 · " + x.name]),
     ...cards.map(x => [x.key, "카드·결제수단 · " + x.name]),
@@ -155,7 +163,9 @@ export function instrumentLedgerView(s, f = {}) {
         '<div class="instrument-selected">' +
           '<div class="instrument-selected-name"><small>현재 선택 · ' +
           (isAccount ? '은행계좌' : '카드·결제수단') + '</small><strong>' +
-          e(selected.name) + '</strong></div>' +
+          e(selected.name) + '</strong>' +
+          (ownerHint ? '<small class="instrument-selected-meta">등록된 사용자별 거래: ' +
+            e(ownerHint) + '</small>' : '') + '</div>' +
           '<div class="instrument-selected-actions">' +
             '<button class="btn primary" type="button" data-action="' + editAction + '"' +
               editTarget + '>이름 바꾸기</button>' +
