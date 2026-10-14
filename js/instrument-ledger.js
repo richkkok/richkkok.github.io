@@ -6,15 +6,20 @@ import { select, field, openDialog, toast } from "./ui.js";
 import { matchRecurring } from "./recurring.js";
 import { cashAction } from "./cash-ui.js";
 import { paymentKind, savePaymentProfile } from "./payment-channels.js";
+import { paymentNameSummary, paymentRenameBasis, renamePaymentMethod } from "./payment-rename.js";
 
 // An account is a real-cash ledger. A card/payment method is a spending list,
 // never another bank balance. No financial record is created by these views.
 export function instrumentChoices(s) {
   const accounts = (s.cashAccounts || []).filter(a => !a.archived);
-  const bankNames = new Set(accounts.flatMap(a => [a.name, a.paymentMethod]).filter(Boolean).map(keyText));
+  const bankNames = new Set((s.cashAccounts || []).flatMap(a => [a.name, a.paymentMethod]).filter(Boolean).map(keyText));
   const used = new Set();
   const methods = [];
-  for (const value of [...(s.settings.paymentMethods || []), s.settings.cardName, ...cashRoots(s).map(t => t.paymentMethod)]) {
+  for (const value of [...(s.settings.paymentMethods || []), s.settings.cardName,
+    ...Object.values(s.settings.paymentProfiles || {}).map(p => p.name),
+    ...(s.transactions || []).map(t => t.paymentMethod),
+    ...(s.recurring || []).map(r => r.paymentMethod),
+    ...(s.reconciliations || []).map(r => r.payment)]) {
     const name = String(value || "").trim(), normalized = keyText(name);
     if (!name || name.length > 100 || normalized === keyText("미지정") || bankNames.has(normalized) || used.has(normalized)) continue;
     used.add(normalized);
@@ -121,7 +126,9 @@ export function instrumentLedgerView(s, f = {}) {
         field("종료일", "instrument-to", f.instrumentTo || cashNow().slice(0, 10), "date") + '</div>' : '') +
       '<div class="instrument-search-and-add"><label class="field"><span>내역 검색</span><input type="search" name="instrument-query" placeholder="사용처·금액 검색" value="' + e(f.instrumentQuery || "") + '"></label>' +
       choiceButton("빠진 " + (isAccount ? "입출금" : "카드 거래") + " 입력", "instrument-add", selected.key, "primary") +
-      (!isAccount ? '<button class="btn secondary" type="button" data-action="instrument-profile" data-method="' + e(selected.name) + '">결제방식·청구주기 설정</button>' : '') + '</div>' +
+      (isAccount
+        ? '<button class="btn secondary" type="button" data-action="cash-account" data-id="' + e(selected.accountId) + '">계좌 이름·과거 내역 일괄 수정</button>'
+        : '<button class="btn secondary" type="button" data-action="instrument-profile" data-method="' + e(selected.name) + '">카드명·과거 내역 일괄 수정</button>') + '</div>' +
       '<p class="cash-small">' + e(range) + ' · 검색 조건에 맞는 ' + data.rows.length + '건' + (isAccount ? " · 미연결 내역은 합계 제외" : " · 카드 청구잔액이 아닌 거래 기록") + '</p>' +
       totals +
       (isAccount ? '<p class="cash-small">실제 계좌 잔액은 위 잔액 확인 정보가 기준이에요. 아래 입출금 합계는 연결된 거래만 표시하며, 카드를 긁은 금액은 계좌 출금으로 처리하지 않아요.</p>' :
@@ -167,9 +174,16 @@ function openPaymentProfileEditor(app, existingName = '') {
   const name = existing?.name || '';
   const original = s.settings.paymentProfiles?.[keyText(name)];
   const kind = original?.kind || (name ? paymentKind(s, name) : 'credit');
+  const counts = existing ? paymentNameSummary(s, name) : null;
+  const basis = existing ? paymentRenameBasis(s, name) : null;
+  const ownerPreview = counts ? [
+    [memberName('p1',s), counts.owners.p1],
+    [memberName('p2',s), counts.owners.p2],
+    ['공동', counts.owners.joint],
+  ].filter(([,n]) => n > 0).map(([person,n]) => e(person) + ' ' + n + '건').join(' · ') : '';
   const dialog = openDialog(existing ? '결제방식 · 카드 청구주기 설정' : '카드·결제수단 등록',
     '<div class="form-grid">' +
-      field('결제수단 이름', 'methodName', name, 'text', existing ? 'required readonly maxlength="100"' : 'required maxlength="100" placeholder="예: 우리카드, 신한카드, 현금"') +
+      field('결제수단 이름', 'methodName', name, 'text', 'required maxlength="100" placeholder="예: 태영 신한카드, 은영 우리카드"') +
       select('결제방식', 'methodKind', [
         ['credit', '신용카드 · 나중에 일괄 결제'],
         ['immediate', '현금·계좌·체크카드 · 바로 지출'],
@@ -179,7 +193,12 @@ function openPaymentProfileEditor(app, existingName = '') {
       field('결제 예정일 (매월 1~31일)', 'paymentDay', original?.paymentDay ?? '', 'number', 'min="1" max="31" placeholder="카드사에서 확인"') +
       select('마감월 기준 결제 예정월', 'lagMonths',
         [['0', '마감한 당월'], ['1', '다음 달'], ['2', '다다음 달']], String(original?.lagMonths ?? 1)) +
-    '</div><p class="cash-small">신용카드 이용·결제기간은 카드사 청구서에서 확인해 입력해 줘. 모르면 날짜를 비워 두어도 결제방식 구분은 저장돼. 표시된 결제일은 공휴일 조정·할부·할인 등이 반영되지 않은 예상일이야.</p>',
+    '</div>' +
+    (existing ? '<div class="instrument-rename-preview"><strong>현재 이름: ' + e(name) + '</strong><p>전체 저장된 거래 ' + counts.transactions + '건' +
+      (ownerPreview ? ' · ' + ownerPreview : '') + ' · 고정지출 ' + counts.recurring + '건</p>' +
+      '<p>이름을 바꾸면 삭제 보관함을 포함한 과거 거래와 카드 청구설정·연결 정보까지 함께 바꿔. 거래 금액·날짜·소유자는 그대로 유지해.</p>' +
+      '<label class="check-field"><input type="checkbox" name="bulkRenameConfirmed">기존 이름의 전체 내역을 새 이름으로 바꾸는 데 동의해</label></div>' : '') +
+    '<p class="cash-small">신용카드 이용·결제기간은 카드사 청구서에서 확인해 입력해 줘. 모르면 날짜를 비워 두어도 결제방식 구분은 저장돼. 표시된 결제일은 공휴일 조정·할부·할인 등이 반영되지 않은 예상일이야.</p>',
     async f => {
       const newName = String(f.get('methodName') || '').trim();
       const newKind = String(f.get('methodKind'));
@@ -190,13 +209,24 @@ function openPaymentProfileEditor(app, existingName = '') {
       const closing = newKind === 'credit' && first ? Number(first) : null;
       const payment = newKind === 'credit' && second ? Number(second) : null;
       const lag = newKind === 'credit' ? Number(f.get('lagMonths')) : 1;
-      await app.update(st => { savePaymentProfile(st, newName, newKind, closing, payment, lag, existing ? original : undefined); });
-      if (!existing) {
+      const renamed = !!existing && newName !== name;
+      if (renamed && !f.get('bulkRenameConfirmed'))
+        throw Error('기존 거래까지 이름을 일괄 변경하려면 확인란을 체크해 줘.');
+      let result;
+      await app.update(st => {
+        if (existing && paymentRenameBasis(st,name) !== basis)
+          throw Error('다른 기기에서 카드나 거래기록이 변경됐어. 다시 열어서 확인해 줘.');
+        if (renamed) result = renamePaymentMethod(st,name,newName,basis);
+        const currentProfile = st.settings.paymentProfiles?.[keyText(newName)];
+        savePaymentProfile(st,newName,newKind,closing,payment,lag,existing ? currentProfile : undefined);
+      });
+      if (!existing || renamed) {
         app.cashFilters.instrument = 'm:' + encodeURIComponent(newName);
         app.cashFilters.instrumentLimit = 40;
         app.render();
       }
-      toast('결제방식과 카드 청구주기 설정을 저장했어. 거래 원본은 변경하지 않았어.');
+      toast(renamed ? '카드·결제수단 이름을 변경했고, 저장된 거래 ' + result.transactions + '건 및 연결 정보를 함께 갱신했어.' :
+        '결제방식과 카드 청구주기 설정을 저장했어. 기존 거래는 유지했어.');
     }, '설정 저장');
   const selector = dialog.querySelector('[name="methodKind"]');
   const fields = dialog.querySelector('[data-billing-fields]');
