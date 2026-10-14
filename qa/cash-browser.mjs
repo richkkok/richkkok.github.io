@@ -53,7 +53,9 @@ try {
  assert.equal((await read()).state.transactions.length,0,'Opening cash/income dialogs must not create records');
  await page.goto('http://127.0.0.1:4175/#cash');await page.waitForSelector('.cash-page');
  assert.equal(await page.locator('#month-picker').isVisible(),false);
- assert.match(await page.locator('.cash-page .page-intro [data-action=cash-account]').innerText(),/새 계좌 기준잔액 입력/);
+ assert.equal(await page.locator('.cash-admin').getAttribute('open'),null);
+ await page.locator('.cash-admin>summary').click();
+ assert.match(await page.locator('.cash-admin-toolbar [data-action=cash-account]').innerText(),/새 계좌 등록/);
  assert.match(await page.locator('.cash-baseline-snapshot').innerText(),/1,000,000원/);
  assert.match(await page.locator('.cash-notice').textContent(),/현재 잔액 입력/);
  await page.locator('[data-action="cash-entry"]').first().click();
