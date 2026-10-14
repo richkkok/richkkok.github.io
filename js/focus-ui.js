@@ -27,7 +27,7 @@ export function focusHome(s, month, extras = {}, at) {
     const period = card.window
       ? `${card.window.start.replaceAll('-', '.')} ~ ${card.window.end.replaceAll('-', '.')} 사용 · ${card.window.payment.replaceAll('-', '.')} 결제일 예상`
       : '카드 이용·결제주기 미설정';
-    return `<div class="focus-billing-row"><div><strong>${e(card.name)}</strong><small>${e(period)}</small>${card.window ? `<span>등록된 거래 기준 ${won(card.estimatedUsage)} · 청구 확정금액 아님</span>` : ''}</div><button type="button" class="btn text" data-action="instrument-profile" data-method="${e(card.name)}">설정</button></div>`;
+    return `<div class="focus-billing-row"><div><strong>${e(card.name)}</strong><small>${e(period)}</small>${card.window ? `<span>이번 청구기간 사용 ${won(card.estimatedUsage)} · 청구 확정금액 아님</span>` : ''}${card.upcomingPayment ? `<span>직전 마감분 ${won(card.upcomingPayment.usage)} · ${card.upcomingPayment.payment.replaceAll('-', '.')} 결제 예정 (추정)</span>` : ''}</div><button type="button" class="btn text" data-action="instrument-profile" data-method="${e(card.name)}">설정</button></div>`;
   }).join('');
   const unknownMethods = f.channels.unknownMethods.slice(0, 12).map(name =>
     `<button type="button" class="btn text" data-action="instrument-profile" data-method="${e(name)}">${e(name)} 분류</button>`).join('');
