@@ -15,8 +15,8 @@ const amountRatio = (left, right, leftKey, rightKey, leftLabel, rightLabel) =>
   `<div class="focus-ratio" role="group" aria-label="${e(leftLabel)} ${won(left)}, ${e(rightLabel)} ${won(right)}"><strong class="focus-amount" data-focus-value="${e(leftKey)}" title="${won(left)}">${shortWon(left)}</strong><span class="focus-ratio-right"><span class="focus-ratio-divider" aria-hidden="true">/</span><span class="focus-ratio-total" data-focus-value="${e(rightKey)}" title="${won(right)}">${shortWon(right)}</span></span></div>`;
 
 export function focusHome(s, month, extras = {}, at) {
-  const f = focusOverview(s, month, at), { money: o, cash: c } = f, b = o.d;
-  const cashStatus = !c.accounts.length ? '아직 입력하지 않았어' : c.usable < 0 ? '따로 확보할 돈이 잔액보다 많아' : c.mismatchCount ? '잔액 차이 있음 · 확인 필요' : f.cashChanged ? '입력 이후 거래 변경 · 재확인 필요' : f.cashStale ? '오늘 잔액 재확인 필요' : c.pending.length ? '연결하지 않은 입출금 확인 필요' : c.baselineCount ? '첫 잔액 등록 · 아직 대조 전' : '최근 확인시각의 연결 기록상 일치';
+  const f = focusOverview(s, month, at), { money: o, cash: c, projectedCash: projected } = f, b = o.d;
+  const cashStatus = !c.accounts.length ? '아직 입력하지 않았어' : projected.usable < 0 ? '지출 반영 후 사용가능 현금이 부족해' : c.mismatchCount ? '잔액 차이 있음 · 확인 필요' : f.cashChanged ? '입력 이후 거래 변경 · 재확인 필요' : projected.unlinkedCount ? '고정비 출금 추정 반영 · 계좌 연결 확인 필요' : f.cashStale ? '오늘 잔액 재확인 필요' : c.pending.length ? '연결하지 않은 입출금 확인 필요' : c.baselineCount ? '첫 잔액 등록 · 아직 대조 전' : '최근 확인시각의 연결 기록상 일치';
   const dates = c.accounts.map(a => a.measuredAt);
   const cashAt = c.oldest ? `${c.oldest.replace('T', ' ').slice(5, 16).replaceAll('-', '.')} 확인${new Set(dates).size > 1 ? ' · 계좌별 시각 다름' : ''}` : '';
   const incomeCheck = incomeReconciliation(s, month);
@@ -37,9 +37,9 @@ export function focusHome(s, month, extras = {}, at) {
       </section>
       <section class="focus-card focus-cash" aria-label="사용가능 현금">
         <header><h2>사용가능 현금</h2>${button('계좌 보기', 'go-cash', 'text')}</header>
-        <span class="focus-label">사용가능 잔액 / 이번 운영월 실제 입금</span>
-        ${c.accounts.length ? amountRatio(c.usable, f.cashReceived, 'cash', 'cash-income', '확인한 사용가능 잔액', '이번 운영월 실제 생활수입 누적') : `<div class="focus-ratio"><strong class="focus-amount" data-focus-value="cash">입력 필요</strong></div><p class="focus-counter">이번 운영월 실제 입금 <strong data-focus-value="cash-income">${won(f.cashReceived)}</strong></p>`}
-        <p class="focus-note">잔액은 직접 확인 · 수입은 귀속월 기준</p>
+        <span class="focus-label">현재 사용가능 추정액 / 이번 운영월 실제 입금</span>
+        ${c.accounts.length ? amountRatio(projected.usable, f.cashReceived, 'cash', 'cash-income', '최근 확인한 잔액과 이후 출금·입금을 반영한 사용가능 추정액', '이번 운영월 실제 생활수입 누적') : `<div class="focus-ratio"><strong class="focus-amount" data-focus-value="cash">입력 필요</strong></div><p class="focus-counter">이번 운영월 실제 입금 <strong data-focus-value="cash-income">${won(f.cashReceived)}</strong></p>`}
+        <p class="focus-note">${projected.unlinkedCount ? `최근 잔액에서 이후 고정비 ${won(Math.abs(projected.unlinkedFixed))} ${projected.unlinkedFixed >= 0 ? '추정 차감' : '환급 반영'} · 계좌 확인 필요` : projected.linkedChange ? '최근 잔액에 이후 연결된 입출금 반영' : '잔액은 직접 확인'} · 수입은 귀속월 기준</p>
         ${incomeCheck.nearby.length ? `<button type="button" class="focus-income-alert" data-action="money-income"><strong>지난 운영월에 등록된 최근 입금 ${incomeCheck.nearby.length}건 · ${won(incomeCheck.nearbyAmount)}</strong><span>조회 · 귀속월 변경 ${icon('chevron')}</span></button>` : ''}
         <p class="focus-status${f.cashIssue ? ' warn' : ''}">${e(cashStatus)}</p>${cashAt ? `<small class="focus-time">${e(cashAt)}</small>` : ''}
         <div class="focus-cash-entry" aria-label="현금 기준잔액과 실제 수입 입력">
