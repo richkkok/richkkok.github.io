@@ -23,6 +23,7 @@ export function migrate(state) {
   state.settings.trackingSince ??= today();
   state.settings.salaryDays ??= [10, 15];
   state.settings.paymentMethods ??= [];
+  state.settings.paymentProfiles ??= {};
   state.dailyCloses ??= {};
   state.reconciliations ??= [];
   state.cashAccounts ??= [];
