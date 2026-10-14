@@ -10,6 +10,21 @@ const validName = name => typeof name === 'string' && !!name.trim() &&
 // A finance name is a label, never the identity of a cash account or a transaction.
 // The account ID, source/approval IDs, amount, date, owner and confirmed cash
 // ledger legs must survive a bulk label correction.
+// Bank and card exports can retain old issuer codes (e.g. M107). Resolve
+// previously confirmed aliases when new statements are brought in later.
+export function resolvePaymentAlias(state, input) {
+  let name = String(input || '');
+  const aliases = state.settings.paymentAliases || {};
+  const visited = new Set();
+  for (let i=0; i<10; i++) {
+    const k = key(name);
+    if (!k || visited.has(k) || !aliases[k]) break;
+    visited.add(k);
+    name = aliases[k];
+  }
+  return name;
+}
+
 export function paymentNameSummary(state, oldName) {
   const k = key(oldName);
   const transactions = (state.transactions || []).filter(t => key(t.paymentMethod) === k);
@@ -32,7 +47,8 @@ export function paymentRenameBasis(state, oldName) {
   const reconciliations = (state.reconciliations || []).filter(r => key(r.payment) === k)
     .map(r => [r.id,r.payment]);
   return JSON.stringify({matched,recurring,accounts,profile,reconciliations,
-    methods:state.settings.paymentMethods,cardName:state.settings.cardName});
+    methods:state.settings.paymentMethods,cardName:state.settings.cardName,
+    aliases:state.settings.paymentAliases});
 }
 
 function currentNames(state) {
@@ -144,6 +160,17 @@ function replacePaymentReferences(state, map) {
     nextProfiles[nextKey] = { ...profile, name: nextName };
   }
   state.settings.paymentProfiles = nextProfiles;
+  const aliases = { ...(state.settings.paymentAliases || {}) };
+  for (const [oldCode, label] of Object.entries(aliases)) {
+    const changedName = rename(label);
+    if (key(changedName) === oldCode) delete aliases[oldCode];
+    else aliases[oldCode] = changedName;
+  }
+  for (const [oldCode, newName] of map) {
+    if (key(newName) === oldCode) delete aliases[oldCode];
+    else aliases[oldCode] = newName;
+  }
+  state.settings.paymentAliases = aliases;
   const liveById = new Map((state.transactions || []).map(t => [t.id,t]));
   for (const link of state.cashLinks || []) {
     const oldFingerprint = changedBefore.get(link.id);
