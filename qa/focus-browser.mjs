@@ -18,7 +18,7 @@ try{
  assert.equal(await page.locator('[data-focus-value=remaining]').innerText(),'2,000,000원');assert.equal(await page.locator('[data-focus-value=used]').innerText(),'50만원');assert.equal(await page.locator('[data-focus-value=limit]').innerText(),'250만원');
  assert.equal(await page.locator('[data-focus-value=cash]').innerText(),'80만원');assert.equal(await page.locator('[data-focus-value=cash-income]').innerText(),'0원');
  assert.equal(await page.locator('[data-focus-value=fixed-spent]').innerText(),'0원');assert.equal(await page.locator('[data-focus-value=fixed]').innerText(),'120만원');
- assert.equal(await page.locator('.focus-budget .focus-ratio').getAttribute('aria-label'),'실제 소비 사용액 500,000원, 설정한 소비한도 2,500,000원');
+ assert.equal(await page.locator('.focus-budget .focus-ratio').getAttribute('aria-label'),'소비액과 이번 기간 카드대금 추가반영 합계 500,000원, 설정한 소비한도 2,500,000원');
  assert.match(await page.locator('.focus-cash .focus-note').first().innerText(),/귀속월 기준/);
  assert.match(await page.locator('.focus-fixed .focus-label').innerText(),/실제 고정비 지출/);assert.equal(await page.locator('.income-schedule-panel').isVisible(),false);
  assert.equal(await page.locator('.focus-cash-entry-actions > .focus-cash-entry-group').count(),2);
