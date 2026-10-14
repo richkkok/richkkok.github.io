@@ -2,15 +2,19 @@ import { moneyOverview } from './money.js';
 import { cashSummary, cashNow, cashProjection } from './cash.js';
 import { planFor, monthBudget } from './budget.js';
 import { periodKey, startDay } from './period.js';
-import { spendingChannels, cardBillingSummary } from './payment-channels.js';
+import { spendingChannels, cardBillingSummary, cardDueForOperatingMonth } from './payment-channels.js';
 
 // Presentation model only. Never rewrite stored transactions or infer actual bank balances.
 export function focusOverview(state, month, at = cashNow()) {
   const money = moneyOverview(state, month, at.slice(0, 10));
   const d = money.d, cash = cashSummary(state, at), projectedCash = cashProjection(state, cash, at);
-  const limit = d.requested, used = d.actual, remaining = limit - used;
+  const limit = d.requested, purchaseUsed = d.actual;
   const channels = spendingChannels(state, d.b.tx);
-  if (channels.total !== used) throw Error('소비한도와 결제수단별 소비금액이 일치하지 않아.');
+  if (channels.total !== purchaseUsed) throw Error('소비한도와 결제수단별 소비금액이 일치하지 않아.');
+  const cardDue = cardDueForOperatingMonth(state, month, at.slice(0, 10));
+  const used = purchaseUsed + cardDue.addedToLimit;
+  if (!Number.isSafeInteger(used)) throw Error('카드 결제예정 포함 소비한도 합계가 너무 커.');
+  const remaining = limit - used;
   const cardBills = cardBillingSummary(state, at.slice(0, 10));
   // Cash is a CURRENT measured balance even when an older ledger month is selected.
   // Compare with actual household income recorded in the current salary cycle,
@@ -37,7 +41,7 @@ export function focusOverview(state, month, at = cashNow()) {
   else if (limit > d.affordability) advice = { title: '수입·저축 목표에 맞춰 한도를 줄여봐', text: '정한 소비한도가 고정지출과 저축 목표를 뺀 범위보다 커. 실제 현금도 함께 확인해.', action: 'focus-plan', label: '절약계획 조정' };
   else advice = { title: '남은 한도 안에서 마감까지 쓰기', text: '한도를 줄여보면 앞으로 쓸 금액이 바로 보여. 고정지출은 납부내역을 확인한 뒤 조정해.', action: 'focus-plan', label: '절약계획 조정' };
   return {
-    money, cash, projectedCash, channels, cardBills, limit, used, remaining,
+    money, cash, projectedCash, channels, cardBills, cardDue, purchaseUsed, limit, used, remaining,
     cashMonth, cashReceived, fixedSpent, fixedPlanned, fixedDifference,
     cashChanged, cashStale, cashIssue, advice,
   };

@@ -18,7 +18,7 @@ try{
  assert.equal(await page.locator('[data-focus-value=remaining]').innerText(),'2,000,000원');assert.equal(await page.locator('[data-focus-value=used]').innerText(),'50만원');assert.equal(await page.locator('[data-focus-value=limit]').innerText(),'250만원');
  assert.equal(await page.locator('[data-focus-value=cash]').innerText(),'80만원');assert.equal(await page.locator('[data-focus-value=cash-income]').innerText(),'0원');
  assert.equal(await page.locator('[data-focus-value=fixed-spent]').innerText(),'0원');assert.equal(await page.locator('[data-focus-value=fixed]').innerText(),'120만원');
- assert.equal(await page.locator('.focus-budget .focus-ratio').getAttribute('aria-label'),'실제 소비 사용액 500,000원, 설정한 소비한도 2,500,000원');
+ assert.equal(await page.locator('.focus-budget .focus-ratio').getAttribute('aria-label'),'소비액과 이번 기간 카드대금 추가반영 합계 500,000원, 설정한 소비한도 2,500,000원');
  assert.match(await page.locator('.focus-cash .focus-note').first().innerText(),/귀속월 기준/);
  assert.match(await page.locator('.focus-fixed .focus-label').innerText(),/실제 고정비 지출/);assert.equal(await page.locator('.income-schedule-panel').isVisible(),false);
  assert.equal(await page.locator('.focus-cash-entry-actions > .focus-cash-entry-group').count(),2);
@@ -113,6 +113,15 @@ try{
     sourceType:'manual',categoryConfirmed:true,deletedAt:null
    });
   }
+  const {period,periodKey,addDays}=await import('./js/period.js');
+  const oldDay=addDays(period(periodKey(date,10),10).start,-20);
+  s.transactions.push({
+   id:'qa-prior-card-bill',sourceId:'qa-prior-card-bill',date:oldDay,
+   datetime:oldDay+'T12:00:00',amount:200000,direction:'expense',
+   scope:'shared',costKind:'variable',owner:'p1',category:'groceries',
+   paymentMethod:'QA 카드',merchantRaw:'QA 이전 운영월 카드사용',merchantNormalized:'qa 이전',
+   sourceType:'manual',categoryConfirmed:true,deletedAt:null
+  });
   await r.replace(s);r.close();
  });
  await page.reload({waitUntil:'networkidle'});
@@ -133,6 +142,12 @@ try{
  const afterCard=await read();
  assert.deepEqual(afterCard.transactions,prior.transactions,'Payment settings must not change original transactions');
  assert.equal(afterCard.settings.paymentProfiles['qa카드'].closingDay,25);
+ assert.equal(await page.locator('[data-focus-value=card-due-total]').innerText(),'200,000원');
+ assert.equal(await page.locator('[data-focus-value=card-due-added]').innerText(),'200,000원');
+ assert.equal(await page.locator('[data-focus-value=purchase-used]').innerText(),'650,000원');
+ assert.equal(await page.locator('[data-focus-value=used]').innerText(),'85만원');
+ assert.equal(await page.locator('[data-focus-value=remaining]').innerText(),'1,550,000원');
+ assert.equal(await page.locator('[data-card-due-amount="QA 카드"]').innerText(),'200,000원');
  await page.reload({waitUntil:'networkidle'});
  await page.locator('.focus-billing-detail > summary').click();
  assert.match(await page.locator('.focus-billing-detail').innerText(),/결제일 예상/);
@@ -155,7 +170,8 @@ try{
   if(width===390||width===1440)await page.screenshot({path:'qa-results/focus-payment-split-'+width+'.png',fullPage:true});
  }
  await page.reload({waitUntil:'networkidle'});
- assert.equal(await page.locator('[data-focus-value=used]').innerText(),'65만원');
+ assert.equal(await page.locator('[data-focus-value=used]').innerText(),'85만원');
+ assert.equal(await page.locator('[data-focus-value=card-due-total]').innerText(),'200,000원');
  assert.deepEqual(errors,[]);
  fs.writeFileSync('qa-results/focus-browser.json',JSON.stringify({result:'PASS',layouts,errors,checks:['3 primary regions','5 navigation items','hidden secondary detail','planned limit distinct from cash','cancel-no-write','preview-save','invalid plan rejected','income-settings-reachable','more-menu-routes','reload-preservation','60 responsive pages','three compact ratios','ratio labels distinguish actual income','no ratio overflow','cash baseline/income direct actions','cash action touch targets at six viewport widths']},null,2));console.log('PASS focus dashboard, preview/edit/cancel, all routes and 60 responsive page combinations');
 }finally{await browser?.close();server.kill();}
