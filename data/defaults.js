@@ -44,6 +44,7 @@ export function emptyState() {
       periodStartDay: 10,
       salaryDays: [10, 15],
       paymentMethods: [],
+      paymentProfiles: {},
       members: { p1: "구성원 1", p2: "구성원 2" },
       income: 0,
       incomeMode: "planned",
