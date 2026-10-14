@@ -25,6 +25,7 @@ import { splitTransaction } from "./models.js";
 import { classify, applyRules } from "./rules.js";
 import { matchRecurring, syncAutoRecurring } from "./recurring.js";
 import { planFor } from "./budget.js";
+import { resolvePaymentAlias } from "./payment-rename.js";
 const categoryOptions = (s) =>
   s.categories.filter((c) => !c.archived).map((c) => [c.id, c.name]);
 const scopeOptions = (s) =>
@@ -100,7 +101,7 @@ export function editTransaction(app, id) {
       categoryConfirmed: tx.categoryConfirmed || (existing ? existing.category !== String(form.get("category")) : String(form.get("category")) !== "other"),
       scope,
       owner: String(form.get("owner")),
-      paymentMethod: String(form.get("paymentMethod")).trim(),
+      paymentMethod: resolvePaymentAlias(state,String(form.get("paymentMethod")).trim()),
       note: String(form.get("note")),
       recurringId: form.get("recurringId") || null,
       performanceStatus: String(form.get("performanceStatus")),

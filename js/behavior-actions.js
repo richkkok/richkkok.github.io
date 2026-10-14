@@ -16,6 +16,8 @@ import { matchRecurring, syncAutoRecurring } from "./recurring.js";
 import { planFor } from "./budget.js";
 import { memberName } from "../data/defaults.js";
 import { exactApprovalDuplicate, fixedManualDuplicate } from "./import/duplicates.js";
+import { instrumentChoices } from "./instrument-ledger.js";
+import { resolvePaymentAlias } from "./payment-rename.js";
 
 export function resolveEntryOwner(
   app,
@@ -58,13 +60,11 @@ export function resolveEntryPayment(
 ) {
   try {
     const saved = storage?.getItem(`richkkok-payment-${owner}`);
-    if (saved) return saved;
+    if (saved) return resolvePaymentAlias(state,saved);
   } catch {}
-  return (
+  return resolvePaymentAlias(state,
     recent.find((t) => t.owner === owner && t.paymentMethod)?.paymentMethod ||
-    state.settings.paymentMethods?.[0] ||
-    "미지정"
-  );
+    state.settings.paymentMethods?.[0] || "미지정");
 }
 
 export function quickEntry(app, date = today()) {
@@ -149,7 +149,7 @@ export function quickEntry(app, date = today()) {
           excluded: direction === "transfer",
           category: String(f.get("category")),
           costKind: scope === "fixed" ? "fixed" : String(f.get("costKind")),
-          paymentMethod: String(f.get("paymentMethod")).trim() || "미지정",
+          paymentMethod: resolvePaymentAlias(state,String(f.get("paymentMethod")).trim() || "미지정"),
           paymentChannel: String(f.get("paymentChannel")).trim(),
           operatingMonth: String(f.get("operatingMonth")) || null,
           note: String(f.get("note")),
@@ -496,22 +496,18 @@ export async function behaviorAction(app, action, target) {
       } catch {}
     });
   } else if (action === "payment-settings") {
-    openDialog(
-      "결제수단",
-      `${field("결제수단 목록 (쉼표 구분)", "payments", (s.settings.paymentMethods || []).join(", "), "text", 'maxlength="1000" placeholder="신한카드, 우리카드, 계좌이체, 현금"')}<p>쿠팡페이·네이버페이 같은 결제경로는 지출 입력의 별도 항목으로 남겨. 카드 사용액과 두 번 합산하지 않아.</p>`,
-      async (f) => {
-        await app.update((st) => {
-          st.settings.paymentMethods = [
-            ...new Set(
-              String(f.get("payments"))
-                .split(",")
-                .map((x) => x.trim())
-                .filter(Boolean),
-            ),
-          ];
-        });
-      },
-    );
+    const choices = instrumentChoices(s);
+    const accounts = [...(s.cashAccounts || [])].filter(a=>a.archived);
+    const entries = [
+      ...choices.map(x => x.type==='account'
+        ? '<button type="button" class="settings-row" data-action="cash-account" data-id="'+e(x.accountId)+'"><span><strong>계좌 · '+e(x.name)+'</strong><small>이름 수정 시 연결된 모든 과거 거래 반영</small></span>이름 수정</button>'
+        : '<button type="button" class="settings-row" data-action="instrument-profile" data-method="'+e(x.name)+'"><span><strong>카드·결제수단 · '+e(x.name)+'</strong><small>이름, 결제방식·카드 청구일 설정</small></span>이름 수정</button>'),
+      ...accounts.map(a=>'<button type="button" class="settings-row" data-action="cash-account" data-id="'+e(a.id)+'"><span><strong>사용 종료 계좌 · '+e(a.name)+'</strong><small>과거 내역도 일괄 변경 가능</small></span>이름 수정</button>')
+    ];
+    openDialog("카드·계좌 이름 일괄 관리",
+      '<p class="cash-small">m107 같은 결제수단명을 원하는 카드명이나 계좌명으로 수정해. 수정·저장 시 해당 이름의 과거 거래 전체, 고정지출 및 연결 설정도 함께 갱신돼. 같은 코드가 두 사람의 거래에 사용됐다면 모두 변경되니 이름과 건수를 확인해 줘.</p>' +
+      '<div class="dialog-list">' + (entries.join('') || '<p class="empty-inline">등록된 결제수단이 없어.</p>') + '</div>' +
+      '<div class="focus-detail-actions"><button type="button" class="btn secondary" data-action="instrument-method">카드·결제수단 새로 등록</button><button type="button" class="btn text" data-action="go-cash">계좌·카드 상세 관리</button></div>');
   } else if (action === "pace-calculation") {
     openDialog(
       "소비속도 계산 근거",
