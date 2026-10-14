@@ -48,3 +48,11 @@
 
 /* A registered debit/cash method does not require credit-card statement dates. */
 [data-billing-fields][hidden]{display:none!important}
+
+/* History-wide names are intentionally explicit, confirmed and touch-friendly. */
+.instrument-rename-preview{padding:13px 14px;margin:12px 0;border:1px solid #bfd5e5;border-radius:11px;background:#f5f9fc;display:grid;gap:8px;overflow-wrap:anywhere}
+.instrument-rename-preview>strong{font-size:.88rem;color:#1a4c70}
+.instrument-rename-preview>p{font-size:.78rem;line-height:1.65;color:#476177;margin:0}
+.instrument-rename-preview .check-field{display:flex;align-items:flex-start;gap:9px;font-size:.78rem;line-height:1.5;font-weight:650;color:#224c6c;cursor:pointer}
+.instrument-rename-preview .check-field input{flex-shrink:0;width:19px;height:19px}
+@media(max-width:700px){.instrument-rename-preview{padding:11px}.instrument-rename-preview>p{font-size:.75rem}}
