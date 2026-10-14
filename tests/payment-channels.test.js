@@ -96,6 +96,8 @@ test('different card statement periods do not follow the salary cycle and never 
   assert.equal(w.estimatedUsage,190000);
   assert.deepEqual(sh.window,{start:'2026-10-10',end:'2026-11-09',payment:'2026-12-05'});
   assert.equal(sh.estimatedUsage,130000);
+  assert.deepEqual(sh.upcomingPayment, {start:'2026-09-10',end:'2026-10-09',payment:'2026-11-05',usage:40000});
+  assert.equal(w.upcomingPayment,null);
   assert.equal(focusOverview(s,month,at).used,320000);
   assert.equal(s.transactions.find(x=>x.id==='w-old').date,'2026-09-25');
   assert.equal(s.transactions.find(x=>x.id==='w-current').date,'2026-10-10');
@@ -109,8 +111,8 @@ test('billing cycle handles 31st, leap February and immediate following-day cycl
   assert.deepEqual(billingWindow('2026-04-30',profile), {
     start:'2026-04-01',end:'2026-04-30',payment:'2026-05-30',
   });
-  assert.deepEqual(billingWindow('2026-10-31',{kind:'credit',closingDay:20,paymentDay:10,lagMonths:0}),{
-    start:'2026-10-21',end:'2026-11-20',payment:'2026-11-10',
+  assert.deepEqual(billingWindow('2026-10-31',{kind:'credit',closingDay:20,paymentDay:28,lagMonths:0}),{
+    start:'2026-10-21',end:'2026-11-20',payment:'2026-11-28',
   });
   assert.equal(billingWindow('2026-10-20',{kind:'credit'}),null);
 });
@@ -159,9 +161,10 @@ test('invalid profiles and bank-name collision are rejected; old backup stays va
   const old=structuredClone(s);delete old.settings.paymentProfiles;
   validateState(old);migrate(old);validateState(old);
   assert.deepEqual(old.transactions,s.transactions);
-  assert.throws(()=>savePaymentProfile(s,'신한카드','credit',25,null,1),/함께/);
+  assert.throws(()=>savePaymentProfile(s,'신한카드','credit',25,null,1),/확인/);
   assert.throws(()=>savePaymentProfile(s,'신한카드','credit',32,15,1),/확인/);
   assert.throws(()=>savePaymentProfile(s,'신한카드','credit',25,15,3),/확인/);
+  assert.throws(()=>savePaymentProfile(s,'신한카드','credit',25,15,0),/확인/);
   s.cashAccounts.push({id:'cash',name:'실제 계좌',owner:'p1',openingBalance:0,openingAt:'2026-10-10T09:00:00',reserved:0,paymentMethod:'',autoMatch:false});
   assert.throws(()=>savePaymentProfile(s,'실제 계좌','credit'),/은행계좌/);
   assert.equal(paymentKind(s,'실제 계좌'),'immediate');
