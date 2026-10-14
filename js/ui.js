@@ -95,27 +95,32 @@ export function openDialog(
   dialog
     .querySelectorAll("[data-close]")
     .forEach((b) => (b.onclick = () => dialog.close()));
-  dialog.querySelector("form").onsubmit = async (event) => {
+  const form = dialog.querySelector("form");
+  form.onsubmit = async (event) => {
     event.preventDefault();
     if (!onSubmit) {
-      dialog.close();
+      if (dialog.open && dialog.querySelector("form") === form) dialog.close();
       return;
     }
-    const submit = dialog.querySelector("[type=submit]");
+    const submit = form.querySelector("[type=submit]");
     submit.disabled = true;
     try {
-      await onSubmit(new FormData(event.currentTarget), dialog);
-      if (dialog.open) dialog.close();
+      await onSubmit(new FormData(form), dialog);
+      // A completed asynchronous save must never close a newer editor.
+      if (dialog.open && dialog.querySelector("form") === form) dialog.close();
     } catch (error) {
-      dialog.querySelector(".form-error").textContent =
+      const message = form.querySelector(".form-error");
+      if (form.isConnected && message) message.textContent =
         error.message || "저장하지 못했어요.";
     } finally {
       submit.disabled = false;
     }
   };
   dialog.onclose = () => {
-    dialog.querySelector("form")?.reset();
-    focus?.isConnected && focus.focus();
+    // 'close' fires asynchronously. A previous editor's close event can arrive
+    // after a different editor has replaced the dialog contents. Never reset
+    // that new form or steal its focus while it is open.
+    if (!dialog.open && form.isConnected && focus?.isConnected) focus.focus();
   };
   dialog.showModal();
   return dialog;
