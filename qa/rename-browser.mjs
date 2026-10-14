@@ -102,15 +102,13 @@ try {
   await page.locator('#dialog [name=name]').fill('태영 생활비 계좌');
   assert.equal(await page.locator('#dialog [name=syncAccountAlias]').isChecked(),true);
   await page.locator('#dialog [name=bulkRenameConfirmed]').check();
-  const bankForm=await page.locator('#dialog').evaluate(d=>Object.fromEntries(new FormData(d.querySelector('form')).entries()));
-  console.log('QA-BANK-FORM',JSON.stringify(bankForm));
+  // A prior dialog's delayed close event used to reset this newly filled
+  // bank name. Assert it stays edited across the asynchronous event turn.
+  await page.waitForTimeout(180);
+  assert.equal(await page.locator('#dialog [name=name]').inputValue(),'태영 생활비 계좌');
   await page.locator('#dialog [type=submit]').click();
-  await page.waitForTimeout(150);
-  const bankDialog=await page.locator('#dialog').evaluate(d=>({open:d.open,error:d.querySelector('.form-error')?.textContent||''}));
-  console.log('QA-BANK-DIALOG',JSON.stringify(bankDialog));
-  if(bankDialog.open)throw Error('계좌 저장 실패: '+bankDialog.error);
+  await page.locator('#dialog[open]').waitFor({state:'hidden'});
   changed=await read();
-  console.log('QA-BANK-STATE',JSON.stringify(changed.s.cashAccounts));
   assert.equal(changed.s.cashAccounts[0].name,'태영 생활비 계좌');
   assert.equal(changed.s.cashAccounts[0].paymentMethod,'태영 생활비 계좌');
   assert.equal(changed.s.transactions[3].paymentMethod,'태영 생활비 계좌');
