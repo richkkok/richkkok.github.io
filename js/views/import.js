@@ -12,7 +12,18 @@ import { escape as e, won } from "../format.js";
 import { icon, button, select, field, toast } from "../ui.js";
 import { memberName, DIRECTIONS } from "../../data/defaults.js";
 import { syncAutoRecurring } from "../recurring.js";
+import { resolvePaymentAlias } from "../payment-rename.js";
 
+// A previously renamed issuer code must stay renamed on future uploads too.
+function applyKnownPaymentAliases(preview, state) {
+  if (!preview?.valid?.length || !Object.keys(state.settings.paymentAliases || {}).length) return preview;
+  const valid = preview.valid.map(t => {
+    const name = resolvePaymentAlias(state,t.paymentMethod);
+    return name === t.paymentMethod ? t : { ...t, paymentMethod: name };
+  });
+  const result = dedupe(valid,state.transactions);
+  return { ...preview, ...result, valid };
+}
 function cardOwnerSummary(state, preview) {
   const counts = Object.entries(preview?.ownerCounts || {});
   if (!counts.length) return "";
@@ -277,6 +288,7 @@ export async function previewCardSource(app, render = true) {
     },
     app.state.transactions,
   );
+  s.preview = applyKnownPaymentAliases(s.preview,app.state);
   s.preview.possible = possibleDuplicates(s.preview.added, app.state.transactions);
   s.error = "";
   if (render) app.render();
@@ -313,6 +325,7 @@ export async function previewImport(app, readUI = true) {
     },
     app.state.transactions,
   );
+  s.preview = applyKnownPaymentAliases(s.preview,app.state);
   s.preview.possible = possibleDuplicates(
     s.preview.added,
     app.state.transactions,
@@ -344,7 +357,13 @@ export async function commitImport(app) {
   try {
     let count = 0;
     await app.update((state) => {
-      const result = dedupe(incoming, state.transactions);
+      // Recheck current aliases inside the atomic write: another family device
+      // may have renamed this method after the preview was shown.
+      const normalized = incoming.map(t => {
+        const name = resolvePaymentAlias(state,t.paymentMethod);
+        return name === t.paymentMethod ? t : { ...t, paymentMethod: name };
+      });
+      const result = dedupe(normalized, state.transactions);
       count = result.added.length;
       if (state.transactions.length + count > 100000)
         throw Error("한 가계부는 100,000건까지 보관할 수 있어요.");
