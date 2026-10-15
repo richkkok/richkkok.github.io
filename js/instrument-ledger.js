@@ -219,10 +219,14 @@ export function instrumentLedgerView(s, f = {}) {
           (isAccount ? (selected.account?.archived ? '사용 종료 계좌' : '은행계좌') : '카드·결제수단') + '</small><strong>' +
           e(selected.name) + '</strong>' +
           (ownerHint ? '<small class="instrument-selected-meta">등록된 사용자별 거래: ' +
-            e(ownerHint) + '</small>' : '') + '</div>' +
+            e(ownerHint) + '</small>' : '') +
+           (selectedProfile?.identifier ? '<small class="instrument-selected-meta">식별코드: ' +
+             e(selectedProfile.identifier) + '</small>' : '') + '</div>' +
           '<div class="instrument-selected-actions">' +
             '<button class="btn primary" type="button" data-action="' + editAction + '"' +
               editTarget + '>이름 바꾸기</button>' +
+             choiceButton("목록에서 삭제", "instrument-remove", selected.key, "secondary instrument-remove-action") +
+             (!isAccount ? choiceButton("카드 합치기", "instrument-merge", selected.key, "secondary") : "") +
             (selected.account?.archived ? "" : choiceButton(isAccount ? "입출금 입력" : "카드 사용 입력", "instrument-add", selected.key, "secondary")) +
             (isAccount && !selected.account?.archived ? '<button class="btn secondary" type="button" data-action="cash-check" data-id="' +
               e(selected.accountId) + '">잔액 확인</button>' : '') +
