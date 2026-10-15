@@ -496,22 +496,28 @@ export async function behaviorAction(app, action, target) {
       } catch {}
     });
   } else if (action === "payment-settings") {
-    const choices = instrumentChoices(s);
+    const choices = instrumentChoices(s, { includeHidden:true });
     const entries = choices.map(x => {
-      const count = instrumentHistoryRows(s, x, { instrumentPeriod: "all" }).rows.length;
+      const count = instrumentHistoryRows(s, x, { instrumentPeriod:"all" }).rows.length;
       const account = x.type === "account";
       const label = account ? (x.account?.archived ? "사용 종료 계좌" : "계좌") : "카드·결제수단";
       const edit = account
         ? '<button class="btn secondary payment-manage-rename" type="button" data-action="cash-account" data-id="' + e(x.accountId) + '">이름 수정</button>'
         : '<button class="btn secondary payment-manage-rename" type="button" data-action="instrument-profile" data-method="' + e(x.name) + '">이름 수정</button>';
-      return '<div class="payment-manage-row">' +
+      const cleanup = x.hidden
+        ? '<button type="button" class="btn primary payment-manage-cleanup" data-action="instrument-restore" data-key="' + e(x.key) + '">목록에 복원</button>'
+        : '<button type="button" class="btn text payment-manage-cleanup" data-action="instrument-remove" data-key="' + e(x.key) + '">삭제</button>';
+      return '<div class="payment-manage-row' + (x.hidden ? ' is-hidden' : '') + '">' +
         '<button type="button" class="settings-row payment-manage-view" data-action="instrument-review" data-key="' +
-        e(x.key) + '"><span><strong>' + e(label + " · " + x.name) +
-        '</strong><small>저장된 거래 전체 ' + count + '건 · 수정·삭제·복원</small></span><span class="payment-manage-link">내역 보기 ›</span></button>' +
-        edit + '</div>';
+        e(x.key) + '" ' + (x.hidden ? 'disabled' : '') +
+        '><span><strong>' + e(label + " · " + x.name) +
+        '</strong><small>' + (x.hidden ? '목록에서 삭제됨 · 기록은 보존됨 · ' : '') +
+        '저장된 거래 ' + count + '건 · 수정·삭제·복원</small></span><span class="payment-manage-link">내역 보기 ›</span></button>' +
+        (x.hidden ? '' : edit) + cleanup + '</div>';
     });
     openDialog("카드·계좌 이름 일괄 관리",
-      '<p class="cash-small">카드·계좌를 선택하면 모든 날짜의 거래와 휴지통 내역을 확인하고 각각 수정하거나 삭제할 수 있어. 이름 변경은 오른쪽 ‘이름 수정’을 눌러줘. 한 코드에 두 사람의 거래가 섞였다면 먼저 내역을 확인해.</p>' +
+      '<p class="cash-small">같은 식별코드와 사용자가 확인된 카드는 자동으로 합쳐. 카드번호 전체나 끝 4자리만으로는 합치지 않아. 필요 없는 항목은 ‘삭제’로 목록에서 정리하고 거래·잔액 기록은 보존할 수 있어.</p>' +
+      '<div class="focus-detail-actions"><button type="button" class="btn primary" data-action="instrument-dedupe">중복 카드 자동 통합 검사</button></div>' +
       '<div class="dialog-list payment-manage-list">' + (entries.join('') || '<p class="empty-inline">등록된 결제수단이 없어.</p>') + '</div>' +
       '<div class="focus-detail-actions"><button type="button" class="btn secondary" data-action="instrument-method">카드·결제수단 새로 등록</button><button type="button" class="btn text" data-action="go-cash">계좌·카드 상세 관리</button></div>');
   } else if (action === "pace-calculation") {
