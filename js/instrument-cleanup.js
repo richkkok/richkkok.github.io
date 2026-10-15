@@ -183,6 +183,10 @@ export function autoMergeCardCode(state, destinationName) {
   if (!profile?.identifier || !profile.owner || !owners.has(profile.owner))
     return { merged: 0, transactions: 0, candidates: 0 };
   const identity = cardIdentityCode(profile.identifier);
+  const destinationTransactions = (state.transactions || [])
+    .filter(t => key(t.paymentMethod) === dstKey);
+  if (destinationTransactions.some(t => t.owner !== profile.owner))
+    return { merged: 0, transactions: 0, candidates: 0 };
   let merged = 0, transactions = 0, candidates = 0;
   for (const name of methodNames(state)) {
     const sourceKey = key(name);
@@ -196,9 +200,10 @@ export function autoMergeCardCode(state, destinationName) {
     const matchingTransactions = (state.transactions || []).filter(t => key(t.paymentMethod) === sourceKey);
     const ownerCertain = matchingTransactions.length &&
       matchingTransactions.every(t => t.owner === profile.owner);
+    const anyMixed = matchingTransactions.some(t => t.owner !== profile.owner);
     const oldImport = !other?.identifier && codeName && ownerCertain &&
       !other?.owner;
-    if (!sameConfigured && !oldImport) continue;
+    if (anyMixed || (!sameConfigured && !oldImport)) continue;
     candidates++;
     // Never merge conflicting cycles, kinds, owners or other confirmed codes.
     const result = mergeCardInto(state,name,destinationName);
