@@ -7,29 +7,27 @@ import { matchRecurring } from "./recurring.js";
 import { cashAction } from "./cash-ui.js";
 import { paymentKind, savePaymentProfile } from "./payment-channels.js";
 import { paymentNameSummary, paymentRenameBasis, renamePaymentMethod } from "./payment-rename.js";
+import { cardIdentityCode, autoMergeCardCode, mergeCardInto, methodNames, instrumentUsage, hideInstrument, restoreInstrument } from "./instrument-cleanup.js";
 
 // An account is a real-cash ledger. A card/payment method is a spending list,
 // never another bank balance. No financial record is created by these views.
-export function instrumentChoices(s) {
-  const accounts = [...(s.cashAccounts || [])].sort((a, b) => Number(!!a.archived) - Number(!!b.archived));
-  const bankNames = new Set((s.cashAccounts || []).flatMap(a => [a.name, a.paymentMethod]).filter(Boolean).map(keyText));
-  const used = new Set();
-  const methods = [];
-  for (const value of [...(s.settings.paymentMethods || []), s.settings.cardName,
-    ...Object.values(s.settings.paymentProfiles || {}).map(p => p.name),
-    ...(s.transactions || []).map(t => t.paymentMethod),
-    ...(s.recurring || []).map(r => r.paymentMethod),
-    ...(s.reconciliations || []).map(r => r.payment)]) {
-    const name = String(value || "").trim(), normalized = keyText(name);
-    if (!name || name.length > 100 || normalized === keyText("미지정") || bankNames.has(normalized) || used.has(normalized)) continue;
-    used.add(normalized);
-    methods.push({ key: "m:" + encodeURIComponent(name), type: "method", name });
-  }
+export function instrumentChoices(s, { includeHidden = false } = {}) {
+  const hiddenAccounts = new Set(s.settings.hiddenCashAccounts || []);
+  const hiddenMethods = new Set(s.settings.hiddenPaymentMethods || []);
+  const accounts = [...(s.cashAccounts || [])]
+    .filter(a => includeHidden || !hiddenAccounts.has(a.id))
+    .sort((a, b) => Number(!!a.archived) - Number(!!b.archived));
+  const methods = methodNames(s).map(name => ({
+    key: "m:" + encodeURIComponent(name), type: "method", name,
+    hidden: hiddenMethods.has(keyText(name)),
+  })).filter(x => includeHidden || !x.hidden);
   return [
-    ...accounts.map(a => ({ key: "a:" + a.id, type: "account", name: a.name, accountId: a.id, account: a })),
+    ...accounts.map(a => ({ key: "a:" + a.id, type: "account", name: a.name,
+      accountId: a.id, account: a, hidden: hiddenAccounts.has(a.id) })),
     ...methods.sort((a, b) => a.name.localeCompare(b.name, "ko")),
   ];
 }
+
 export function instrumentWindow(s, f = {}, asOf = cashNow().slice(0, 10)) {
   const mode = f.instrumentPeriod || "cycle";
   if (mode === "all") return { from: "", to: asOf };
@@ -140,6 +138,7 @@ export function instrumentLedgerView(s, f = {}) {
   const history = instrumentHistoryRows(s, selected, viewing);
   const isAccount = selected?.type === "account";
   const paymentCounts = selected && !isAccount ? paymentNameSummary(s, selected.name) : null;
+  const selectedProfile = selected && !isAccount ? s.settings.paymentProfiles?.[keyText(selected.name)] : null;
   const ownerNumbers = paymentCounts ? [["p1", paymentCounts.owners.p1],
     ["p2", paymentCounts.owners.p2], ["joint", paymentCounts.owners.joint]]
     .filter(([, count]) => count > 0) : [];
