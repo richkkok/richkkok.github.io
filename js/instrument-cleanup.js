@@ -1,5 +1,4 @@
 import { keyText } from "./format.js";
-import { cashFingerprint } from "./cash.js";
 import { paymentRenameBasis, replacePaymentReferences } from "./payment-rename.js";
 
 const key = value => keyText(String(value || ""));
@@ -58,7 +57,11 @@ export function instrumentUsage(state, choice) {
     const transactions = (state.transactions || []).filter(t => names.has(key(t.paymentMethod)));
     const links = (state.cashLinks || []).filter(l => l.legs.some(p => p.accountId === account.id));
     const checks = (state.cashChecks || []).filter(c => c.accountId === account.id);
+    const recurring = (state.recurring || []).filter(r => names.has(key(r.paymentMethod)));
+    const reconciliations = (state.reconciliations || []).filter(r => names.has(key(r.payment)));
+    const rules = (state.rules || []).filter(r => r.field === "payment" && names.has(key(r.pattern)));
     return { transactions: transactions.length, links: links.length, checks: checks.length,
+      recurring: recurring.length, reconciliations: reconciliations.length, rules: rules.length,
       initialBalance: account.openingBalance, reserved: account.reserved };
   }
   const id = key(choice.name);
@@ -82,6 +85,7 @@ export function hideInstrument(state, choice) {
     const usage = instrumentUsage(state, choice);
     // Only an entirely empty zero-balance account is safe to physically delete.
     if (!usage.transactions && !usage.links && !usage.checks &&
+        !usage.recurring && !usage.reconciliations && !usage.rules &&
         !usage.initialBalance && !usage.reserved) {
       state.cashAccounts = state.cashAccounts.filter(a => a.id !== account.id);
       s.hiddenCashAccounts = s.hiddenCashAccounts.filter(id => id !== account.id);
