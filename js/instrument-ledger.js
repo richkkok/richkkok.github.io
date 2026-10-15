@@ -205,7 +205,7 @@ export function instrumentLedgerView(s, f = {}) {
   return '<section class="card instrument-panel" id="instrument-panel" aria-label="카드와 계좌 선택">' +
     '<div class="instrument-picker">' +
       '<div class="instrument-picker-heading"><div><h2>카드·계좌 선택</h2>' +
-      '<p>이름을 바꿀 카드를 먼저 선택해 줘.</p></div>' +
+      '<p>카드·계좌를 선택하면 과거 거래 전체와 휴지통 내역을 볼 수 있어.</p></div>' +
       '<div class="instrument-picker-actions">' +
         choiceButton("새 카드", "instrument-method", "", "secondary") +
         '<button type="button" class="btn text" data-action="cash-account">새 계좌</button></div></div>' +
@@ -217,15 +217,15 @@ export function instrumentLedgerView(s, f = {}) {
         '</div>' +
         '<div class="instrument-selected">' +
           '<div class="instrument-selected-name"><small>현재 선택 · ' +
-          (isAccount ? '은행계좌' : '카드·결제수단') + '</small><strong>' +
+          (isAccount ? (selected.account?.archived ? '사용 종료 계좌' : '은행계좌') : '카드·결제수단') + '</small><strong>' +
           e(selected.name) + '</strong>' +
           (ownerHint ? '<small class="instrument-selected-meta">등록된 사용자별 거래: ' +
             e(ownerHint) + '</small>' : '') + '</div>' +
           '<div class="instrument-selected-actions">' +
             '<button class="btn primary" type="button" data-action="' + editAction + '"' +
               editTarget + '>이름 바꾸기</button>' +
-            choiceButton(isAccount ? "입출금 입력" : "카드 사용 입력", "instrument-add", selected.key, "secondary") +
-            (isAccount ? '<button class="btn secondary" type="button" data-action="cash-check" data-id="' +
+            (selected.account?.archived ? "" : choiceButton(isAccount ? "입출금 입력" : "카드 사용 입력", "instrument-add", selected.key, "secondary")) +
+            (isAccount && !selected.account?.archived ? '<button class="btn secondary" type="button" data-action="cash-check" data-id="' +
               e(selected.accountId) + '">잔액 확인</button>' : '') +
           '</div>' +
         '</div>' :
@@ -234,20 +234,20 @@ export function instrumentLedgerView(s, f = {}) {
         '<button class="btn secondary" type="button" data-action="cash-account">계좌 추가하기</button></div>') +
     '</div>' +
     (selected ?
-      '<div class="instrument-ledger-heading"><h3>이 결제수단의 내역</h3><small>' +
-        e(range) + ' · ' + data.rows.length + '건</small></div>' +
+      '<div class="instrument-ledger-heading"><h3>선택한 카드·계좌의 전체 거래내역</h3><small>' +
+        e(range) + ' · 전체 ' + history.rows.length + '건 (정상 ' + history.active + '건 · 휴지통 ' + history.trash + '건)</small></div>' +
       totals +
       '<details class="instrument-advanced"><summary>기간·사용자·검색 설정</summary><div class="instrument-advanced-inner">' +
         '<div class="instrument-controls">' +
           select("조회기간", "instrument-period",
-            [["cycle", "이번 운영월"], ["30", "최근 30일"], ["90", "최근 90일"],
-             ["all", "전체 기간"], ["custom", "기간 직접 지정"]],
-            f.instrumentPeriod || "cycle") +
+            [["all", "전체 기간"], ["cycle", "이번 운영월"], ["30", "최근 30일"], ["90", "최근 90일"],
+             ["custom", "기간 직접 지정"]],
+            f.instrumentPeriod || "all") +
           select("사용자", "instrument-owner",
             [["", "전체 사용자"], ["p1", memberName("p1", s)], ["p2", memberName("p2", s)],
              ["joint", "공동"]], f.instrumentOwner || "") +
           select("거래 방향", "instrument-direction",
-            [["", "모두"], ["out", isAccount ? "출금" : "사용"], ["in", isAccount ? "입금" : "환불"]],
+            [["", "모두"], ["out", isAccount ? "출금" : "사용"], ["in", isAccount ? "입금" : "환불"], ["transfer", "이체·카드대금"]],
             f.instrumentDirection || "") +
         '</div>' +
         (f.instrumentPeriod === "custom" ?
@@ -259,10 +259,10 @@ export function instrumentLedgerView(s, f = {}) {
             'placeholder="사용처 또는 금액"') + '</div>' +
       '</div></details>' +
       '<div class="instrument-list">' +
-        (list || '<p class="empty-inline">조건에 맞는 내역이 없어. 기간을 바꾸거나 새 거래를 입력해 줘.</p>') +
+        (list || '<p class="empty-inline">이 카드·계좌에 해당하는 거래가 없어. 필터를 확인하거나 새 거래를 입력해 줘.</p>') +
       '</div>' +
-      (data.rows.length > limit ? choiceButton("40건 더 보기", "instrument-more", selected.key, "secondary") : '') +
-      '<p class="instrument-hint">이름을 바꾸면 같은 결제수단으로 저장된 과거 내역도 함께 바뀌어. 금액과 사용자는 그대로야.</p>' :
+      
+      '<p class="instrument-hint">거래를 누르면 수정·카드/계좌 변경·휴지통 이동을 할 수 있어. 합계는 휴지통을 제외한 오늘까지의 거래 기준이야. 이름을 바꾸면 과거 거래 이름도 함께 갱신돼.</p>' :
       '') +
     '</section>';
 }
@@ -369,10 +369,19 @@ export async function instrumentLedgerAction(app, action, target) {
     const selected = instrumentChoices(s).find(x => x.key === target?.dataset.key);
     if (!selected) throw Error("카드·계좌 목록이 변경됐어. 다시 선택해 줘.");
     app.cashFilters.instrument = selected.key;
+    app.cashFilters.instrumentPeriod = "all";
     app.cashFilters.instrumentOwner = "";
     app.cashFilters.instrumentDirection = "";
     app.cashFilters.instrumentQuery = "";
     app.cashFilters.instrumentLimit = 40;
+    app.render();
+  } else if (action === "instrument-review") {
+    const chosen = instrumentChoices(s).find(x => x.key === target?.dataset.key);
+    if (!chosen) throw Error("해당 카드·계좌가 변경됐어. 다시 선택해 줘.");
+    Object.assign(app.cashFilters, { instrument: chosen.key, instrumentPeriod: "all",
+      instrumentOwner: "", instrumentDirection: "", instrumentQuery: "", instrumentLimit: 40 });
+    document.querySelector("#dialog")?.close();
+    app.navigate("cash");
     app.render();
   } else if (action === "instrument-more") {
     app.cashFilters.instrumentLimit = (app.cashFilters.instrumentLimit || 40) + 40;
