@@ -13,7 +13,7 @@ export function paymentKind(state, paymentMethod, sourceType = '') {
   const name = String(paymentMethod || '').trim(), key = methodKey(name);
   if (!key || key === methodKey('미지정')) return 'unknown';
   const account = (state.cashAccounts || []).some(a =>
-    !a.archived && [a.name, a.paymentMethod].some(v => v && methodKey(v) === key));
+    [a.name, a.paymentMethod].some(v => v && methodKey(v) === key));
   if (account) return 'immediate';
   const profile = state.settings.paymentProfiles?.[key];
   if (profile?.kind === 'credit' || profile?.kind === 'immediate') return profile.kind;
@@ -73,7 +73,7 @@ export function savePaymentProfile(state, name, kind, closingDay = null, payment
       !['credit', 'immediate'].includes(kind))
     throw Error('결제수단 이름과 유형을 확인해 주세요.');
   if ((state.cashAccounts || []).some(a =>
-    !a.archived && [a.name, a.paymentMethod].some(v => v && methodKey(v) === key)))
+    [a.name, a.paymentMethod].some(v => v && methodKey(v) === key)))
     throw Error('이미 등록된 은행계좌야. 계좌·잔액 관리에서 확인해 주세요.');
   const daysPresent = closingDay !== null || paymentDay !== null;
   if (kind === 'credit' && daysPresent &&
