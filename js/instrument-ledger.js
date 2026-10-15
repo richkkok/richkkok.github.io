@@ -409,7 +409,7 @@ export async function instrumentLedgerAction(app, action, target) {
         !usage.recurring && !usage.reconciliations && !usage.rules &&
         !usage.initialBalance && !usage.reserved
       : !usage.transactions && !usage.recurring && !usage.reconciliations &&
-        !usage.rules && keyText(s.settings.cardName) !== keyText(chosen.name) &&
+        !usage.rules &&
         !Object.values(s.settings.monthOverrides || {}).some(o => keyText(o.cardName) === keyText(chosen.name)) &&
         !Object.values(s.settings.paymentAliases || {}).some(v => keyText(v) === keyText(chosen.name));
     const explanation = canDelete
