@@ -338,6 +338,10 @@ function openPaymentProfileEditor(app, existingName = '') {
     async f => {
       const newName = String(f.get('methodName') || '').trim();
       const newKind = String(f.get('methodKind'));
+      const identifier = cardIdentityCode(f.get('identifier'));
+      const identityOwner = String(f.get('identityOwner') || '');
+      if (identifier && !identityOwner)
+        throw Error('카드 식별코드를 등록하려면 해당 카드 사용자도 선택해 줘.');
       const first = String(f.get('closingDay') || '').trim();
       const second = String(f.get('paymentDay') || '').trim();
       if (newKind === 'credit' && !!first !== !!second)
@@ -348,21 +352,25 @@ function openPaymentProfileEditor(app, existingName = '') {
       const renamed = !!existing && newName !== name;
       if (renamed && !f.get('bulkRenameConfirmed'))
         throw Error('기존 거래까지 이름을 일괄 변경하려면 확인란을 체크해 줘.');
-      let result;
+      let result, merged;
       await app.update(st => {
         if (existing && paymentRenameBasis(st,name) !== basis)
           throw Error('다른 기기에서 카드나 거래기록이 변경됐어. 다시 열어서 확인해 줘.');
         if (renamed) result = renamePaymentMethod(st,name,newName,basis);
         const currentProfile = st.settings.paymentProfiles?.[keyText(newName)];
-        savePaymentProfile(st,newName,newKind,closing,payment,lag,existing ? currentProfile : undefined);
+        savePaymentProfile(st,newName,newKind,closing,payment,lag,
+          existing ? currentProfile : undefined, { identifier, owner: identityOwner });
+        merged = autoMergeCardCode(st,newName);
       });
-      if (!existing || renamed) {
+      if (!existing || renamed || merged?.merged) {
         app.cashFilters.instrument = 'm:' + encodeURIComponent(newName);
         app.cashFilters.instrumentLimit = 40;
         app.render();
       }
-      toast(renamed ? '카드·결제수단 이름을 변경했고, 저장된 거래 ' + result.transactions + '건 및 연결 정보를 함께 갱신했어.' :
-        '결제방식과 카드 청구주기 설정을 저장했어. 기존 거래는 유지했어.');
+      toast(merged?.merged
+        ? '같은 식별코드 카드 ' + merged.merged + '개를 자동으로 합쳤어. 거래 ' + merged.transactions + '건은 보존했어.'
+        : renamed ? '카드·결제수단 이름을 변경했고, 저장된 거래 ' + result.transactions + '건 및 연결 정보를 함께 갱신했어.'
+        : '결제방식과 카드 청구주기 설정을 저장했어. 기존 거래는 유지했어.');
     }, '설정 저장');
   const selector = dialog.querySelector('[name="methodKind"]');
   const fields = dialog.querySelector('[data-billing-fields]');
