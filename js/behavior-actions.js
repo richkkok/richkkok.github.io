@@ -58,13 +58,23 @@ export function resolveEntryPayment(
   recent,
   storage = globalThis.localStorage,
 ) {
+  const hidden = new Set(state.settings.hiddenPaymentMethods || []);
+  const hiddenBanks = new Set(state.settings.hiddenCashAccounts || []);
+  const hiddenAccountMethods = new Set((state.cashAccounts || [])
+    .filter(a => hiddenBanks.has(a.id)).flatMap(a => [a.name,a.paymentMethod])
+    .filter(Boolean).map(keyText));
+  const visible = name => name && !hidden.has(keyText(name)) &&
+    !hiddenAccountMethods.has(keyText(name));
   try {
     const saved = storage?.getItem(`richkkok-payment-${owner}`);
-    if (saved) return resolvePaymentAlias(state,saved);
+    if (saved) {
+      const resolved = resolvePaymentAlias(state,saved);
+      if (visible(resolved)) return resolved;
+    }
   } catch {}
-  return resolvePaymentAlias(state,
-    recent.find((t) => t.owner === owner && t.paymentMethod)?.paymentMethod ||
-    state.settings.paymentMethods?.[0] || "미지정");
+  const candidate = recent.find(t => t.owner === owner && visible(t.paymentMethod))?.paymentMethod ||
+    (state.settings.paymentMethods || []).find(visible);
+  return candidate ? resolvePaymentAlias(state,candidate) : "미지정";
 }
 
 export function quickEntry(app, date = today()) {
@@ -88,7 +98,7 @@ export function quickEntry(app, date = today()) {
   let touched = false;
   const dialog = openDialog(
     "지출 입력",
-    `<div class="quick-entry-primary"> <div class="form-grid quick-core-grid"><div class="quick-field quick-field-amount"><div class="quick-amount">${field("얼마 썼어?", "amount", "", "number", 'required min="1" autofocus placeholder="0"')}</div></div><div class="quick-field quick-field-merchant">${field("어디서 썼어?", "merchant", "", "text", 'required maxlength="300" list="recent-merchants" placeholder="예: 스타벅스, 이마트, 병원"')}<datalist id="recent-merchants">${merchants.map((m) => `<option value="${e(m)}"></option>`).join("")}</datalist></div><div class="quick-field quick-field-payment">${field("어떻게 결제했어?", "paymentMethod", payment, "text", 'required maxlength="100" list="payment-options" placeholder="예: 우리카드, 현금, 네이버페이"')}<datalist id="payment-options">${[...new Set([...(state.settings.paymentMethods || []), ...recent.map((t) => t.paymentMethod)])].map((p) => `<option value="${e(p)}"></option>`).join("")}</datalist></div><div class="quick-field quick-field-owner">${select(
+    `<div class="quick-entry-primary"> <div class="form-grid quick-core-grid"><div class="quick-field quick-field-amount"><div class="quick-amount">${field("얼마 썼어?", "amount", "", "number", 'required min="1" autofocus placeholder="0"')}</div></div><div class="quick-field quick-field-merchant">${field("어디서 썼어?", "merchant", "", "text", 'required maxlength="300" list="recent-merchants" placeholder="예: 스타벅스, 이마트, 병원"')}<datalist id="recent-merchants">${merchants.map((m) => `<option value="${e(m)}"></option>`).join("")}</datalist></div><div class="quick-field quick-field-payment">${field("어떻게 결제했어?", "paymentMethod", payment, "text", 'required maxlength="100" list="payment-options" placeholder="예: 우리카드, 현금, 네이버페이"')}<datalist id="payment-options">${[...new Set([...(state.settings.paymentMethods || []), ...recent.map((t) => t.paymentMethod)])].filter(p => !(state.settings.hiddenPaymentMethods || []).includes(keyText(p)) && !(state.cashAccounts || []).some(a => (state.settings.hiddenCashAccounts || []).includes(a.id) && [a.name,a.paymentMethod].some(v => keyText(v) === keyText(p)))).map((p) => `<option value="${e(p)}"></option>`).join("")}</datalist></div><div class="quick-field quick-field-owner">${select(
       "누가 썼어?",
       "owner",
       ["p1", "p2", "joint"].map((p) => [p, memberName(p, state)]),
