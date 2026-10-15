@@ -1,4 +1,4 @@
-import { cashNow, cashTime, cashRows, cashRoots, cashHidden, validCashTime } from "./cash.js";
+import { cashNow, cashTime, cashRows, cashRoots, cashHidden, cashConnection, validCashTime } from "./cash.js";
 import { escape as e, won, uid, amountInput, normalizeText, keyText } from "./format.js";
 import { period, periodKey, startDay, addDays } from "./period.js";
 import { memberName } from "../data/defaults.js";
@@ -11,7 +11,7 @@ import { paymentNameSummary, paymentRenameBasis, renamePaymentMethod } from "./p
 // An account is a real-cash ledger. A card/payment method is a spending list,
 // never another bank balance. No financial record is created by these views.
 export function instrumentChoices(s) {
-  const accounts = (s.cashAccounts || []).filter(a => !a.archived);
+  const accounts = [...(s.cashAccounts || [])].sort((a, b) => Number(!!a.archived) - Number(!!b.archived));
   const bankNames = new Set((s.cashAccounts || []).flatMap(a => [a.name, a.paymentMethod]).filter(Boolean).map(keyText));
   const used = new Set();
   const methods = [];
@@ -83,13 +83,61 @@ export function instrumentRows(s, choice, f = {}, asOf = cashNow().slice(0, 10))
   }
   return { rows: result, incoming, outgoing, pending, ...window };
 }
+
+// History is independent of cash balances: include deleted, imported and split records.
+export function instrumentHistoryRows(s, choice, f = {}, asOf = cashNow().slice(0, 10)) {
+  if (!choice) return { rows: [], active: 0, trash: 0 };
+  const mode = f.instrumentPeriod || "all";
+  const window = mode === "all" ? { from: "", to: "" } : instrumentWindow(s, f, asOf);
+  const owner = String(f.instrumentOwner || "");
+  const direction = String(f.instrumentDirection || "");
+  const query = keyText(f.instrumentQuery || "");
+  const links = new Map((s.cashLinks || []).map(link => [link.id, link]));
+  const rows = [], method = keyText(choice.name);
+  const accountMethods = choice.type === "account"
+    ? new Set([choice.name, choice.account?.paymentMethod].filter(Boolean).map(keyText)) : null;
+  for (const t of s.transactions || []) {
+    if (owner && t.owner !== owner) continue;
+    let leg = null, connection = null;
+    if (choice.type === "account") {
+      const explicit = links.get(t.parentId || t.id);
+      leg = explicit?.legs?.find(item => item.accountId === choice.accountId) || null;
+      // Trust automatic matching only for active root records, while deleted
+      // records remain discoverable through their historical name or link.
+      connection = !t.deletedAt && !t.parentId ? cashConnection(t, s, links) : null;
+      leg ||= connection?.legs?.find(item => item.accountId === choice.accountId) || null;
+      const matchesName = accountMethods.has(keyText(t.paymentMethod));
+      if (!leg && !matchesName && !connection?.affected?.includes(choice.accountId)) continue;
+    } else if (keyText(t.paymentMethod) !== method) continue;
+    const movement = leg?.direction || (t.direction === "income" || t.direction === "refund"
+      ? "in" : t.direction === "transfer" ? "transfer" : "out");
+    const stamp = String(leg?.at || t.datetime || t.date + "T12:00:00");
+    const date = stamp.slice(0, 10);
+    if (window.from && date < window.from) continue;
+    if (window.to && date > window.to) continue;
+    if (direction && movement !== direction) continue;
+    const hidden = cashHidden(t, s);
+    if (query && !keyText(hidden ? "개인 내역 " + date + " " + t.amount
+      : [date, t.merchantRaw, t.amount, t.paymentMethod, t.note].join(" ")).includes(query)) continue;
+    rows.push({ t, stamp, movement, hidden, deleted: !!t.deletedAt,
+      needsLink: choice.type === "account" && !leg && !t.deletedAt && !t.parentId,
+      connectionReview: choice.type === "account" && connection?.status === "review",
+      canLink: choice.type === "account" && !t.deletedAt && !t.parentId && !choice.account?.archived });
+  }
+  rows.sort((a, b) => b.stamp.localeCompare(a.stamp) || String(b.t.id).localeCompare(String(a.t.id)));
+  return { rows, active: rows.filter(r => !r.deleted).length,
+    trash: rows.filter(r => r.deleted).length };
+}
 const choiceButton = (label, action, key, extra = "") =>
   '<button type="button" class="btn ' + extra + '" data-action="' + e(action) + '" data-key="' + e(key) + '">' + e(label) + '</button>';
 export function instrumentLedgerView(s, f = {}) {
   const choices = instrumentChoices(s);
   const cards = choices.filter(x => x.type === "method");
-  const selected = choices.find(x => x.key === f.instrument) || cards[0] || choices[0];
-  const data = instrumentRows(s, selected, f);
+  const selected = choices.find(x => x.key === f.instrument) || cards[0] ||
+    choices.find(x => x.type === "account" && !x.account?.archived) || choices[0];
+  const viewing = { instrumentPeriod: "all", ...f };
+  const data = instrumentRows(s, selected, viewing);
+  const history = instrumentHistoryRows(s, selected, viewing);
   const isAccount = selected?.type === "account";
   const paymentCounts = selected && !isAccount ? paymentNameSummary(s, selected.name) : null;
   const ownerNumbers = paymentCounts ? [["p1", paymentCounts.owners.p1],
@@ -100,7 +148,7 @@ export function instrumentLedgerView(s, f = {}) {
     ? ownerNumbers.map(([owner, count]) => memberName(owner, s) + " " + count + "건").join(" · ")
     : "";
   const options = [
-    ...choices.filter(x => x.type === "account").map(x => [x.key, "계좌 · " + x.name]),
+    ...choices.filter(x => x.type === "account").map(x => [x.key, "계좌 · " + x.name + (x.account?.archived ? " (사용 종료)" : "")]),
     ...cards.map(x => [x.key, "카드·결제수단 · " + x.name]),
   ];
   const featured = [];
@@ -115,9 +163,11 @@ export function instrumentLedgerView(s, f = {}) {
       '<small>' + (x.type === "account" ? "계좌" : "카드·결제수단") + '</small>' +
       '<strong>' + e(x.name) + '</strong></button>'
   ).join("");
-  const limit = f.instrumentLimit || 40;
-  const range = data.from ? data.from.replaceAll("-", ".") + " ~ " + data.to.replaceAll("-", ".")
-    : "전체 ~ " + data.to.replaceAll("-", ".");
+  const range = viewing.instrumentPeriod === "all" ? "전체 기간" :
+    data.from ? data.from.replaceAll("-", ".") + " ~ " + data.to.replaceAll("-", ".") :
+      "전체 ~ " + data.to.replaceAll("-", ".");
+  // Totals retain their existing cash-safe rules; historical rows never
+  // become a second balance or count deleted/split-child records as cash.
   const totals = isAccount
     ? '<div class="instrument-totals"><div><small>계좌 입금</small><strong>+' + won(data.incoming) +
       '</strong></div><div><small>계좌 출금</small><strong>−' + won(data.outgoing) +
@@ -126,23 +176,28 @@ export function instrumentLedgerView(s, f = {}) {
       '</strong></div><div><small>환불·취소</small><strong>' + won(data.incoming) +
       '</strong></div><div><small>순사용</small><strong>' + won(data.outgoing - data.incoming) +
       '</strong></div></div>';
-  const list = data.rows.slice(0, limit).map(r => {
+  const list = history.rows.map(r => {
     const label = r.movement === "in" ? (isAccount ? "입금" : "환불") :
       r.movement === "out" ? (isAccount ? "출금" : "사용") : "이체·결제대금";
-    const status = isAccount ? r.needsLink ? " · 연결 필요" : r.status === "auto"
-      ? " · 자동 연결" : " · 확인된 연결" : "";
+    const status = r.deleted ? " · 휴지통 (복원 가능)" :
+      r.connectionReview ? " · 연결 재확인" : r.needsLink ? " · 계좌 연결 필요" : "";
     const merchant = r.hidden ? "개인 내역 숨김" : r.t.merchantRaw;
-    const secondary = r.stamp.slice(0, 16).replace("T", " ") + " · " + label + status;
+    const secondary = r.stamp.slice(0, 16).replace("T", " ") + " · " +
+      memberName(r.t.owner, s) + " · " + label + status +
+      (r.t.parentId ? " · 분할 내역" : "");
     const signed = r.movement === "in" ? "+" : r.movement === "out" ? "−" : "";
-    return '<div class="instrument-row' + (r.needsLink ? ' needs-link' : '') + '">' +
-      '<div class="instrument-row-copy"><strong>' + e(merchant) + '</strong><small>' + e(secondary) + '</small></div>' +
-      '<div class="instrument-row-side"><strong class="' + (r.movement === "in" ? "positive" : "") + '">' +
-      signed + won(r.t.amount) + '</strong>' +
-      (r.hidden ? '' : isAccount ?
-        '<button type="button" class="btn text" data-action="cash-link" data-id="' + e(r.t.id) +
-        '">' + (r.needsLink ? "계좌 연결" : "연결 수정") + '</button>' :
-        '<button type="button" class="btn text" data-edit="' + e(r.t.id) + '">수정</button>') +
-      '</div></div>';
+    const actionText = r.deleted ? "눌러서 복원" : "눌러서 수정·변경·삭제";
+    return '<div class="instrument-row' + (r.needsLink ? ' needs-link' : '') +
+      (r.deleted ? ' is-deleted' : '') + '">' +
+      '<button type="button" class="instrument-row-main" data-edit="' + e(r.t.id) +
+      '" data-instrument-edit="1" aria-label="' + e(merchant + ' ' + won(r.t.amount) + ' · ' + actionText) + '">' +
+      '<span class="instrument-row-copy"><strong>' + e(merchant) +
+      '</strong><small>' + e(secondary) + '</small></span>' +
+      '<span class="instrument-row-side"><strong class="' + (r.movement === "in" ? "positive" : "") + '">' +
+      signed + won(r.t.amount) + '</strong><small>' + actionText + '</small></span></button>' +
+      (r.canLink ? '<button type="button" class="btn text instrument-row-link" data-action="cash-link" data-id="' +
+        e(r.t.id) + '">' + (r.needsLink ? "계좌 연결" : "연결 수정") + '</button>' : '') +
+      '</div>';
   }).join("");
   const editAction = isAccount ? "cash-account" : "instrument-profile";
   const editTarget = isAccount ? ' data-id="' + e(selected.accountId) + '"' :
@@ -150,7 +205,7 @@ export function instrumentLedgerView(s, f = {}) {
   return '<section class="card instrument-panel" id="instrument-panel" aria-label="카드와 계좌 선택">' +
     '<div class="instrument-picker">' +
       '<div class="instrument-picker-heading"><div><h2>카드·계좌 선택</h2>' +
-      '<p>이름을 바꿀 카드를 먼저 선택해 줘.</p></div>' +
+      '<p>카드·계좌를 선택하면 과거 거래 전체와 휴지통 내역을 볼 수 있어.</p></div>' +
       '<div class="instrument-picker-actions">' +
         choiceButton("새 카드", "instrument-method", "", "secondary") +
         '<button type="button" class="btn text" data-action="cash-account">새 계좌</button></div></div>' +
@@ -162,15 +217,15 @@ export function instrumentLedgerView(s, f = {}) {
         '</div>' +
         '<div class="instrument-selected">' +
           '<div class="instrument-selected-name"><small>현재 선택 · ' +
-          (isAccount ? '은행계좌' : '카드·결제수단') + '</small><strong>' +
+          (isAccount ? (selected.account?.archived ? '사용 종료 계좌' : '은행계좌') : '카드·결제수단') + '</small><strong>' +
           e(selected.name) + '</strong>' +
           (ownerHint ? '<small class="instrument-selected-meta">등록된 사용자별 거래: ' +
             e(ownerHint) + '</small>' : '') + '</div>' +
           '<div class="instrument-selected-actions">' +
             '<button class="btn primary" type="button" data-action="' + editAction + '"' +
               editTarget + '>이름 바꾸기</button>' +
-            choiceButton(isAccount ? "입출금 입력" : "카드 사용 입력", "instrument-add", selected.key, "secondary") +
-            (isAccount ? '<button class="btn secondary" type="button" data-action="cash-check" data-id="' +
+            (selected.account?.archived ? "" : choiceButton(isAccount ? "입출금 입력" : "카드 사용 입력", "instrument-add", selected.key, "secondary")) +
+            (isAccount && !selected.account?.archived ? '<button class="btn secondary" type="button" data-action="cash-check" data-id="' +
               e(selected.accountId) + '">잔액 확인</button>' : '') +
           '</div>' +
         '</div>' :
@@ -179,20 +234,20 @@ export function instrumentLedgerView(s, f = {}) {
         '<button class="btn secondary" type="button" data-action="cash-account">계좌 추가하기</button></div>') +
     '</div>' +
     (selected ?
-      '<div class="instrument-ledger-heading"><h3>이 결제수단의 내역</h3><small>' +
-        e(range) + ' · ' + data.rows.length + '건</small></div>' +
+      '<div class="instrument-ledger-heading"><h3>선택한 카드·계좌의 전체 거래내역</h3><small>' +
+        e(range) + ' · 전체 ' + history.rows.length + '건 (정상 ' + history.active + '건 · 휴지통 ' + history.trash + '건)</small></div>' +
       totals +
       '<details class="instrument-advanced"><summary>기간·사용자·검색 설정</summary><div class="instrument-advanced-inner">' +
         '<div class="instrument-controls">' +
           select("조회기간", "instrument-period",
-            [["cycle", "이번 운영월"], ["30", "최근 30일"], ["90", "최근 90일"],
-             ["all", "전체 기간"], ["custom", "기간 직접 지정"]],
-            f.instrumentPeriod || "cycle") +
+            [["all", "전체 기간"], ["cycle", "이번 운영월"], ["30", "최근 30일"], ["90", "최근 90일"],
+             ["custom", "기간 직접 지정"]],
+            f.instrumentPeriod || "all") +
           select("사용자", "instrument-owner",
             [["", "전체 사용자"], ["p1", memberName("p1", s)], ["p2", memberName("p2", s)],
              ["joint", "공동"]], f.instrumentOwner || "") +
           select("거래 방향", "instrument-direction",
-            [["", "모두"], ["out", isAccount ? "출금" : "사용"], ["in", isAccount ? "입금" : "환불"]],
+            [["", "모두"], ["out", isAccount ? "출금" : "사용"], ["in", isAccount ? "입금" : "환불"], ["transfer", "이체·카드대금"]],
             f.instrumentDirection || "") +
         '</div>' +
         (f.instrumentPeriod === "custom" ?
@@ -204,10 +259,10 @@ export function instrumentLedgerView(s, f = {}) {
             'placeholder="사용처 또는 금액"') + '</div>' +
       '</div></details>' +
       '<div class="instrument-list">' +
-        (list || '<p class="empty-inline">조건에 맞는 내역이 없어. 기간을 바꾸거나 새 거래를 입력해 줘.</p>') +
+        (list || '<p class="empty-inline">이 카드·계좌에 해당하는 거래가 없어. 필터를 확인하거나 새 거래를 입력해 줘.</p>') +
       '</div>' +
-      (data.rows.length > limit ? choiceButton("40건 더 보기", "instrument-more", selected.key, "secondary") : '') +
-      '<p class="instrument-hint">이름을 바꾸면 같은 결제수단으로 저장된 과거 내역도 함께 바뀌어. 금액과 사용자는 그대로야.</p>' :
+      
+      '<p class="instrument-hint">거래를 누르면 수정·카드/계좌 변경·휴지통 이동을 할 수 있어. 합계는 휴지통을 제외한 오늘까지의 거래 기준이야. 이름을 바꾸면 과거 거래 이름도 함께 갱신돼.</p>' :
       '') +
     '</section>';
 }
@@ -314,10 +369,19 @@ export async function instrumentLedgerAction(app, action, target) {
     const selected = instrumentChoices(s).find(x => x.key === target?.dataset.key);
     if (!selected) throw Error("카드·계좌 목록이 변경됐어. 다시 선택해 줘.");
     app.cashFilters.instrument = selected.key;
+    app.cashFilters.instrumentPeriod = "all";
     app.cashFilters.instrumentOwner = "";
     app.cashFilters.instrumentDirection = "";
     app.cashFilters.instrumentQuery = "";
     app.cashFilters.instrumentLimit = 40;
+    app.render();
+  } else if (action === "instrument-review") {
+    const chosen = instrumentChoices(s).find(x => x.key === target?.dataset.key);
+    if (!chosen) throw Error("해당 카드·계좌가 변경됐어. 다시 선택해 줘.");
+    Object.assign(app.cashFilters, { instrument: chosen.key, instrumentPeriod: "all",
+      instrumentOwner: "", instrumentDirection: "", instrumentQuery: "", instrumentLimit: 40 });
+    document.querySelector("#dialog")?.close();
+    app.navigate("cash");
     app.render();
   } else if (action === "instrument-more") {
     app.cashFilters.instrumentLimit = (app.cashFilters.instrumentLimit || 40) + 40;

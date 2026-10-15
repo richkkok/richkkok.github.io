@@ -16,7 +16,7 @@ import { matchRecurring, syncAutoRecurring } from "./recurring.js";
 import { planFor } from "./budget.js";
 import { memberName } from "../data/defaults.js";
 import { exactApprovalDuplicate, fixedManualDuplicate } from "./import/duplicates.js";
-import { instrumentChoices } from "./instrument-ledger.js";
+import { instrumentChoices, instrumentHistoryRows } from "./instrument-ledger.js";
 import { resolvePaymentAlias } from "./payment-rename.js";
 
 export function resolveEntryOwner(
@@ -497,16 +497,22 @@ export async function behaviorAction(app, action, target) {
     });
   } else if (action === "payment-settings") {
     const choices = instrumentChoices(s);
-    const accounts = [...(s.cashAccounts || [])].filter(a=>a.archived);
-    const entries = [
-      ...choices.map(x => x.type==='account'
-        ? '<button type="button" class="settings-row" data-action="cash-account" data-id="'+e(x.accountId)+'"><span><strong>계좌 · '+e(x.name)+'</strong><small>이름 수정 시 연결된 모든 과거 거래 반영</small></span>이름 수정</button>'
-        : '<button type="button" class="settings-row" data-action="instrument-profile" data-method="'+e(x.name)+'"><span><strong>카드·결제수단 · '+e(x.name)+'</strong><small>이름, 결제방식·카드 청구일 설정</small></span>이름 수정</button>'),
-      ...accounts.map(a=>'<button type="button" class="settings-row" data-action="cash-account" data-id="'+e(a.id)+'"><span><strong>사용 종료 계좌 · '+e(a.name)+'</strong><small>과거 내역도 일괄 변경 가능</small></span>이름 수정</button>')
-    ];
+    const entries = choices.map(x => {
+      const count = instrumentHistoryRows(s, x, { instrumentPeriod: "all" }).rows.length;
+      const account = x.type === "account";
+      const label = account ? (x.account?.archived ? "사용 종료 계좌" : "계좌") : "카드·결제수단";
+      const edit = account
+        ? '<button class="btn secondary payment-manage-rename" type="button" data-action="cash-account" data-id="' + e(x.accountId) + '">이름 수정</button>'
+        : '<button class="btn secondary payment-manage-rename" type="button" data-action="instrument-profile" data-method="' + e(x.name) + '">이름 수정</button>';
+      return '<div class="payment-manage-row">' +
+        '<button type="button" class="settings-row payment-manage-view" data-action="instrument-review" data-key="' +
+        e(x.key) + '"><span><strong>' + e(label + " · " + x.name) +
+        '</strong><small>저장된 거래 전체 ' + count + '건 · 수정·삭제·복원</small></span><span class="payment-manage-link">내역 보기 ›</span></button>' +
+        edit + '</div>';
+    });
     openDialog("카드·계좌 이름 일괄 관리",
-      '<p class="cash-small">m107 같은 결제수단명을 원하는 카드명이나 계좌명으로 수정해. 수정·저장 시 해당 이름의 과거 거래 전체, 고정지출 및 연결 설정도 함께 갱신돼. 같은 코드가 두 사람의 거래에 사용됐다면 모두 변경되니 이름과 건수를 확인해 줘.</p>' +
-      '<div class="dialog-list">' + (entries.join('') || '<p class="empty-inline">등록된 결제수단이 없어.</p>') + '</div>' +
+      '<p class="cash-small">카드·계좌를 선택하면 모든 날짜의 거래와 휴지통 내역을 확인하고 각각 수정하거나 삭제할 수 있어. 이름 변경은 오른쪽 ‘이름 수정’을 눌러줘. 한 코드에 두 사람의 거래가 섞였다면 먼저 내역을 확인해.</p>' +
+      '<div class="dialog-list payment-manage-list">' + (entries.join('') || '<p class="empty-inline">등록된 결제수단이 없어.</p>') + '</div>' +
       '<div class="focus-detail-actions"><button type="button" class="btn secondary" data-action="instrument-method">카드·결제수단 새로 등록</button><button type="button" class="btn text" data-action="go-cash">계좌·카드 상세 관리</button></div>');
   } else if (action === "pace-calculation") {
     openDialog(
