@@ -109,7 +109,7 @@ function preserveClosedDaySignatures(state, map) {
   return valid;
 }
 
-function replacePaymentReferences(state, map) {
+export function replacePaymentReferences(state, map) {
   if (!map.size) return { transactions: 0, recurring: 0, reconciliations: 0, links: 0, closedDays: 0 };
   const validClosedDays = preserveClosedDaySignatures(state,map);
   const changedBefore = new Map();
