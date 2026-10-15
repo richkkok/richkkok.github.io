@@ -319,7 +319,12 @@ function openPaymentProfileEditor(app, existingName = '') {
         ['credit', '신용카드 · 나중에 일괄 결제'],
         ['immediate', '현금·계좌·체크카드 · 바로 지출'],
       ], kind === 'unknown' ? 'credit' : kind) +
-    '</div><div data-billing-fields class="form-grid">' +
+    '</div><details class="instrument-identity"><summary>중복 카드 자동 통합 · 식별코드 설정</summary>' +
+      '<p class="cash-small">전체 카드번호·끝 4자리만 입력하지 마. M107 같은 카드사 식별코드를 입력하고 사용자를 고르면 동일 코드·사용자 카드의 과거 거래를 자동으로 합쳐.</p>' +
+      '<div class="form-grid">' +
+        field('카드 식별코드 (선택)', 'identifier', original?.identifier || '', 'text', 'maxlength="40" placeholder="예: M107"') +
+        select('카드 사용자', 'identityOwner', [['', '선택하지 않음'], ...['p1','p2','joint'].map(id => [id, memberName(id,s)])], original?.owner || '') +
+      '</div></details><div data-billing-fields class="form-grid">' +
       field('카드사 이용 마감일 (매월 1~31일)', 'closingDay', original?.closingDay ?? '', 'number', 'min="1" max="31" placeholder="카드사에서 확인"') +
       field('결제 예정일 (매월 1~31일)', 'paymentDay', original?.paymentDay ?? '', 'number', 'min="1" max="31" placeholder="카드사에서 확인"') +
       select('마감월 기준 결제 예정월', 'lagMonths',
