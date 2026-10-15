@@ -46,6 +46,8 @@ export function emptyState() {
       paymentMethods: [],
       paymentProfiles: {},
       paymentAliases: {},
+      hiddenPaymentMethods: [],
+      hiddenCashAccounts: [],
       members: { p1: "구성원 1", p2: "구성원 2" },
       income: 0,
       incomeMode: "planned",
