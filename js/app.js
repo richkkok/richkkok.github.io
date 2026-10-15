@@ -58,7 +58,7 @@ const app = {
   month: currentMonth(),
   step: 1,
   filters: { query: "", limit: 100 },
-  cashFilters: { query: "", status: "pending", limit: 50 },
+  cashFilters: { query: "", status: "pending", limit: 50, instrumentPeriod: "all" },
   recurringFilters: { mode: "cycle", query: "" },
   reviewFilters: { mode: "cycle", query: "", limit: 100 },
   importSession: { owner: "p1", sheet: 0, queue: [] },
@@ -261,6 +261,7 @@ async function switchMode(mode) {
     if (!existing.configured) await app.repo.replace(sampleState());
   }
   app.filters = { query: "", limit: 100 };
+  app.cashFilters = { query: "", status: "pending", limit: 50, instrumentPeriod: "all" };
   app.importSession = { owner: "p1", sheet: 0, queue: [] };
   await app.load();
   navigate("home");
@@ -284,7 +285,7 @@ document.addEventListener("click", async (event) => {
       await app.cloud.createInvite();
       return;
     }
-    if (target.dataset.edit) return editTransaction(app, target.dataset.edit);
+    if (target.dataset.edit) return editTransaction(app, target.dataset.edit, { paymentFirst: target.dataset.instrumentEdit === "1" });
     if (target.dataset.split) return splitEditor(app, target.dataset.split);
     if (target.dataset.recurring)
       return recurringEditor(app, target.dataset.recurring);
@@ -293,14 +294,23 @@ document.addEventListener("click", async (event) => {
     if (target.dataset.category)
       return categoryEditor(app, target.dataset.category);
     if (target.dataset.deleteTransaction) {
-      await app.update((s) => {
-        const t = s.transactions.find(
-          (t) => t.id === target.dataset.deleteTransaction,
-        );
-        if (t) t.deletedAt = new Date().toISOString();
-      });
-      document.querySelector("#dialog").close();
-      toast("휴지통으로 옮겼어요. 필터에서 복원할 수 있어요.");
+      const id = target.dataset.deleteTransaction;
+      const original = app.state.transactions.find(t => t.id === id);
+      if (!original || original.deletedAt) throw Error("거래가 변경됐어. 다시 확인해 줘.");
+      const privateLabel = app.state.settings.privacy && ["p1", "p2"].includes(original.scope);
+      const label = privateLabel ? "개인 내역" : original.merchantRaw;
+      openDialog("거래 삭제 확인",
+        '<p><strong>' + e(label) + '</strong> 내역을 휴지통으로 이동할까?</p>' +
+        '<p class="small muted">소비·현금 계산에서 제외되지만 기록은 보관돼. 같은 카드·계좌의 전체 내역에서 복원할 수 있어.</p>',
+        async () => {
+          await app.update(s => {
+            const t = s.transactions.find(t => t.id === id);
+            if (!t || t.deletedAt) throw Error("이미 변경되었거나 삭제한 거래야. 새로고침 후 확인해 줘.");
+            t.deletedAt = new Date().toISOString();
+            t.updatedAt = t.deletedAt;
+          });
+          toast("휴지통으로 옮겼어. 선택한 카드·계좌에서 복원할 수 있어.");
+        }, "휴지통으로 이동");
       return;
     }
     if (target.dataset.restoreTransaction) {
@@ -408,6 +418,10 @@ document.addEventListener("change", event => {
   if (instrumentFilter) {
     const name = {target:"instrument",period:"instrumentPeriod",owner:"instrumentOwner",direction:"instrumentDirection",from:"instrumentFrom",to:"instrumentTo"}[instrumentFilter[2]];
     app.cashFilters[name] = event.target.value;
+    if (instrumentFilter[2] === "target") {
+      Object.assign(app.cashFilters, { instrumentPeriod: "all", instrumentOwner: "",
+        instrumentDirection: "", instrumentQuery: "", instrumentFrom: "", instrumentTo: "" });
+    }
     app.cashFilters.instrumentLimit = 40;
     app.render();
     return;
