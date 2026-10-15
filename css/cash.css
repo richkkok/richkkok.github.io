@@ -180,3 +180,28 @@
   .instrument-row-main{padding:10px 0}
   .instrument-row-link,.payment-manage-rename{display:none}
 }
+
+
+
+/* Account/card cleanup, safe code matching, and reversible archive controls. */
+.instrument-identity{border:1px solid #dce9f1;border-radius:12px;background:#f7fafc;padding:0 12px;margin:10px 0;min-width:0}
+.instrument-identity>summary{font-size:.86rem;font-weight:700;color:#225478;cursor:pointer;min-height:44px;padding:11px 0;line-height:1.5}
+.instrument-identity .form-grid{padding-bottom:12px}
+.instrument-identity .cash-small{line-height:1.65;margin:0 0 10px}
+.instrument-selected-actions .instrument-remove-action{color:#a63c42;border-color:#e4cdd1;background:#fff}
+.instrument-selected-actions .instrument-remove-action:hover{background:#fdf4f5}
+.payment-manage-row.is-hidden{background:#f5f7f8;border-style:dashed}
+.payment-manage-row.is-hidden .payment-manage-view{opacity:.78}
+.payment-manage-cleanup{white-space:nowrap;min-height:44px;flex:0 0 auto}
+.payment-manage-cleanup.btn.text{color:#a63c42}
+@media(max-width:700px){
+  .payment-manage-row .payment-manage-rename,.payment-manage-row .payment-manage-cleanup{width:calc(50% - 4px)}
+  .payment-manage-row.is-hidden .payment-manage-cleanup{width:100%}
+  .instrument-selected-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .instrument-selected-actions .btn{min-width:0}
+  .instrument-selected-actions .btn:last-child:nth-child(4){grid-column:1/-1}
+}
+@media(max-width:360px){
+  .instrument-selected-actions{grid-template-columns:1fr}
+  .instrument-selected-actions .btn:last-child:nth-child(4){grid-column:auto}
+}

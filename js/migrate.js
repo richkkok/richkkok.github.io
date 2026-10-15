@@ -25,6 +25,8 @@ export function migrate(state) {
   state.settings.paymentMethods ??= [];
   state.settings.paymentProfiles ??= {};
   state.settings.paymentAliases ??= {};
+  state.settings.hiddenPaymentMethods ??= [];
+  state.settings.hiddenCashAccounts ??= [];
   state.dailyCloses ??= {};
   state.reconciliations ??= [];
   state.cashAccounts ??= [];

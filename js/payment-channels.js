@@ -13,7 +13,7 @@ export function paymentKind(state, paymentMethod, sourceType = '') {
   const name = String(paymentMethod || '').trim(), key = methodKey(name);
   if (!key || key === methodKey('미지정')) return 'unknown';
   const account = (state.cashAccounts || []).some(a =>
-    !a.archived && [a.name, a.paymentMethod].some(v => v && methodKey(v) === key));
+    [a.name, a.paymentMethod].some(v => v && methodKey(v) === key));
   if (account) return 'immediate';
   const profile = state.settings.paymentProfiles?.[key];
   if (profile?.kind === 'credit' || profile?.kind === 'immediate') return profile.kind;
@@ -50,6 +50,13 @@ export function validatePaymentProfiles(state) {
         !p.name || typeof p.name !== 'string' || p.name.length > 100 ||
         methodKey(p.name) !== key || !['credit', 'immediate'].includes(p.kind))
       throw Error('카드·계좌 결제방식을 확인해 주세요.');
+    if (p.identifier !== undefined &&
+        (typeof p.identifier !== "string" || p.identifier.length > 40 ||
+         (p.identifier && (!/^[A-Z][A-Z0-9]{2,39}$/.test(p.identifier) ||
+           /\d{13,19}/.test(p.identifier)))))
+      throw Error("카드 식별코드를 확인해 줘. 카드번호 전체는 저장할 수 없어.");
+    if (p.owner !== undefined && !["", "p1", "p2", "joint"].includes(p.owner))
+      throw Error("카드 사용자 구분을 확인해 줘.");
     const hasDates = p.closingDay != null || p.paymentDay != null;
     if (hasDates && (p.kind !== 'credit' ||
         !Number.isInteger(p.closingDay) || p.closingDay < 1 || p.closingDay > 31 ||
@@ -60,13 +67,13 @@ export function validatePaymentProfiles(state) {
   }
 }
 
-export function savePaymentProfile(state, name, kind, closingDay = null, paymentDay = null, lagMonths = 1, expected = undefined) {
+export function savePaymentProfile(state, name, kind, closingDay = null, paymentDay = null, lagMonths = 1, expected = undefined, metadata = undefined) {
   const trimmed = String(name || '').trim(), key = methodKey(trimmed);
   if (!key || key === methodKey('미지정') || trimmed.length > 100 ||
       !['credit', 'immediate'].includes(kind))
     throw Error('결제수단 이름과 유형을 확인해 주세요.');
   if ((state.cashAccounts || []).some(a =>
-    !a.archived && [a.name, a.paymentMethod].some(v => v && methodKey(v) === key)))
+    [a.name, a.paymentMethod].some(v => v && methodKey(v) === key)))
     throw Error('이미 등록된 은행계좌야. 계좌·잔액 관리에서 확인해 주세요.');
   const daysPresent = closingDay !== null || paymentDay !== null;
   if (kind === 'credit' && daysPresent &&
@@ -79,6 +86,10 @@ export function savePaymentProfile(state, name, kind, closingDay = null, payment
   if (expected !== undefined && JSON.stringify(before) !== JSON.stringify(expected))
     throw Error('다른 기기에서 카드 설정이 변경됐어. 다시 열어서 확인해 줘.');
   const profile = { name: trimmed, kind };
+  const identity = metadata === undefined ? before?.identifier : metadata.identifier;
+  const owner = metadata === undefined ? before?.owner : metadata.owner;
+  if (identity) profile.identifier = String(identity);
+  if (owner) profile.owner = String(owner);
   if (kind === 'credit' && daysPresent)
     Object.assign(profile, { closingDay, paymentDay, lagMonths });
   const next = { ...state.settings.paymentProfiles, [key]: profile };
