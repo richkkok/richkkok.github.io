@@ -414,7 +414,7 @@ export async function instrumentLedgerAction(app, action, target) {
         !Object.values(s.settings.paymentAliases || {}).some(v => keyText(v) === keyText(chosen.name));
     const explanation = canDelete
       ? '이 항목에 연결된 거래·잔액 기록이 없어 등록만 삭제해. 다른 카드와 거래내역은 건드리지 않아.'
-      : bank ? '거래·기준잔액·확인이력이 있으므로 계좌를 사용 종료하고 목록에서 숨겨. 기존 금융기록은 삭제하지 않아. 다시 사용할 때는 복원 후 계좌 설정에서 사용 종료를 해제해야 해.'
+      : bank ? '거래·기준잔액·확인이력이 있으므로 계좌를 사용 종료하고 목록에서 숨겨. 기존 금융기록은 삭제하지 않지만 홈 사용가능현금 계산에서는 이 계좌 잔액이 제외돼. 다시 사용할 때는 복원 후 계좌 설정에서 사용 종료를 해제해야 해.'
       : '과거 거래와 청구설정이 남아 있어 카드만 목록에서 숨겨. 거래·고정지출·카드대금 계산과 기존 데이터는 그대로 유지하고, 설정에서 복원할 수 있어.';
     openDialog("카드·계좌 목록 정리", '<p><strong>' + e(chosen.name) + '</strong></p>' +
       '<p class="cash-small">등록된 거래 ' + usage.transactions + '건' +
@@ -440,6 +440,7 @@ export async function instrumentLedgerAction(app, action, target) {
     const chosen = instrumentChoices(s,{includeHidden:true}).find(x => x.key === target?.dataset.key);
     if (!chosen || !chosen.hidden) throw Error("복원할 카드·계좌가 변경됐어.");
     await app.update(st => restoreInstrument(st,chosen));
+    document.querySelector("#dialog")?.close();
     toast(chosen.type === "account" ? "계좌 목록에 복원했어. 사용을 재개하려면 계좌 설정에서 '사용 종료'를 해제해 줘."
       : "카드를 목록에 복원했어.");
   } else if (action === "instrument-merge") {
@@ -482,6 +483,7 @@ export async function instrumentLedgerAction(app, action, target) {
         transactions += result.transactions;
       }
     });
+    document.querySelector("#dialog")?.close();
     toast(merged ? "같은 식별코드·사용자 카드 " + merged + "개를 합쳤어. 거래 " + transactions + "건 보존."
       : "안전하게 합칠 수 있는 중복 카드가 없어. 코드나 사용자가 다른 카드는 그대로 유지했어.");
   } else if (action === "instrument-more") {
