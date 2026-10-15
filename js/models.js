@@ -1,6 +1,7 @@
 import { validateIncomeSchedules } from "./income-schedule.js";
 import { validateCash } from "./cash.js";
 import { validatePaymentProfiles } from "./payment-channels.js";
+import { validateInstrumentCleanup } from "./instrument-cleanup.js";
 import { emptyState } from "../data/defaults.js";
 import { keyText } from "./format.js";
 const scopes = ["shared", "fixed", "p1", "p2", "excluded"],
@@ -167,6 +168,7 @@ export function validateState(input) {
   }
   validateIncomeSchedules(state);
   validatePaymentProfiles(state);
+  validateInstrumentCleanup(state);
   if (s.paymentAliases !== undefined) {
     if (!s.paymentAliases || Array.isArray(s.paymentAliases) ||
         typeof s.paymentAliases !== 'object' || Object.keys(s.paymentAliases).length > 2000)
