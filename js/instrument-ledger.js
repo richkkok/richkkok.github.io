@@ -399,6 +399,90 @@ export async function instrumentLedgerAction(app, action, target) {
     document.querySelector("#dialog")?.close();
     app.navigate("cash");
     app.render();
+  } else if (action === "instrument-remove") {
+    const chosen = instrumentChoices(s, {includeHidden:true}).find(x => x.key === target?.dataset.key);
+    if (!chosen) throw Error("카드·계좌 선택이 변경됐어. 다시 선택해 줘.");
+    const usage = instrumentUsage(s, chosen);
+    const bank = chosen.type === "account";
+    const canDelete = bank
+      ? !usage.transactions && !usage.links && !usage.checks &&
+        !usage.initialBalance && !usage.reserved
+      : !usage.transactions && !usage.recurring && !usage.reconciliations &&
+        !usage.rules && keyText(s.settings.cardName) !== keyText(chosen.name) &&
+        !Object.values(s.settings.monthOverrides || {}).some(o => keyText(o.cardName) === keyText(chosen.name)) &&
+        !Object.values(s.settings.paymentAliases || {}).some(v => keyText(v) === keyText(chosen.name));
+    const explanation = canDelete
+      ? '이 항목에 연결된 거래·잔액 기록이 없어 등록만 삭제해. 다른 카드와 거래내역은 건드리지 않아.'
+      : bank ? '거래·기준잔액·확인이력이 있으므로 계좌를 사용 종료하고 목록에서 숨겨. 기존 금융기록은 삭제하지 않아. 다시 사용할 때는 복원 후 계좌 설정에서 사용 종료를 해제해야 해.'
+      : '과거 거래와 청구설정이 남아 있어 카드만 목록에서 숨겨. 거래·고정지출·카드대금 계산과 기존 데이터는 그대로 유지하고, 설정에서 복원할 수 있어.';
+    openDialog("카드·계좌 목록 정리", '<p><strong>' + e(chosen.name) + '</strong></p>' +
+      '<p class="cash-small">등록된 거래 ' + usage.transactions + '건' +
+      (bank ? ' · 잔액 확인 ' + usage.checks + '건 · 연결 ' + usage.links + '건' :
+        ' · 고정지출 ' + usage.recurring + '건') + '</p>' +
+      '<p>' + e(explanation) + '</p>' +
+      '<label class="check-field"><input type="checkbox" name="confirmed" required>기록 보존 조건과 목록 정리 방식을 확인했어</label>',
+      async form => {
+        if (!form.get("confirmed")) throw Error("목록 정리 조건을 확인해 줘.");
+        let operation;
+        await app.update(st => {
+          const latest = instrumentChoices(st,{includeHidden:true}).find(x => x.key === chosen.key);
+          if (!latest || JSON.stringify(instrumentUsage(st,latest)) !== JSON.stringify(usage))
+            throw Error("다른 기기에서 카드·계좌 또는 거래내역이 변경됐어. 다시 확인해 줘.");
+          operation = hideInstrument(st,latest);
+        });
+        app.cashFilters.instrument = "";
+        app.render();
+        toast(operation === "deleted" ? "사용하지 않는 카드·계좌 등록을 삭제했어."
+          : "목록에서 제거했어. 기존 금융기록은 보존했고 설정에서 다시 표시할 수 있어.");
+      }, "목록에서 삭제");
+  } else if (action === "instrument-restore") {
+    const chosen = instrumentChoices(s,{includeHidden:true}).find(x => x.key === target?.dataset.key);
+    if (!chosen || !chosen.hidden) throw Error("복원할 카드·계좌가 변경됐어.");
+    await app.update(st => restoreInstrument(st,chosen));
+    toast(chosen.type === "account" ? "계좌 목록에 복원했어. 사용을 재개하려면 계좌 설정에서 '사용 종료'를 해제해 줘."
+      : "카드를 목록에 복원했어.");
+  } else if (action === "instrument-merge") {
+    const chosen = instrumentChoices(s).find(x => x.key === target?.dataset.key && x.type === "method");
+    if (!chosen) throw Error("합칠 카드를 먼저 선택해 줘.");
+    const targets = instrumentChoices(s).filter(x =>
+      x.type === "method" && keyText(x.name) !== keyText(chosen.name));
+    if (!targets.length) {
+      toast("합칠 다른 카드가 없어. 같은 이름·코드는 이미 하나로 보여주고 있어.");
+      return true;
+    }
+    const sourceBasis = paymentRenameBasis(s, chosen.name);
+    const destinationBases = new Map(targets.map(x => [x.key, paymentRenameBasis(s, x.name)]));
+    openDialog("같은 카드끼리 합치기",
+      '<p>출발 카드 <strong>' + e(chosen.name) + '</strong>의 모든 거래·고정지출·규칙을 선택한 대상 카드로 연결해. 거래 금액·날짜·ID·휴지통 상태는 바꾸지 않아.</p>' +
+      select("유지할 카드", "destination", targets.map(x => [x.key,x.name]), targets[0].key) +
+      '<p class="cash-small">서로 다른 사용자의 카드나 서로 다른 식별코드·청구기간이 충돌하면 통합하지 않아. 전체 카드번호와 끝 4자리만으로는 자동 합치지 않아.</p>' +
+      '<label class="check-field"><input type="checkbox" name="confirmed" required>두 목록이 실제로 같은 카드임을 확인했어</label>',
+      async form => {
+        if (!form.get("confirmed")) throw Error("같은 카드인지 확인해야 합칠 수 있어.");
+        const to = targets.find(x => x.key === form.get("destination"));
+        if (!to) throw Error("유지할 카드를 선택해 줘.");
+        let changed;
+        await app.update(st => {
+          changed = mergeCardInto(st,chosen.name,to.name,{
+            source:sourceBasis,destination:destinationBases.get(to.key),
+          });
+        });
+        app.cashFilters.instrument = to.key;
+        app.render();
+        toast("카드를 합쳤어. 과거 거래 " + changed.transactions + "건의 결제수단 이름을 통합하고 거래는 모두 보존했어.");
+      },"동일 카드 통합");
+  } else if (action === "instrument-dedupe") {
+    let merged = 0, transactions = 0;
+    await app.update(st => {
+      for (const profile of [...Object.values(st.settings.paymentProfiles || {})]) {
+        if (!st.settings.paymentProfiles[keyText(profile.name)]) continue;
+        const result = autoMergeCardCode(st,profile.name);
+        merged += result.merged;
+        transactions += result.transactions;
+      }
+    });
+    toast(merged ? "같은 식별코드·사용자 카드 " + merged + "개를 합쳤어. 거래 " + transactions + "건 보존."
+      : "안전하게 합칠 수 있는 중복 카드가 없어. 코드나 사용자가 다른 카드는 그대로 유지했어.");
   } else if (action === "instrument-more") {
     app.cashFilters.instrumentLimit = (app.cashFilters.instrumentLimit || 40) + 40;
     app.render();
