@@ -101,11 +101,12 @@ export function hideInstrument(state, choice) {
     throw Error("카드·결제수단이 변경됐어. 다시 확인해 줘.");
   const usage = instrumentUsage(state, choice);
   const referenced = usage.transactions || usage.recurring || usage.reconciliations ||
-    usage.rules || key(s.cardName) === id ||
+    usage.rules ||
     Object.values(s.monthOverrides || {}).some(o => key(o.cardName) === id) ||
     Object.values(s.paymentAliases || {}).some(v => key(v) === id);
   if (!referenced) {
     s.paymentMethods = (s.paymentMethods || []).filter(v => key(v) !== id);
+    if (key(s.cardName) === id) s.cardName = "";
     if (s.paymentProfiles) delete s.paymentProfiles[id];
     s.hiddenPaymentMethods = s.hiddenPaymentMethods.filter(v => v !== id);
     // No archived transaction/linked source is removed when deleting an empty method.
