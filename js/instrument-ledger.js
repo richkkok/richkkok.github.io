@@ -406,6 +406,7 @@ export async function instrumentLedgerAction(app, action, target) {
     const bank = chosen.type === "account";
     const canDelete = bank
       ? !usage.transactions && !usage.links && !usage.checks &&
+        !usage.recurring && !usage.reconciliations && !usage.rules &&
         !usage.initialBalance && !usage.reserved
       : !usage.transactions && !usage.recurring && !usage.reconciliations &&
         !usage.rules && keyText(s.settings.cardName) !== keyText(chosen.name) &&
