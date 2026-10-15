@@ -124,7 +124,8 @@ test("hide a card with real records: full history stays and old imports map with
   assert.equal(instrumentHistoryRows(s,choice(s,"M107")).rows.length,2);
   assert.deepEqual(s.transactions,before);
   assert.equal(resolveEntryPayment(s,"p1",s.transactions,{getItem:()=> "M107"}),"태영 신한카드");
-  assert.equal(cardDueForOperatingMonth(s,"2026-10","2026-10-15").payments.some(p=>p.name==="M107"),false);
+  assert.equal(cardDueForOperatingMonth(s,"2026-10","2026-10-15").missingProfiles.includes("M107"),false);
+  assert.ok(s.settings.paymentProfiles.m107, "billing profile must remain configured");
   restoreInstrument(s,choice(s,"M107"));
   assert.equal(instrumentChoices(s).some(x=>x.name==="M107"),true);
   assert.doesNotThrow(()=>validateState(s));
