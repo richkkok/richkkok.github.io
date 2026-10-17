@@ -31,7 +31,7 @@ export function focusOverview(state, month, at = cashNow()) {
   const fixedDifference = fixedPlanned - fixedSpent;
   const cashChanged = cash.accounts.some(a => a.now.entries.some(r => r.leg.at > a.measuredAt) || a.recalculated);
   const cashStale = !!cash.oldest && cash.oldest.slice(0, 10) < at.slice(0, 10);
-  const cashIssue = cash.mismatchCount > 0 || cash.pending.length > 0 || cashChanged || cashStale || projectedCash.unlinkedCount > 0 || projectedCash.usable < 0;
+  const cashIssue = cash.mismatchCount > 0 || cash.pending.length > 0 || cashChanged || cashStale || projectedCash.unlinkedCount > 0 || projectedCash.unlinkedIncomeCount > 0 || projectedCash.usable < 0;
   let advice;
   if (money.stale) advice = { title: '거래기록부터 최신으로 맞춰줘', text: '빠진 지출이 있으면 남은 한도가 실제보다 크게 보여. 기록을 채운 뒤 절약계획을 조정해.', action: 'go-import', label: '내역 가져오기' };
   else if (!cash.accounts.length) advice = { title: '계좌에 남은 현금을 입력해줘', text: '남은 소비한도와 실제 가진 돈은 달라. 은행에서 확인한 잔액을 따로 등록해.', action: 'cash-account', label: '잔액 입력' };
