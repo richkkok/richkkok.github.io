@@ -50,13 +50,13 @@ test("only actually recorded income raises cash comparison on payday; scheduled 
   const original = JSON.stringify(s);
   assert.equal(focusOverview(s, month, at12).cashReceived, 0,
     "Configured schedule must not create phantom cash income");
-  s.transactions.push(paycheck("a", 3000000, "2026-10-10"));
+  s.transactions.push(paycheck("a", 3000000, "2026-10-10", {paymentMethod: "QA 계좌"}));
   const before = focusOverview(s, month, at12);
   assert.equal(before.cash.usable, 1500000);
   assert.equal(before.cashReceived, 3000000);
   assert.equal(value(dom(focusHome(s, month, {}, at12)), "cash"), "150만원");
   assert.equal(value(dom(focusHome(s, month, {}, at12)), "cash-income"), "300만원");
-  s.transactions.push(paycheck("b", 3500000, "2026-10-15"));
+  s.transactions.push(paycheck("b", 3500000, "2026-10-15", {paymentMethod: "QA 계좌"}));
   assert.equal(focusOverview(s, month, at12).cashReceived, 3000000,
     "Future-dated transaction must not be included in a past as-of snapshot");
   const later = focusOverview(s, month, at16);
