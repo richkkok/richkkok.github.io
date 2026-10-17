@@ -156,3 +156,69 @@ test('without a verified cash account, home requests an opening balance instead 
   assert.equal(focusOverview(s, month, at).projectedCash.usable, null);
   assert.equal(homeCash(s), '입력 필요');
 });
+
+function salary(id, amount, date='2026-10-12', extra={}) {
+  return transaction(id, amount, date, {
+    direction: 'income', scope: 'shared', costKind: 'variable', recurringId: '',
+    category: 'other', merchantRaw: '급여', merchantNormalized: '급여',
+    paymentMethod: '생활비 계좌', sourceType: 'manual', excluded: false, ...extra,
+  });
+}
+
+test('a recorded, unlinked salary after the last bank observation immediately increases estimated usable cash', () => {
+  const s = state();
+  s.transactions.push(salary('pay', 6500000));
+  const original = structuredClone(s);
+  const f = focusOverview(s, month, at);
+  assert.equal(f.cash.actual, 1500000, 'The bank observation is never rewritten');
+  assert.equal(f.cashReceived, 6500000);
+  assert.equal(f.projectedCash.unlinkedIncome, 6500000);
+  assert.equal(f.projectedCash.unlinkedIncomeCount, 1);
+  assert.equal(f.projectedCash.usable, 8000000);
+  assert.equal(homeCash(s), '800만원');
+  assert.match(focusHome(s, month, {}, at), /실제 입금 임시 반영/);
+  assert.match(focusHome(s, month, {}, at), /미연결 실제 입금 6,500,000원 임시 반영/);
+  assert.deepEqual(s, original, 'The dashboard must not create cash links or mutate transactions');
+});
+
+test('an already observed paycheck, future salary and excluded income never create a second cash balance', () => {
+  const s = state();
+  s.transactions.push(
+    salary('before-baseline', 4000000, '2026-10-10'),
+    salary('on-baseline-day', 3000000, '2026-10-11'),
+    salary('future', 2000000, '2026-10-15'),
+    salary('deleted', 600000, '2026-10-12', {deletedAt: '2026-10-12T12:00:00Z'}),
+    salary('internal-transfer', 700000, '2026-10-12', {incomeKind: 'transfer'}),
+    salary('nonoperating', 800000, '2026-10-12', {incomeKind: 'nonoperating'}),
+    salary('excluded', 900000, '2026-10-12', {excluded: true}),
+    salary('card', 1000000, '2026-10-12', {paymentMethod: '우리카드'}),
+  );
+  const f = focusOverview(s, month, at);
+  assert.equal(f.projectedCash.unlinkedIncome, 0);
+  assert.equal(f.projectedCash.usable, 1500000);
+});
+
+test('linked or reconfirmed incoming salary replaces rather than duplicates its provisional increase', () => {
+  const s = state();
+  s.transactions.push(salary('pay', 6500000));
+  assert.equal(focusOverview(s, month, at).projectedCash.usable, 8000000);
+  saveCashLink(s, 'pay', [{accountId:'a', direction:'in', at:'2026-10-12T14:00:00'}], false, '', at);
+  const linked = focusOverview(s, month, at);
+  assert.equal(linked.projectedCash.unlinkedIncome, 0);
+  assert.equal(linked.projectedCash.linkedChange, 6500000);
+  assert.equal(linked.projectedCash.usable, 8000000);
+  saveCashCheck(s, {id:'confirmed',accountId:'a',at:'2026-10-13T18:00:00',actual:8000000}, at);
+  const confirmed = focusOverview(s, month, at);
+  assert.equal(confirmed.projectedCash.linkedChange, 0);
+  assert.equal(confirmed.projectedCash.unlinkedIncome, 0);
+  assert.equal(confirmed.projectedCash.usable, 8000000);
+});
+
+test('unmatched pay at a verified bank name with an unknown noon timestamp is provisional until linked', () => {
+  const s = state();
+  s.cashAccounts[0].autoMatch = true;
+  s.cashAccounts[0].paymentMethod = '생활비 계좌';
+  s.transactions.push(salary('manual-pay', 6500000));
+  assert.equal(focusOverview(s, month, at).projectedCash.usable, 8000000);
+  assert.equal(focusOverview(s, month, at).projectedCash.unlinkedIncome, 6500000);
+});
