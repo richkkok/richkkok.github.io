@@ -63,10 +63,13 @@ test("only actually recorded income raises cash comparison on payday; scheduled 
   assert.equal(later.cashReceived, 6500000);
   const document = dom(focusHome(s, month, {}, at16));
   assert.equal(value(document, "cash-income"), "650만원");
-  assert.equal(value(document, "cash"), "150만원",
-    "Recorded pay must never fabricate new measured bank balances");
+  assert.equal(later.cash.usable, 1500000, "The last observed bank balance remains unchanged");
+  assert.equal(later.projectedCash.unlinkedIncome, 3500000,
+    "Only the later, unlinked 15th payday is projected beyond the 11th baseline");
+  assert.equal(value(document, "cash"), "500만원",
+    "The estimated usable cash includes the later recorded paycheck");
   assert.match(document.querySelector(".focus-cash .focus-ratio").getAttribute("aria-label"), /실제 생활수입 누적 6,500,000원/);
-  assert.match(document.querySelector(".focus-cash").textContent, /잔액은 직접 확인 · 수입은 귀속월 기준/);
+  assert.match(document.querySelector(".focus-cash").textContent, /미연결 실제 입금 3,500,000원 임시 반영/);
   assert.equal(original.includes("pay-10"), true);
 });
 
