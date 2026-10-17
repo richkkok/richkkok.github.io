@@ -1,5 +1,6 @@
 import { keyText } from './format.js';
 import { validDate } from './period.js';
+import { liveIncome } from './income-schedule.js';
 // All cash cutoffs are explicit Korea wall-clock times, independent of budget periods.
 export function cashNow() {
   return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 19);
@@ -107,7 +108,7 @@ export function cashSummary(s, at = cashNow()) {
 // must not be treated as verified bank withdrawals.
 export function cashProjection(s, cash = cashSummary(s), at = cashNow()) {
   if (!cash.accounts.length)
-    return { usable: null, linkedChange: 0, unlinkedFixed: 0, unlinkedCount: 0 };
+    return { usable: null, linkedChange: 0, unlinkedIncome: 0, unlinkedIncomeCount: 0, unlinkedFixed: 0, unlinkedCount: 0 };
   let linkedChange = 0;
   for (const account of cash.accounts)
     for (const row of account.now.entries)
@@ -126,8 +127,22 @@ export function cashProjection(s, cash = cashSummary(s), at = cashNow()) {
     children.set(tx.parentId, pieces);
   }
   let unlinkedFixed = 0, unlinkedCount = 0;
+  let unlinkedIncome = 0, unlinkedIncomeCount = 0;
   for (const row of cash.rows) {
     const tx = row.t;
+    // Only recorded, non-card household deposits after the last verified
+    // balance can be projected. The exact bank account is still unconfirmed.
+    // Exclude the observation date itself: it may already include the pay.
+    // A review for an unknown automatic timestamp is also unlinked; a stale
+    // explicit cash link is NOT and must be reconfirmed instead.
+    const unlinkedDeposit = row.status === 'unlinked' ||
+      (row.status === 'review' &&
+       row.reason === '원본에 정확한 거래시각이 있는지 확인해 주세요.');
+    if (unlinkedDeposit && liveIncome(tx, s) && !cardRecord(tx) &&
+        tx.date > latestCheck.slice(0, 10) && tx.date <= at.slice(0, 10)) {
+      unlinkedIncome += tx.amount;
+      unlinkedIncomeCount++;
+    }
     // Explicitly ignored, disputed, auto-linked and card transactions must
     // never be heuristically deducted as additional fixed cash debits.
     if (row.status !== 'unlinked' || cardRecord(tx) ||
@@ -147,9 +162,9 @@ export function cashProjection(s, cash = cashSummary(s), at = cashNow()) {
     unlinkedFixed += fixed;
     unlinkedCount++;
   }
-  const usable = cash.usable + linkedChange - unlinkedFixed;
+  const usable = cash.usable + linkedChange + unlinkedIncome - unlinkedFixed;
   if (!Number.isSafeInteger(usable)) throw Error('현금 예상 잔액이 안전한 계산 범위를 넘었어요.');
-  return { usable, linkedChange, unlinkedFixed, unlinkedCount };
+  return { usable, linkedChange, unlinkedIncome, unlinkedIncomeCount, unlinkedFixed, unlinkedCount };
 }
 
 export function saveCashAccount(s, input, original = null, at=cashNow()) {
