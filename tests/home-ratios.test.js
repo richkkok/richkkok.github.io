@@ -50,23 +50,26 @@ test("only actually recorded income raises cash comparison on payday; scheduled 
   const original = JSON.stringify(s);
   assert.equal(focusOverview(s, month, at12).cashReceived, 0,
     "Configured schedule must not create phantom cash income");
-  s.transactions.push(paycheck("a", 3000000, "2026-10-10"));
+  s.transactions.push(paycheck("a", 3000000, "2026-10-10", {paymentMethod: "QA 계좌"}));
   const before = focusOverview(s, month, at12);
   assert.equal(before.cash.usable, 1500000);
   assert.equal(before.cashReceived, 3000000);
   assert.equal(value(dom(focusHome(s, month, {}, at12)), "cash"), "150만원");
   assert.equal(value(dom(focusHome(s, month, {}, at12)), "cash-income"), "300만원");
-  s.transactions.push(paycheck("b", 3500000, "2026-10-15"));
+  s.transactions.push(paycheck("b", 3500000, "2026-10-15", {paymentMethod: "QA 계좌"}));
   assert.equal(focusOverview(s, month, at12).cashReceived, 3000000,
     "Future-dated transaction must not be included in a past as-of snapshot");
   const later = focusOverview(s, month, at16);
   assert.equal(later.cashReceived, 6500000);
   const document = dom(focusHome(s, month, {}, at16));
   assert.equal(value(document, "cash-income"), "650만원");
-  assert.equal(value(document, "cash"), "150만원",
-    "Recorded pay must never fabricate new measured bank balances");
+  assert.equal(later.cash.usable, 1500000, "The last observed bank balance remains unchanged");
+  assert.equal(later.projectedCash.unlinkedIncome, 3500000,
+    "Only the later, unlinked 15th payday is projected beyond the 11th baseline");
+  assert.equal(value(document, "cash"), "500만원",
+    "The estimated usable cash includes the later recorded paycheck");
   assert.match(document.querySelector(".focus-cash .focus-ratio").getAttribute("aria-label"), /실제 생활수입 누적 6,500,000원/);
-  assert.match(document.querySelector(".focus-cash").textContent, /잔액은 직접 확인 · 수입은 귀속월 기준/);
+  assert.match(document.querySelector(".focus-cash").textContent, /미연결 실제 입금 3,500,000원 임시 반영/);
   assert.equal(original.includes("pay-10"), true);
 });
 
