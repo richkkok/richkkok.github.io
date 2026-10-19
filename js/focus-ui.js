@@ -55,16 +55,19 @@ export function focusHome(s, month, extras = {}, at) {
   return `<div class="focus-home">
     <div class="focus-board" aria-label="핵심 가계부 요약">
       <section class="focus-card focus-budget${f.remaining < 0 ? ' is-over' : ''}">
-        <header><h2>종합 소비한도</h2>${button('한도 편집', 'focus-plan', 'text')}</header>
-        <span class="focus-label">이번 기간 소비·카드결제 부담 / 설정한도</span>
-        ${amountRatio(f.used, f.limit, 'used', 'limit', '소비액과 이번 기간 카드대금 추가반영 합계', '설정한 소비한도')}
+        <header><h2>이번 기간 결산한도</h2>${button('한도 편집', 'focus-plan', 'text')}</header>
+        <span class="focus-label">즉시 지출 + 이번 기간에 결제할 카드 변동지출 / 설정한도</span>
+        ${amountRatio(f.used, f.limit, 'used', 'limit', '이번 결산기간 변동지출 합계', '설정한 소비한도')}
         ${progress(f.used, f.limit, 'focus-progress')}
-        <p class="focus-counter">${f.remaining < 0 ? '관리한도 초과' : '남은 관리한도'} <strong data-focus-value="remaining">${won(Math.abs(f.remaining))}</strong></p>
-        <div class="focus-spend-split" aria-label="종합 한도 사용액 구성">
-          <div><span>이번 기간 실제 소비 (사용일 기준)</span><strong data-focus-value="purchase-used">${won(f.purchaseUsed)}</strong></div>
-          <div><span>이번 기간 카드대금 추가반영</span><strong data-focus-value="card-due-added">${won(f.cardDue.addedToLimit)}</strong></div>
+        <p class="focus-counter">${f.remaining < 0 ? '결산한도 초과' : '남은 결산한도'} <strong data-focus-value="remaining">${won(Math.abs(f.remaining))}</strong></p>
+        <div class="focus-spend-split" aria-label="결산 기준 지출 구성">
+          <div><span>이번 기간 즉시 지출${f.unconfiguredCredit ? ' (청구주기 미설정 카드 포함)' : ''}</span><strong data-focus-value="instant-used">${won(f.instantUsed)}</strong></div>
+          <div><span>이번 기간 결제할 카드 변동지출</span><strong data-focus-value="settlement-variable">${won(f.cardDue.settlementVariable)}</strong></div>
         </div>
-        <details class="focus-spend-detail"><summary>카드·현금 소비 구분 보기</summary><div class="focus-spend-split" aria-label="신규 소비 결제방식별 구성">
+        ${f.unconfiguredCredit ? '<p class="focus-status warn">결제주기 미설정 카드 사용액은 누락되지 않도록 사용일 기준으로 임시 포함했어. 카드별 결제일을 등록해 줘.</p>' : ''}
+        <details class="focus-spend-detail"><summary>사용일 기준 소비 기록 보기</summary>
+        <div class="focus-spend-split"><div><span>이번 기간 새로 사용한 금액</span><strong data-focus-value="purchase-used">${won(f.purchaseUsed)}</strong></div></div>
+        <div class="focus-spend-split" aria-label="신규 소비 결제방식별 구성">
           <div><span>신용카드 · 나중에 결제</span><strong data-focus-value="credit-spent">${won(f.channels.credit)}</strong></div>
           <div><span>현금 · 계좌 · 체크카드</span><strong data-focus-value="immediate-spent">${won(f.channels.immediate)}</strong></div>
           ${f.channels.unknown || f.channels.unknownMethods.length ? `<div class="focus-spend-unknown"><span>결제수단 미확인</span><strong data-focus-value="unknown-spent">${won(f.channels.unknown)}</strong></div>` : ''}
@@ -75,7 +78,7 @@ export function focusHome(s, month, extras = {}, at) {
           <div class="focus-due-title"><span>이번 기간 카드대금 결제예정 합계</span><strong data-focus-value="card-due-total">${won(f.cardDue.dueTotal)}</strong></div>
           ${paymentDates || '<p>결제일이 이번 운영월에 속하는 카드의 기록이 없어. 카드별 결제주기를 설정하면 표시돼.</p>'}
           ${missingCardProfiles ? `<div class="focus-due-missing"><span>청구기간 미설정 카드 · 금액 집계 제외</span>${missingCardProfiles}</div>` : ''}
-          <p>등록된 카드 내역으로 계산한 예상액이야. 확정 청구금액이나 실제 출금액은 카드사·은행에서 확인해 줘.</p>
+          <p>등록 내역으로 계산한 예상 청구액이야. 고정비와 제외 거래도 청구 합계에는 포함되지만 결산 소비한도에는 카드 변동지출만 반영해. 실제 출금 여부는 은행에서 확인해 줘.</p>
         </div>
         <details class="focus-billing-detail">
           <summary>카드별 청구기간 · 결제일 확인</summary>

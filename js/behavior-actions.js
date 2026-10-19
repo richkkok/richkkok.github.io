@@ -18,6 +18,7 @@ import { memberName } from "../data/defaults.js";
 import { exactApprovalDuplicate, fixedManualDuplicate } from "./import/duplicates.js";
 import { instrumentChoices, instrumentHistoryRows } from "./instrument-ledger.js";
 import { resolvePaymentAlias } from "./payment-rename.js";
+import { paymentKind } from "./payment-channels.js";
 
 export function resolveEntryOwner(
   app,
@@ -510,26 +511,47 @@ export async function behaviorAction(app, action, target) {
     const entries = choices.map(x => {
       const count = instrumentHistoryRows(s, x, { instrumentPeriod:"all" }).rows.length;
       const account = x.type === "account";
-      const label = account ? (x.account?.archived ? "사용 종료 계좌" : "계좌") : "카드·결제수단";
-      const edit = account
-        ? '<button class="btn secondary payment-manage-rename" type="button" data-action="cash-account" data-id="' + e(x.accountId) + '">이름 수정</button>'
-        : '<button class="btn secondary payment-manage-rename" type="button" data-action="instrument-profile" data-method="' + e(x.name) + '">이름 수정</button>';
+      const group = account ? "은행계좌" :
+        paymentKind(s, x.name) === "credit" ? "신용카드" : "기타 결제수단";
+      const profile = !account ? s.settings.paymentProfiles?.[keyText(x.name)] : null;
+      const billingText = profile?.closingDay
+        ? " · 매월 " + profile.closingDay + "일 마감 / " +
+          (profile.lagMonths === 0 ? "당월 " : profile.lagMonths === 2 ? "다다음 달 " : "다음 달 ") +
+          profile.paymentDay + "일 결제"
+        : "";
+      const editAction = account ? "cash-account" : "instrument-profile";
+      const editTarget = account ? ' data-id="' + e(x.accountId) + '"' : ' data-method="' + e(x.name) + '"';
+      const open = '<button type="button" class="settings-row payment-manage-view" data-action="' +
+        editAction + '"' + editTarget + (x.hidden ? ' disabled' : '') + '>' +
+        '<span><strong>' + e(x.name) + '</strong><small>' +
+        (x.hidden ? "목록에서 숨김 · " : account && x.account?.archived ? "사용 종료 · " : "") +
+        "거래 " + count + "건" + e(billingText) + '</small></span>' +
+        '<span class="payment-manage-link">설정 ›</span></button>';
+      const history = x.hidden ? "" :
+        '<button type="button" class="btn secondary payment-manage-rename" data-action="instrument-review" data-key="' +
+        e(x.key) + '">내역</button>';
       const cleanup = x.hidden
-        ? '<button type="button" class="btn primary payment-manage-cleanup" data-action="instrument-restore" data-key="' + e(x.key) + '">목록에 복원</button>'
-        : '<button type="button" class="btn text payment-manage-cleanup" data-action="instrument-remove" data-key="' + e(x.key) + '">삭제</button>';
-      return '<div class="payment-manage-row' + (x.hidden ? ' is-hidden' : '') + '">' +
-        '<button type="button" class="settings-row payment-manage-view" data-action="instrument-review" data-key="' +
-        e(x.key) + '" ' + (x.hidden ? 'disabled' : '') +
-        '><span><strong>' + e(label + " · " + x.name) +
-        '</strong><small>' + (x.hidden ? '목록에서 삭제됨 · 기록은 보존됨 · ' : '') +
-        '저장된 거래 ' + count + '건 · 수정·삭제·복원</small></span><span class="payment-manage-link">내역 보기 ›</span></button>' +
-        (x.hidden ? '' : edit) + cleanup + '</div>';
+        ? '<button type="button" class="btn primary payment-manage-cleanup" data-action="instrument-restore" data-key="' + e(x.key) + '">복원</button>'
+        : '<button type="button" class="btn text payment-manage-cleanup" data-action="instrument-remove" data-key="' + e(x.key) + '">숨기기</button>';
+      return { group, html: '<div class="payment-manage-row' + (x.hidden ? ' is-hidden' : '') + '">' +
+        open + history + cleanup + '</div>' };
     });
+    const sections = ["신용카드", "은행계좌", "기타 결제수단"].map(group => {
+      const items = entries.filter(x => x.group === group);
+      return items.length
+        ? '<section class="payment-manage-group"><h3>' + e(group) + ' <small>' +
+          items.length + '개</small></h3>' + items.map(x => x.html).join("") + '</section>'
+        : "";
+    }).join("");
     openDialog("카드·계좌 이름 일괄 관리",
-      '<p class="cash-small">같은 식별코드와 사용자가 확인된 카드는 자동으로 합쳐. 카드번호 전체나 끝 4자리만으로는 합치지 않아. 필요 없는 항목은 ‘삭제’로 목록에서 정리하고 거래·잔액 기록은 보존할 수 있어.</p>' +
-      '<div class="focus-detail-actions"><button type="button" class="btn primary" data-action="instrument-dedupe">중복 카드 자동 통합 검사</button></div>' +
-      '<div class="dialog-list payment-manage-list">' + (entries.join('') || '<p class="empty-inline">등록된 결제수단이 없어.</p>') + '</div>' +
-      '<div class="focus-detail-actions"><button type="button" class="btn secondary" data-action="instrument-method">카드·결제수단 새로 등록</button><button type="button" class="btn text" data-action="go-cash">계좌·카드 상세 관리</button></div>');
+      '<p class="cash-small">이름을 누르면 수정 창이 열려. 카드별 이용기간과 결제일, 계좌별 이름과 설정을 한 곳에서 바꿀 수 있어.</p>' +
+      '<div class="dialog-list payment-manage-list">' +
+        (sections || '<p class="empty-inline">등록된 결제수단이 없어.</p>') + '</div>' +
+      '<details class="payment-manage-advanced"><summary>중복 카드·목록 정리</summary>' +
+        '<p class="cash-small">같은 식별코드와 사용자가 확인된 카드만 자동으로 합쳐. 기존 거래는 보존돼.</p>' +
+        '<button type="button" class="btn secondary" data-action="instrument-dedupe">중복 카드 자동 통합 검사</button>' +
+      '</details>' +
+      '<div class="focus-detail-actions"><button type="button" class="btn secondary" data-action="instrument-method">새 카드 등록</button><button type="button" class="btn text" data-action="go-cash">카드·계좌 전체 내역</button></div>');
   } else if (action === "pace-calculation") {
     openDialog(
       "소비속도 계산 근거",

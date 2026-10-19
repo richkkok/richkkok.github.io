@@ -60,7 +60,7 @@ try {
   await page.locator('[data-action="payment-settings"]').click();
   assert.match(await page.locator("#dialog h2").innerText(), /카드·계좌 이름 일괄 관리/);
   const key = "m:" + encodeURIComponent("M107");
-  assert.match(await page.locator('#dialog [data-action="instrument-review"][data-key="' + key + '"]').innerText(), /57건/);
+  assert.match(await page.locator('#dialog .payment-manage-row').filter({has: page.locator('[data-action="instrument-review"][data-key="' + key + '"]')}).innerText(), /57건/);
   assert.ok(await page.locator('#dialog [data-action="instrument-profile"][data-method="M107"]').isVisible());
   await page.locator('#dialog [data-action="instrument-review"][data-key="' + key + '"]').click();
   await page.waitForURL(/#cash$/);
@@ -83,9 +83,9 @@ try {
   assert.equal(state.transactions.find(t => t.id === "qa-old").paymentMethod, "신한카드");
   assert.equal(state.transactions.find(t => t.id === "qa-old").merchantRaw, "변경된 작년 내역");
   assert.equal(await page.locator('.instrument-row-main[data-edit="qa-old"]').count(), 0);
-  await page.locator('[name="instrument-target"]').selectOption("m:" + encodeURIComponent("신한카드"));
+  await page.locator(`.instrument-directory-history[data-key="m:${encodeURIComponent("신한카드")}"]`).click();
   assert.ok(await page.locator('.instrument-row-main[data-edit="qa-old"]').isVisible());
-  await page.locator('[name="instrument-target"]').selectOption(key);
+  await page.locator('.instrument-directory-history[data-key="'+key+'"]').click();
   // Deletion must require deliberate confirmation; the discarded item stays recoverable.
   await page.locator('.instrument-row-main[data-edit="qa-delete"]').click();
   await page.locator('#dialog [data-delete-transaction="qa-delete"]').click();
@@ -101,7 +101,7 @@ try {
   await page.locator("#dialog[open]").waitFor({ state: "hidden" });
   assert.equal((await read()).transactions.find(t => t.id === "qa-delete").deletedAt, null);
   // Linked transactions are shown even when their payment name differs from the account.
-  await page.locator('[name="instrument-target"]').selectOption("a:qa-bank");
+  await page.locator('.instrument-directory-history[data-key="a:qa-bank"]').click();
   assert.ok(await page.locator('.instrument-row-main[data-edit="qa-alias"]').isVisible());
   assert.ok(await page.locator('.instrument-row-main[data-edit="qa-linked"]').isVisible());
   await page.locator('.instrument-row-main[data-edit="qa-linked"]').click();

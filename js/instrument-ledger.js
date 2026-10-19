@@ -5,7 +5,7 @@ import { memberName } from "../data/defaults.js";
 import { select, field, openDialog, toast } from "./ui.js";
 import { matchRecurring } from "./recurring.js";
 import { cashAction } from "./cash-ui.js";
-import { paymentKind, savePaymentProfile } from "./payment-channels.js";
+import { paymentKind, savePaymentProfile, billingWindow } from "./payment-channels.js";
 import { paymentNameSummary, paymentRenameBasis, renamePaymentMethod } from "./payment-rename.js";
 import { cardIdentityCode, autoMergeCardCode, mergeCardInto, methodNames, instrumentUsage, hideInstrument, restoreInstrument } from "./instrument-cleanup.js";
 
@@ -131,8 +131,8 @@ const choiceButton = (label, action, key, extra = "") =>
 export function instrumentLedgerView(s, f = {}) {
   const choices = instrumentChoices(s);
   const cards = choices.filter(x => x.type === "method");
-  const selected = choices.find(x => x.key === f.instrument) || cards[0] ||
-    choices.find(x => x.type === "account" && !x.account?.archived) || choices[0];
+  // Keep the management screen uncluttered until the user explicitly opens history.
+  const selected = choices.find(x => x.key === f.instrument) || null;
   const viewing = { instrumentPeriod: "all", ...f };
   const data = instrumentRows(s, selected, viewing);
   const history = instrumentHistoryRows(s, selected, viewing);
@@ -146,22 +146,40 @@ export function instrumentLedgerView(s, f = {}) {
   const ownerHint = (ambiguousCode || ownerNumbers.length > 1) && ownerNumbers.length
     ? ownerNumbers.map(([owner, count]) => memberName(owner, s) + " " + count + "건").join(" · ")
     : "";
-  const options = [
-    ...choices.filter(x => x.type === "account").map(x => [x.key, "계좌 · " + x.name + (x.account?.archived ? " (사용 종료)" : "")]),
-    ...cards.map(x => [x.key, "카드·결제수단 · " + x.name]),
-  ];
-  const featured = [];
-  for (const item of [selected, ...cards, ...choices.filter(x => x.type === "account")]) {
-    if (item && !featured.some(x => x.key === item.key)) featured.push(item);
-    if (featured.length === 5) break;
-  }
-  const quickChoices = featured.map(x =>
-    '<button type="button" class="instrument-choice' + (selected?.key === x.key ? ' is-active' : '') +
-      '" data-action="instrument-select" data-key="' + e(x.key) +
-      '" aria-pressed="' + (selected?.key === x.key) + '">' +
-      '<small>' + (x.type === "account" ? "계좌" : "카드·결제수단") + '</small>' +
-      '<strong>' + e(x.name) + '</strong></button>'
-  ).join("");
+  // Tapping each vertical list item opens its editor; a separate control selects history.
+  const asOf = cashNow().slice(0, 10);
+  const accounts = choices.filter(x => x.type === "account");
+  const creditCards = cards.filter(x => paymentKind(s, x.name) === "credit");
+  const otherMethods = cards.filter(x => paymentKind(s, x.name) !== "credit");
+  const directoryGroup = (title, entries) => entries.length
+    ? '<section class="instrument-directory-group"><h3>' + e(title) +
+      ' <small>' + entries.length + '개</small></h3><div class="instrument-directory-rows">' +
+      entries.map(item => {
+        const bank = item.type === "account";
+        const profile = bank ? null : s.settings.paymentProfiles?.[keyText(item.name)];
+        const billing = profile ? billingWindow(asOf, profile) : null;
+        const detail = bank
+          ? (item.account.archived ? "사용 종료 · " : "") + memberName(item.account.owner, s) +
+            (item.account.reserved ? " · 확보액 " + won(item.account.reserved) : " · 현금 계좌")
+          : billing
+            ? billing.start.replaceAll("-", ".") + " ~ " + billing.end.replaceAll("-", ".") +
+              " 사용 · " + billing.payment.replaceAll("-", ".") + " 결제 예정"
+            : "결제기간 미설정 · 눌러서 등록";
+        return '<div class="instrument-directory-row' + (selected?.key === item.key ? ' is-active' : '') + '">' +
+          '<button type="button" class="instrument-directory-open" data-action="' +
+          (bank ? 'cash-account' : 'instrument-profile') + '"' +
+          (bank ? ' data-id="' + e(item.accountId) + '"' : ' data-method="' + e(item.name) + '"') +
+          ' aria-label="' + e(item.name + ' 설정 열기') + '">' +
+          '<span class="instrument-directory-name"><strong>' + e(item.name) + '</strong><small>' +
+          e(detail) + '</small></span><span class="instrument-directory-edit-label">설정 ›</span></button>' +
+          '<button type="button" class="instrument-directory-history" data-action="instrument-select" data-key="' +
+          e(item.key) + '" aria-pressed="' + (selected?.key === item.key) +
+          '" aria-label="' + e(item.name + ' 전체 거래내역 보기') + '">내역</button></div>';
+      }).join("") + '</div></section>' : "";
+  const directory = '<div class="instrument-directory" aria-label="카드와 계좌 전체 목록">' +
+    directoryGroup("신용카드", creditCards) +
+    directoryGroup("은행계좌", accounts) +
+    directoryGroup("기타 결제수단", otherMethods) + '</div>';
   const range = viewing.instrumentPeriod === "all" ? "전체 기간" :
     data.from ? data.from.replaceAll("-", ".") + " ~ " + data.to.replaceAll("-", ".") :
       "전체 ~ " + data.to.replaceAll("-", ".");
@@ -204,16 +222,12 @@ export function instrumentLedgerView(s, f = {}) {
   return '<section class="card instrument-panel" id="instrument-panel" aria-label="카드와 계좌 선택">' +
     '<div class="instrument-picker">' +
       '<div class="instrument-picker-heading"><div><h2>카드·계좌 선택</h2>' +
-      '<p>카드·계좌를 선택하면 과거 거래 전체와 휴지통 내역을 볼 수 있어.</p></div>' +
+      '<p>카드나 계좌 이름을 누르면 설정 팝업이 열려. 오른쪽 [내역]을 누르면 거래 기록을 볼 수 있어.</p></div>' +
       '<div class="instrument-picker-actions">' +
         choiceButton("새 카드", "instrument-method", "", "secondary") +
         '<button type="button" class="btn text" data-action="cash-account">새 계좌</button></div></div>' +
+      directory +
       (selected ?
-        '<div class="instrument-choice-list" aria-label="자주 찾는 카드와 계좌">' + quickChoices + '</div>' +
-        '<div class="instrument-picker-all">' +
-          select("전체 카드·계좌 목록에서 선택", "instrument-target", options, selected.key,
-            'aria-label="카드·계좌 선택"') +
-        '</div>' +
         '<div class="instrument-selected">' +
           '<div class="instrument-selected-name"><small>현재 선택 · ' +
           (isAccount ? (selected.account?.archived ? '사용 종료 계좌' : '은행계좌') : '카드·결제수단') + '</small><strong>' +
@@ -224,7 +238,7 @@ export function instrumentLedgerView(s, f = {}) {
              e(selectedProfile.identifier) + '</small>' : '') + '</div>' +
           '<div class="instrument-selected-actions">' +
             '<button class="btn primary" type="button" data-action="' + editAction + '"' +
-              editTarget + '>이름 바꾸기</button>' +
+              editTarget + '>상세 설정</button>' +
              choiceButton("목록에서 삭제", "instrument-remove", selected.key, "secondary instrument-remove-action") +
              (!isAccount ? choiceButton("카드 합치기", "instrument-merge", selected.key, "secondary") : "") +
             (selected.account?.archived ? "" : choiceButton(isAccount ? "입출금 입력" : "카드 사용 입력", "instrument-add", selected.key, "secondary")) +
@@ -232,9 +246,11 @@ export function instrumentLedgerView(s, f = {}) {
               e(selected.accountId) + '">잔액 확인</button>' : '') +
           '</div>' +
         '</div>' :
-        '<div class="instrument-picker-empty"><p>등록된 카드나 계좌가 없어. 먼저 카드 또는 계좌를 추가해 줘.</p>' +
-        '<button class="btn primary" type="button" data-action="instrument-method">카드 추가하기</button>' +
-        '<button class="btn secondary" type="button" data-action="cash-account">계좌 추가하기</button></div>') +
+        (choices.length
+          ? '<p class="instrument-directory-hint">거래내역은 각 카드·계좌 오른쪽의 내역 버튼을 눌러 확인할 수 있어.</p>'
+          : '<div class="instrument-picker-empty"><p>등록된 카드나 계좌가 없어. 먼저 카드 또는 계좌를 추가해 줘.</p>' +
+            '<button class="btn primary" type="button" data-action="instrument-method">카드 추가하기</button>' +
+            '<button class="btn secondary" type="button" data-action="cash-account">계좌 추가하기</button></div>')) +
     '</div>' +
     (selected ?
       '<div class="instrument-ledger-heading"><h3>선택한 카드·계좌의 전체 거래내역</h3><small>' +

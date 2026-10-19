@@ -58,7 +58,7 @@ try{
   // Set the non-sensitive identifier for a nicer named card. The old M107
   // historical transactions must be merged under the new card automatically.
   const newCard="태영 신한카드";
-  await page.locator('[name="instrument-target"]').selectOption("m:"+encodeURIComponent(newCard));
+  await page.locator(`.instrument-directory-history[data-key="m:${encodeURIComponent(newCard)}"]`).click();
   await page.locator('.instrument-selected [data-action="instrument-profile"]').click();
   await page.locator("#dialog .instrument-identity>summary").click();
   await page.locator("#dialog [name=identifier]").fill("M107");
@@ -69,7 +69,7 @@ try{
   assert.equal(s.transactions[0].amount,50000);
   assert.equal(s.transactions.length,2);
   assert.equal(s.settings.paymentProfiles["태영신한카드"].identifier,"M107");
-  assert.equal(await page.locator('[name=instrument-target] option').allTextContents()
+  assert.equal(await page.locator('.instrument-directory-name strong').allTextContents()
     .then(rows=>rows.some(name=>name.includes("M107"))),false);
   assert.ok(await page.locator('.instrument-row-main[data-edit="qa-legacy"]').isVisible());
 
@@ -82,7 +82,7 @@ try{
   assert.deepEqual(s.settings.hiddenPaymentMethods,["태영신한카드"]);
   assert.equal(s.transactions[0].paymentMethod,newCard);
   assert.ok(s.settings.paymentProfiles["태영신한카드"]);
-  assert.equal(await page.locator('[name=instrument-target] option').allTextContents()
+  assert.equal(await page.locator('.instrument-directory-name strong').allTextContents()
     .then(rows=>rows.some(name=>name.includes(newCard))),false);
 
   // Menu can restore a hidden card and also delete a truly unused card.
@@ -102,7 +102,7 @@ try{
   // Closing a bank must preserve link fingerprint and reference balances,
   // remove it from primary pickers and allow restoration without reactivation.
   await page.goto("http://127.0.0.1:4196/#cash");
-  await page.locator('[name=instrument-target]').selectOption("a:qa-bank");
+  await page.locator('.instrument-directory-history[data-key="a:qa-bank"]').click();
   const previous=await read();
   await page.locator('.instrument-selected [data-action="instrument-remove"]').click();
   await page.locator("#dialog [name=confirmed]").check();await save();
@@ -121,7 +121,7 @@ try{
 
   // Whole card number must be rejected, without saving any risky metadata.
   await page.goto("http://127.0.0.1:4196/#cash");
-  await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent(newCard));
+  await page.locator(`.instrument-directory-history[data-key="m:${encodeURIComponent(newCard)}"]`).click();
   await page.locator('.instrument-selected [data-action="instrument-profile"]').click();
   await page.locator("#dialog .instrument-identity>summary").click();
   await page.locator("#dialog [name=identifier]").fill("4111111111111111");

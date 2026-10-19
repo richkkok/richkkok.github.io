@@ -100,7 +100,8 @@ test('different card statement periods do not follow the salary cycle and never 
   assert.equal(w.upcomingPayment,null);
   assert.equal(focusOverview(s,month,at).purchaseUsed,320000);
   assert.equal(focusOverview(s,month,at).cardDue.addedToLimit,140000);
-  assert.equal(focusOverview(s,month,at).used,460000);
+  assert.equal(focusOverview(s,month,at).cardDue.settlementVariable,140000);
+  assert.equal(focusOverview(s,month,at).used,140000, 'Cards due in a later salary cycle are deferred from this settlement');
   assert.equal(s.transactions.find(x=>x.id==='w-old').date,'2026-09-25');
   assert.equal(s.transactions.find(x=>x.id==='w-current').date,'2026-10-10');
 });
@@ -139,7 +140,8 @@ test('card billing includes recorded fixed and excluded card charges, but not th
     tx('private',100000,'2026-10-15',{scope:'excluded',excluded:true}),
     tx('billPaid', 350000, '2026-10-18', {direction:'transfer',scope:'excluded'}),
   );
-  assert.equal(focusOverview(s,month,at).used,200000);
+  assert.equal(focusOverview(s,month,at).purchaseUsed,200000);
+  assert.equal(focusOverview(s,month,at).used,0, 'Card charges due next month are not booked as this period settlement');
   assert.equal(cardBillingSummary(s,'2026-10-20').find(x=>x.name==='우리카드').estimatedUsage,350000);
 });
 
