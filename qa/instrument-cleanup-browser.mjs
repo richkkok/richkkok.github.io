@@ -6,7 +6,6 @@ import { pathToFileURL } from "node:url";
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const executablePath=["/usr/bin/google-chrome","/usr/bin/google-chrome-stable","/usr/bin/chromium"]
   .find(path=>fs.existsSync(path));
-assert.ok(executablePath,"Chromium required");
 const server=spawn(process.execPath,["scripts/serve.cjs"],{
   env:{...process.env,PORT:"4196"},stdio:"inherit"
 });

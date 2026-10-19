@@ -1,3 +1,5 @@
+import { controlOverview } from "./control.js";
+import { controlView, controlAction, controlSettings, billsPanel } from "./control-ui.js";
 import { focusAction, moreView } from "./focus-ui.js";
 import { cashView, cashAction } from "./cash-ui.js";
 import { instrumentLedgerView, instrumentLedgerAction } from "./instrument-ledger.js";
@@ -41,15 +43,15 @@ import { CloudSync } from "./cloud.js";
 import { syncAutoRecurring } from "./recurring.js";
 import { route, navigate, watchRoute } from "./router.js";
 const titles = {
-  home: "홈",
+  home: "현황",
   more: "더보기",
-  cash: "계좌·카드",
+  cash: "결제수단",
   recurring: "자동이체",
   review: "분류 확인",
   transactions: "기록",
   budget: "계획",
   analytics: "분석",
-  settings: "가족·설정",
+  settings: "설정",
   import: "내역 가져오기",
 };
 const app = {
@@ -132,18 +134,17 @@ app.render = () => {
   const current = route();
   document.title = `${titles[current]} · RichKkok 리치콕`;
   const nav = [
-    ["home", "home", "홈"],
+    ["home", "home", "현황"],
     ["transactions", "list", "기록"],
-    ["cash", "wallet", "계좌·카드"],
-    ["recurring", "repeat", "고정지출"],
-    ["more", "dots", "더보기"],
+    ["cash", "wallet", "결제수단"],
+    ["settings", "settings", "설정"],
   ];
-  const mainRoute = ["review", "analytics", "settings", "budget", "import"].includes(current) ? "more" : current;
-  const reviewCount = reviewRows(app.state, app.month, true).length;
+  const mainRoute = ["more", "analytics", "budget"].includes(current) ? "settings" : current === "recurring" ? "home" : ["review", "import"].includes(current) ? "transactions" : current;
+  const control = controlOverview(app.state, app.month);
   document.querySelector("#navigation").innerHTML = nav
     .map(
       ([r, i, label]) =>
-        `<a href="#${r}" class="nav-item ${mainRoute === r ? "active" : ""}" ${mainRoute === r ? 'aria-current="page"' : ""}>${icon(i)}<span>${label}</span>${r === "more" && reviewCount ? '<i class="focus-nav-dot" aria-label="확인할 분류가 있어"></i>' : ""}</a>`,
+        `<a href="#${r}" class="nav-item ${mainRoute === r ? "active" : ""}" ${mainRoute === r ? 'aria-current="page"' : ""}>${icon(i)}<span>${label}</span>${control.alerts.filter(a=>a.menu===r).length ? `<i class="control-badge" aria-label="확인할 항목 ${control.alerts.filter(a=>a.menu===r).length}건">${control.alerts.filter(a=>a.menu===r).length}</i>` : ""}</a>`,
     )
     .join("");
   document.body.dataset.page = current;
@@ -189,10 +190,10 @@ app.render = () => {
     }</small></span>`;
   }
   document.querySelector("#month-picker").value = app.month;
-  document.querySelector("#month-picker").closest("label").hidden = current === "cash";
+  document.querySelector("#month-picker").closest("label").hidden = false;
   if (current === "cash") {
-    document.querySelector("#month-title").textContent = "계좌·카드 내역";
-    document.querySelector("#period-label").textContent = "실제 입출금 시각 기준 · 운영월 필터 미적용";
+    document.querySelector("#month-title").textContent = "결제수단";
+    document.querySelector("#period-label").textContent = "카드 청구·납부 및 계좌별 전체 내역";
   }
   document.querySelector("#demo-banner").hidden = app.mode !== "demo";
   document.querySelector("#app-header").hidden = !app.state.configured;
@@ -208,18 +209,18 @@ app.render = () => {
     main.innerHTML = onboardingView(app.state, app.step);
   else
     main.innerHTML = {
-      home: () => controlHome(app.state, app.month),
-      more: () => moreView(app.state, app.month),
-      cash: () => cashView(app.state, app.cashFilters, instrumentLedgerView(app.state, app.cashFilters)),
+      home: () => controlView(app.state, app.month, control),
+      more: () => controlSettings(app.state, app.month) + settingsView(app.state, app.cloud?.summary()),
+      cash: () => billsPanel(control) + cashView(app.state, app.cashFilters, instrumentLedgerView(app.state, app.cashFilters)),
       recurring: () => recurringView(app.state, app.month, app.recurringFilters),
       review: () => reviewView(app.state, app.month, app.reviewFilters),
       transactions: () => transactionsView(app.state, app.month, app.filters),
       budget: () => budgetView(app.state, app.month),
       analytics: () => controlAnalysis(app.state, app.month),
-      settings: () => settingsView(app.state, app.cloud?.summary()),
+      settings: () => controlSettings(app.state, app.month) + settingsView(app.state, app.cloud?.summary()),
       import: () => importView(app.state, app.importSession),
     }[current]();
-  if (app.state.configured && current !== "cash") main.insertAdjacentHTML("afterbegin", cycleStrip(app.state, app.month));
+  if (app.state.configured && !["cash","settings","home"].includes(current)) main.insertAdjacentHTML("afterbegin", cycleStrip(app.state, app.month));
   main.querySelectorAll('details[data-focus-fold]').forEach(el => { el.open = openFolds.has(el.dataset.focusFold); });
   if (current === 'home' && spendDetailWasOpen) {
     const spending = main.querySelector('details.focus-spend-detail');
@@ -231,6 +232,7 @@ app.render = () => {
     if (cashAdmin) cashAdmin.open = cashAdminWasOpen;
     if (instrumentAdvanced) instrumentAdvanced.open = instrumentAdvancedWasOpen;
   }
+  if (app.state.configured && ["transactions","cash"].includes(current) && control.alerts.some(a=>a.menu===current)) main.insertAdjacentHTML("afterbegin", `<div class="control-alert-trigger">${button("확인할 항목 " + control.alerts.filter(a=>a.menu===current).length + "건", "control-alerts", "secondary")}</div>`);
   if (app.state.configured && current === "import") mountImport(app);
   if (["transaction-search", "recurring-search", "review-search", "cash-search", "instrument-query"].includes(focusName)) {
     const input = main.querySelector(`[name="${focusName}"]`);
@@ -336,7 +338,9 @@ document.addEventListener("click", async (event) => {
           `<p>이 ${label} 설정을 삭제해요. 기록된 거래는 그대로 남아요.</p>`,
           async () => {
             await app.update((s) => {
-              s[list] = s[list].filter((x) => x.id !== id);
+              if (list === 'recurring' && s.transactions.some(t=>t.recurringId===id)) {
+                const r=s.recurring.find(r=>r.id===id); if(r)r.end=new Date().toLocaleDateString('en-CA');
+              } else s[list] = s[list].filter((x) => x.id !== id);
             });
             toast(`${label} 설정을 삭제했어요.`);
           },
@@ -346,6 +350,7 @@ document.addEventListener("click", async (event) => {
       }
     const action = target.dataset.action;
     if (!action) return;
+    if (await controlAction(app, action, target)) return;
     if (await focusAction(app, action, target)) return;
     if (await instrumentLedgerAction(app, action, target)) return;
     if (await cashAction(app, action, target)) return;

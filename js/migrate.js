@@ -1,3 +1,4 @@
+import { ensureControl } from "./control.js";
 import { today } from "./format.js";
 import { CATEGORIES } from "../data/defaults.js";
 
@@ -5,7 +6,7 @@ import { CATEGORIES } from "../data/defaults.js";
 // 외식·배달 category ID, not a new category to be created during conversion.
 const LEGACY_DELIVERY = "delivery";
 const DINING = "dining";
-export const PRODUCT_VERSION = 3;
+export const PRODUCT_VERSION = 4;
 
 function mergeCategoryBudgets(budgets) {
   if (!budgets || !Object.hasOwn(budgets, LEGACY_DELIVERY)) return;
@@ -49,6 +50,7 @@ export function migrate(state) {
   for (const override of Object.values(state.settings.monthOverrides || {}))
     mergeCategoryBudgets(override.categoryBudgets);
 
+  ensureControl(state);
   state.productVersion = PRODUCT_VERSION;
   return state;
 }

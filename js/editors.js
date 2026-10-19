@@ -63,12 +63,11 @@ export function editTransaction(app, id, { paymentFirst = false } = {}) {
     );
     return;
   }
-  const body = `<div class="form-grid editor-primary">${field("사용처", "merchantRaw", tx.merchantRaw, "text", 'required maxlength="300"')}${field("금액", "amount", tx.amount, "number", "required")}${field("날짜와 시간", "datetime", tx.datetime.slice(0, 16), "datetime-local", "required")}${select("카테고리", "category", categoryOptions(state), tx.category)}${paymentFirst ? field("카드·계좌 (변경 가능)", "paymentMethod", tx.paymentMethod, "text", 'required maxlength="100"') : ""}</div> <details class="advanced editor-advanced"><summary>사용자 · 결제 · 고급 설정</summary><div class="form-grid">${select(
-    "사용자",
-    "owner",
-    ["p1", "p2", "joint"].map((p) => [p, memberName(p, state)]),
-    tx.owner,
-  )}${paymentFirst ? "" : field("결제수단", "paymentMethod", tx.paymentMethod, "text", 'required maxlength="100"')}${select("거래 유형", "direction", Object.entries(DIRECTIONS), tx.direction)}${select("사용 범위", "scope", scopeOptions(state), tx.scope)}${select("카드 실적인정", "performanceStatus", Object.entries(PERFORMANCE), tx.performanceStatus)}${select("고정·반복비 연결", "recurringId", [["", "연결하지 않음"], ...state.recurring.map((r) => [r.id, r.name])], tx.recurringId)}${field("귀속 운영월", "operatingMonth", tx.operatingMonth || "", "month")}${select(
+  if (tx.duplicateOf) {
+    openDialog('중복으로 제외한 입금',`<p>${e(tx.merchantRaw)} · ${won(tx.amount)}</p><p>원본은 보존되어 있어요.</p><button type="button" class="btn secondary" data-action="control-restore-income" data-id="${e(tx.id)}">별개의 입금으로 복원</button>`);
+    return;
+  }
+  const body = `<div class="form-grid editor-primary">${select("거래 유형", "direction", Object.entries(DIRECTIONS), tx.direction)}${select("누가", "owner", ["p1","p2","joint"].map(p=>[p,memberName(p,state)]),tx.owner)}${field("어떻게", "paymentMethod", tx.paymentMethod, "text", 'required maxlength="100"')}${field("사용처", "merchantRaw", tx.merchantRaw, "text", 'required maxlength="300"')}${field("금액", "amount", tx.amount, "number", "required")}${field("날짜와 시간", "datetime", tx.datetime.slice(0, 16), "datetime-local", "required")}</div> <details class="advanced editor-advanced"><summary>사용자 · 결제 · 고급 설정</summary><div class="form-grid">${select("카테고리", "category", categoryOptions(state), tx.category)}${select("사용 범위", "scope", scopeOptions(state), tx.scope)}${select("카드 실적인정", "performanceStatus", Object.entries(PERFORMANCE), tx.performanceStatus)}${select("고정·반복비 연결", "recurringId", [["", "연결하지 않음"], ...state.recurring.map((r) => [r.id, r.name])], tx.recurringId)}${field("귀속 운영월", "operatingMonth", tx.operatingMonth || "", "month")}${select(
     "지출 성격",
     "costKind",
     [
@@ -78,7 +77,7 @@ export function editTransaction(app, id, { paymentFirst = false } = {}) {
     ],
     tx.costKind ||
       (tx.scope === "fixed" || tx.recurringId ? "fixed" : "variable"),
-  )}${field("결제경로", "paymentChannel", tx.paymentChannel || "", "text", 'maxlength="100"')}${field("메모", "note", tx.note, "text", 'maxlength="1000"')}</div></details>${paymentFirst ? '<p class="instrument-edit-help">결제수단을 바꾸면 해당 카드·계좌의 거래목록에서도 이동해. 은행에 연결된 거래는 연결을 다시 확인해야 할 수 있어.</p>' : ""}${existing ? `<div class="editor-secondary">${!tx.parentId ? `<button class="btn secondary" type="button" data-split="${e(tx.id)}">거래 분할</button>` : '<span class="small muted">분할된 내역이에요</span>'}<button class="btn danger-text" type="button" data-delete-transaction="${e(tx.id)}">휴지통으로 이동</button></div>` : ""}`;
+  )}${field("결제경로", "paymentChannel", tx.paymentChannel || "", "text", 'maxlength="100"')}${field("할부개월 (일시불 1)", "installments", tx.installments || 1, "number", 'min="1" max="120"')}${field("청구월 직접 지정", "billingMonth", tx.billingMonth || "", "month")}${field("메모", "note", tx.note, "text", 'maxlength="1000"')}</div></details>${paymentFirst ? '<p class="instrument-edit-help">결제수단을 바꾸면 해당 카드·계좌의 거래목록에서도 이동해. 은행에 연결된 거래는 연결을 다시 확인해야 할 수 있어.</p>' : ""}${existing ? `<div class="editor-secondary">${!tx.parentId ? `<button class="btn secondary" type="button" data-split="${e(tx.id)}">거래 분할</button>` : '<span class="small muted">분할된 내역이에요</span>'}<button class="btn danger-text" type="button" data-delete-transaction="${e(tx.id)}">휴지통으로 이동</button></div>` : ""}`;
   openDialog(existing ? "내역 수정" : "내역 직접 입력", body, async (form) => {
     const datetime = String(form.get("datetime"));
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(datetime))
@@ -94,6 +93,8 @@ export function editTransaction(app, id, { paymentFirst = false } = {}) {
       date: datetime.slice(0, 10),
       datetime: datetime + ":00",
       direction,
+      installments: Number(form.get("installments") || 1),
+      billingMonth: String(form.get("billingMonth") || ""),
       operatingMonth: String(form.get("operatingMonth") || "") || null,
       costKind: scope === "fixed" ? "fixed" : String(form.get("costKind")),
       paymentChannel: String(form.get("paymentChannel") || ""),
@@ -117,6 +118,7 @@ export function editTransaction(app, id, { paymentFirst = false } = {}) {
     next = matchRecurring(next, state.recurring);
     await app.update((s) => {
       const index = s.transactions.findIndex((t) => t.id === next.id);
+      if (existing && JSON.stringify(s.transactions[index]) !== JSON.stringify(existing)) throw Error("다른 기기에서 거래가 바뀌었어요. 다시 열어 주세요.");
       if (index < 0) s.transactions.push(next);
       else s.transactions[index] = next;
       const shouldLearn =

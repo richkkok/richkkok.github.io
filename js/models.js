@@ -1,3 +1,4 @@
+import { validateControl } from "./control.js";
 import { validateIncomeSchedules } from "./income-schedule.js";
 import { validateCash } from "./cash.js";
 import { validatePaymentProfiles } from "./payment-channels.js";
@@ -180,6 +181,7 @@ export function validateState(input) {
         throw Error('결제수단 이전 이름과 새 이름을 확인해 줘.');
   }
   validateCash(state);
+  validateControl(state);
   return state;
 }
 export function splitTransaction(tx, parts) {

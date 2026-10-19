@@ -9,7 +9,7 @@ export const validCashTime = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T(
 export const cashTime = v => String(v || '').length === 16 ? v + ':00' : String(v || '');
 const money = n => Number.isSafeInteger(n) && n >= 0 && n <= 1e12;
 export function ensureCash(s) { s.cashAccounts ??= []; s.cashChecks ??= []; s.cashLinks ??= []; return s; }
-export function cashRoots(s) { return s.transactions.filter(t => !t.deletedAt && !t.parentId); }
+export function cashRoots(s) { return s.transactions.filter(t => !t.deletedAt && !t.duplicateOf && !t.parentId); }
 export const cashFingerprint = t => JSON.stringify([t.id, t.date, t.datetime, t.amount, t.direction, t.paymentMethod, t.owner]);
 export function cashHidden(t, s) {
   return !!s.settings.privacy && (["p1", "p2"].includes(t.scope) || (t.splitParent && s.transactions.some(c => c.parentId === t.id && ["p1", "p2"].includes(c.scope))));

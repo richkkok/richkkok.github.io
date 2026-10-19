@@ -9,7 +9,6 @@ const executablePath = [
   "/usr/bin/google-chrome-stable",
   "/usr/bin/chromium",
 ].find((path) => fs.existsSync(path));
-assert.ok(executablePath, "Chromium / Chrome executable is required");
 const server = spawn(process.execPath, ["scripts/serve.cjs"], {
   env: { ...process.env, PORT: "4181" },
   stdio: "inherit",
@@ -48,7 +47,7 @@ try {
     r.close();
   });
   await page.reload({ waitUntil: "networkidle" });
-  await page.waitForSelector(".focus-board");
+  await page.waitForSelector(".control-home");
   const read = () =>
     page.evaluate(async () => {
       const { Repository } = await import("./js/db.js");
@@ -68,7 +67,7 @@ try {
   for (const [width, height] of viewports) {
     await page.setViewportSize({ width, height });
     await page.goto("http://127.0.0.1:4181/#home", { waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".focus-board");
+    await page.waitForSelector(".control-home");
     const shell = await page.evaluate(() => {
       const nav = document.querySelector("#navigation");
       const sidebar = document.querySelector(".sidebar");
@@ -81,7 +80,7 @@ try {
         sidebarTop: Math.round(sidebar.getBoundingClientRect().top),
       };
     });
-    assert.equal(shell.count, 5, "All main navigation routes remain present");
+    assert.equal(shell.count, 4, "All main navigation routes remain present");
     assert.ok(shell.pageWidth <= width + 1, JSON.stringify({ width, shell }));
     if (width <= 700) {
       assert.ok(shell.navTop > height / 2, "Bottom navigation must stay at screen bottom");
@@ -172,7 +171,7 @@ try {
   assert.deepEqual(await read(), original, "Opening and cancelling form must never mutate money");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("http://127.0.0.1:4181/#home");
-  await page.waitForSelector(".focus-board");
+  await page.waitForSelector(".control-home");
   await page.locator(".import-entry[data-action=quick-expense]").click();
   await page.locator("#dialog [name=amount]").fill("12340");
   await page.locator("#dialog [name=merchant]").fill("QA 반응형마트");

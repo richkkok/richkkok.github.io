@@ -126,11 +126,14 @@ export async function moneyAction(app, action, target) {
             !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || !amount || !merchant)
           throw Error("입금일·금액·귀속월을 확인해 줘.");
         const existing = findDuplicateIncome(app.state, {date, amount, owner, merchant});
-        if (existing)
-          throw Error(`기존 입금이 있어 (${existing.date}, ${won(existing.amount)}). 위 ‘기존 입금 조회’에서 귀속월을 확인해 줘.`);
+        if (existing && !form.get('separate')) {
+          const body=document.querySelector('#dialog .dialog-body');
+          if (!body.querySelector('[name=separate]')) body.insertAdjacentHTML('beforeend','<label class="check-field"><input name="separate" type="checkbox">기존 기록과 별개의 실제 입금이에요.</label>');
+          throw Error('같은 금액의 입금이 있어요. 기존 내역을 확인하거나 별개의 입금임을 확인해 주세요.');
+        }
         const id = uid(), stamp = new Date().toISOString();
         await app.update(st => {
-          if (findDuplicateIncome(st, {date, amount, owner, merchant}))
+          if (findDuplicateIncome(st, {date, amount, owner, merchant}) && !form.get("separate"))
             throw Error("이미 등록된 입금이야. 기존 입금을 조회해 줘.");
           st.transactions.push({
             id, sourceId: id, date, datetime: date + "T12:00:00",

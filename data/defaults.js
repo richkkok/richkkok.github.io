@@ -33,6 +33,7 @@ export const CATEGORIES = [
   ["finance", "금융·보험", "shield"],
   ["subscription", "통신·구독", "phone"],
   ["other", "기타", "dots"],
+  ["salary", "급여", "wallet"],
 ].map(([id, name, icon]) => ({ id, name, icon, archived: false }));
 export function emptyState() {
   return {

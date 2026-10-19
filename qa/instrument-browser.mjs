@@ -4,7 +4,6 @@ import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const executablePath = ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium"].find(p => fs.existsSync(p));
-assert.ok(executablePath);
 const server = spawn(process.execPath, ["scripts/serve.cjs"], {env:{...process.env,PORT:"4178"},stdio:"inherit"});
 let browser;
 try {

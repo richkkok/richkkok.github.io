@@ -6,7 +6,7 @@ import { budgetIncomeValue } from "./import/normalize.js";
 export const activeTransactions = (state, month) =>
   state.transactions.filter(
     (t) =>
-      !t.deletedAt &&
+      !t.deletedAt && !t.duplicateOf &&
       !t.splitParent &&
       inPeriod(t, state, month) &&
       !t.excluded &&

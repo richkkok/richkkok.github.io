@@ -6,7 +6,6 @@ import { pathToFileURL } from 'node:url';
 const {chromium} = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const executablePath=['/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium']
   .find(p=>fs.existsSync(p));
-assert.ok(executablePath,'Chrome is required for browser regression');
 const server=spawn(process.execPath,['scripts/serve.cjs'],{env:{...process.env,PORT:'4189'},stdio:'inherit'});
 let browser;
 try {
@@ -125,7 +124,7 @@ try {
   assert.equal(await page.locator('.instrument-directory-name strong').filter({hasText:'태영 신한카드'}).count(),1);
   assert.equal(await page.locator('.instrument-directory-name strong').filter({hasText:'태영 생활비 계좌'}).count(),1);
   await page.goto('http://127.0.0.1:4189/#home');
-  await page.locator('.focus-quick [data-action=quick-expense]').click();
+  await page.locator('.control-entry [data-action=add-transaction]').click();
   assert.equal(await page.locator('#dialog [name=paymentMethod]').inputValue(),'태영 신한카드');
   await page.locator('#dialog [data-close]').first().click();
   // All UI and latest settings must survive reload without disturbing history.

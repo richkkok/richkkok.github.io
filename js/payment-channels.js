@@ -57,6 +57,8 @@ export function validatePaymentProfiles(state) {
       throw Error("카드 식별코드를 확인해 줘. 카드번호 전체는 저장할 수 없어.");
     if (p.owner !== undefined && !["", "p1", "p2", "joint"].includes(p.owner))
       throw Error("카드 사용자 구분을 확인해 줘.");
+    if (p.holidayPolicy && !['none','next','previous'].includes(p.holidayPolicy)) throw Error('휴일 처리 방식을 확인해 주세요.');
+    if (p.holidays && (!Array.isArray(p.holidays) || p.holidays.some(d=>!/^\d{4}-\d{2}-\d{2}$/.test(d)))) throw Error('휴일은 YYYY-MM-DD 형식으로 입력해 주세요.');
     const hasDates = p.closingDay != null || p.paymentDay != null;
     if (hasDates && (p.kind !== 'credit' ||
         !Number.isInteger(p.closingDay) || p.closingDay < 1 || p.closingDay > 31 ||
@@ -85,13 +87,23 @@ export function savePaymentProfile(state, name, kind, closingDay = null, payment
   const before = state.settings.paymentProfiles?.[key];
   if (expected !== undefined && JSON.stringify(before) !== JSON.stringify(expected))
     throw Error('다른 기기에서 카드 설정이 변경됐어. 다시 열어서 확인해 줘.');
-  const profile = { name: trimmed, kind };
+  const profile = { ...before, name: trimmed, kind };
+  if (kind !== "credit") { delete profile.closingDay; delete profile.paymentDay; delete profile.lagMonths; }
   const identity = metadata === undefined ? before?.identifier : metadata.identifier;
   const owner = metadata === undefined ? before?.owner : metadata.owner;
   if (identity) profile.identifier = String(identity);
   if (owner) profile.owner = String(owner);
   if (kind === 'credit' && daysPresent)
     Object.assign(profile, { closingDay, paymentDay, lagMonths });
+  if (metadata) {
+    profile.accountId = metadata.accountId || '';
+    profile.holidayPolicy = metadata.holidayPolicy || 'none';
+    profile.holidays = metadata.holidays || [];
+    const effective = metadata.effective || new Date().toISOString().slice(0,10);
+    if (before?.closingDay && JSON.stringify([before.closingDay,before.paymentDay,before.lagMonths,before.holidayPolicy,before.holidays]) !== JSON.stringify([profile.closingDay,profile.paymentDay,profile.lagMonths,profile.holidayPolicy,profile.holidays])) {
+      profile.billingHistory = [...(before.billingHistory || [{effective:'0001-01-01',closingDay:before.closingDay,paymentDay:before.paymentDay,lagMonths:before.lagMonths,holidayPolicy:before.holidayPolicy,holidays:before.holidays}]),{effective,closingDay:profile.closingDay,paymentDay:profile.paymentDay,lagMonths:profile.lagMonths,holidayPolicy:profile.holidayPolicy,holidays:profile.holidays}];
+    }
+  }
   const next = { ...state.settings.paymentProfiles, [key]: profile };
   validatePaymentProfiles({ settings: { paymentProfiles: next } });
   state.settings.paymentProfiles = next;

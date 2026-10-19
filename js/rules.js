@@ -30,6 +30,7 @@ export function classify(tx, rules = []) {
       ruleId: rule.id,
     };
   const text = keyText(tx.merchantNormalized);
+  if (tx.direction === 'income' && /급여|월급|상여|salary|payroll/.test(text)) return {...tx,category:'salary',ruleId:'default-income'};
   const base = merchantRules.find((r) =>
     r.words.some((w) => text.includes(keyText(w))),
   );
