@@ -6,7 +6,7 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: richkkok-quality-${{ github.ref }}
   cancel-in-progress: true
@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -52,6 +54,16 @@ jobs:
           path: qa-results
           retention-days: 7
       - run: pnpm run build
+      - name: Generate matching offline cache on same-repo verification branch
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          if ! git diff --quiet -- sw.js; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add sw.js
+            git commit -m "build: refresh verified offline cache"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
       - name: Verify committed offline release matches source
         run: git diff --exit-code -- sw.js
       - uses: actions/upload-artifact@v4
