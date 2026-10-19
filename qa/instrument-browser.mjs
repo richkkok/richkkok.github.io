@@ -50,6 +50,7 @@ try {
   await page.locator("#dialog [name=checked]").check();
   await page.locator("#dialog [type=submit]").click();
   assert.equal(await page.locator("#dialog[open]").count(),1);
+  await page.locator("#dialog .form-error").filter({hasText:/같은 날/}).waitFor({state:"visible"});
   assert.match(await page.locator("#dialog .form-error").innerText(),/같은 날/);
   await page.locator("#dialog [name=allowDuplicate]").check();await submit();
   d=await read();assert.equal(d.s.transactions.length,2);
@@ -82,6 +83,7 @@ try {
   await page.locator("#dialog [name=checked]").check();
   await page.locator("#dialog [type=submit]").click();
   assert.equal(await page.locator("#dialog[open]").count(),1);
+  await page.locator("#dialog .form-error").filter({hasText:/같은 날/}).waitFor({state:"visible"});
   assert.match(await page.locator("#dialog .form-error").innerText(),/같은 날/);
   await page.locator("#dialog [data-close]").first().click();
   d=await read();assert.equal(d.s.transactions.length,4);assert.equal(d.cash.expected,1025000);
