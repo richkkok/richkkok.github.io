@@ -158,7 +158,7 @@ export function cardDueForOperatingMonth(state, month, asOf) {
   const cards = cardBillingSummary(state, asOf);
   const payments = [];
   const missingProfiles = [];
-  let dueTotal = 0, addedToLimit = 0, dueFixed = 0, dueExcluded = 0;
+  let dueTotal = 0, addedToLimit = 0, settlementVariable = 0, dueFixed = 0, dueExcluded = 0;
   const rowsByMethod = new Map();
   for (const t of state.transactions) {
     if (t.deletedAt || t.splitParent || !['expense', 'refund'].includes(t.direction) || t.date > asOf)
@@ -206,27 +206,31 @@ export function cardDueForOperatingMonth(state, month, asOf) {
       // Refunds and fixed/excluded charges can offset a statement. Do not
       // reserve more extra variable spending than the full payable statement.
       const additional = Math.min(paymentAmount, Math.max(0, priorVariable));
-      if (![gross, fixed, excluded, variable, alreadyCounted, paymentAmount, additional]
+      // Settlement view recognizes variable purchases in the period their card bill is payable.
+      // Exclude fixed/excluded charges and never charge above the net card bill.
+      const variableForLimit = Math.min(paymentAmount, Math.max(0, variable));
+      if (![gross, fixed, excluded, variable, alreadyCounted, paymentAmount, additional, variableForLimit]
           .every(Number.isSafeInteger)) throw Error('카드별 청구예상 계산 금액이 너무 커.');
       dueTotal += paymentAmount;
       dueFixed += fixed;
       dueExcluded += excluded;
       addedToLimit += additional;
+      settlementVariable += variableForLimit;
       payments.push({
         name: card.name, paymentDate: window.payment, start: window.start, end: window.end,
         estimatedAmount: paymentAmount, statementNet: gross, fixedAmount: fixed,
         excludedAmount: excluded, variableAmount: variable, alreadyCounted,
-        additional, recordCount, incomplete: window.end > asOf,
+        additional, variableForLimit, recordCount, incomplete: window.end > asOf,
         pastDue: window.payment < asOf,
       });
     }
   }
   payments.sort((a, b) => a.paymentDate.localeCompare(b.paymentDate) ||
     a.name.localeCompare(b.name, 'ko'));
-  if (![dueTotal, addedToLimit, dueFixed, dueExcluded].every(Number.isSafeInteger))
+  if (![dueTotal, addedToLimit, settlementVariable, dueFixed, dueExcluded].every(Number.isSafeInteger))
     throw Error('카드대금 합계가 안전한 계산 범위를 넘었어.');
   return {
-    cycle, payments, dueTotal, addedToLimit, dueFixed, dueExcluded,
+    cycle, payments, dueTotal, addedToLimit, settlementVariable, dueFixed, dueExcluded,
     missingProfiles: missingProfiles.sort((a, b) => a.localeCompare(b, 'ko')),
   };
 }
