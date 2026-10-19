@@ -60,7 +60,7 @@ try {
   await page.locator('[data-action="payment-settings"]').click();
   assert.match(await page.locator("#dialog h2").innerText(), /카드·계좌 이름 일괄 관리/);
   const key = "m:" + encodeURIComponent("M107");
-  assert.match(await page.locator('#dialog [data-action="instrument-review"][data-key="' + key + '"]').innerText(), /57건/);
+  assert.match(await page.locator('#dialog .payment-manage-row').filter({has: page.locator('[data-action="instrument-review"][data-key="' + key + '"]')}).innerText(), /57건/);
   assert.ok(await page.locator('#dialog [data-action="instrument-profile"][data-method="M107"]').isVisible());
   await page.locator('#dialog [data-action="instrument-review"][data-key="' + key + '"]').click();
   await page.waitForURL(/#cash$/);
