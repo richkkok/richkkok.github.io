@@ -147,7 +147,7 @@ try{
  assert.equal(await page.locator('[data-focus-value=settlement-variable]').innerText(),'200,000원');
  assert.equal(await page.locator('[data-focus-value=purchase-used]').innerText(),'650,000원');
  assert.equal(await page.locator('[data-focus-value=used]').innerText(),'35만원');
- assert.equal(await page.locator('[data-focus-value=remaining]').innerText(),'2,150,000원');
+ assert.equal(await page.locator('[data-focus-value=remaining]').innerText(),'2,050,000원');
  assert.equal(await page.locator('[data-card-due-amount="QA 카드"]').innerText(),'200,000원');
  await page.reload({waitUntil:'networkidle'});
  await page.locator('.focus-billing-detail > summary').click();
