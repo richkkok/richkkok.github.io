@@ -1,2 +1,27 @@
 .control-home{max-width:960px;margin:0 auto;display:grid;gap:28px;padding-bottom:28px}.control-summary{background:var(--surface,#fff);border:1px solid var(--line,#e7ebef);border-radius:20px;padding:28px}.control-summary header,.control-section>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.control-summary h1,.control-summary h2,.control-section h2{font-size:19px;margin:0}.control-summary>p{color:#64748b;font-size:14px;margin:12px 0}.control-ratio{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px;font-variant-numeric:tabular-nums}.control-ratio>strong{font-size:clamp(30px,5vw,44px);letter-spacing:-1.6px;color:#172839}.control-ratio>span{font-size:20px;color:#718092}.control-ratio b{font-weight:500}.control-meter{height:7px;background:#edf1f3;border-radius:8px;margin-top:22px;overflow:hidden}.control-meter i{display:block;height:100%;background:#277c6b;border-radius:8px}.is-over .control-meter i,.control-badge{background:#c7353c}.control-remaining{display:flex;justify-content:space-between}.control-warning,.control-warning strong,.is-over .control-remaining{color:#b62b32!important}.control-summary details{border-top:1px solid #edf0f3;padding-top:14px;margin-top:18px}.control-home summary,.control-section summary{cursor:pointer;font-size:14px;color:#536171;padding:6px 0}.control-section{max-width:960px;margin:0 auto;width:100%}.control-section>header{margin-bottom:12px}.control-list{border-top:1px solid #e2e8ed}.control-row{display:flex;align-items:center;justify-content:space-between;text-align:left;gap:16px;width:100%;padding:17px 5px;border:0;border-bottom:1px solid #e2e8ed;background:transparent;color:inherit;cursor:pointer;min-height:64px}.control-row>span{display:grid;gap:5px;min-width:0}.control-row>span:last-child{text-align:right;flex-shrink:0}.control-row strong{font-size:15px;overflow-wrap:anywhere}.control-row small{font-size:12px;color:#64748b}.control-row b{font-size:16px;font-variant-numeric:tabular-nums}.control-row:hover{background:#f4f8f7}.control-badge{border-radius:999px;color:white;min-width:22px;height:22px;font-size:12px;display:inline-flex;justify-content:center;align-items:center;padding:0 6px;font-style:normal}.nav-item .control-badge{position:absolute;top:2px;right:15%;min-width:19px;height:19px;font-size:11px}.nav-item{position:relative}.control-alerts{display:grid;gap:5px}.control-alert.btn{color:#a52a31;background:#fff6f6;border:0;text-align:left;justify-content:flex-start;min-height:44px;border-radius:8px;white-space:normal}.control-entry,.control-bill-actions{display:flex;flex-wrap:wrap;gap:10px}.control-entry .primary{flex:1}.control-calculation p{display:flex;justify-content:space-between;gap:15px}.control-entry-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.control-entry-fields .field{min-width:0}.control-alert-trigger{margin:10px 0}.nav{grid-template-columns:repeat(4,1fr)}#navigation{grid-template-columns:repeat(4,1fr)}.control-settings-details{margin-top:20px}.control-settings-details>summary{font-size:16px;padding:15px 0;cursor:pointer}.control-fixed-actual{display:flex;justify-content:space-between;gap:10px;margin:8px 0 16px}.control-home :focus-visible,.control-section :focus-visible{outline:2px solid #337e73!important;outline-offset:3px}
 @media(max-width:600px){.control-home{gap:24px}.control-summary{padding:20px 17px;border-radius:16px}.control-ratio>strong{font-size:31px;letter-spacing:-1px}.control-ratio>span{font-size:17px}.control-section h2{font-size:18px}.control-row{gap:10px}.control-row small{max-width:190px}.control-entry-fields{grid-template-columns:1fr}.control-entry .btn{min-height:48px}.dialog-body input,.dialog-body select{font-size:16px}.dialog-body{scroll-padding-bottom:80px}.control-summary header .btn{padding-right:0}.control-home .control-entry{position:static}}
+
+/* A single compact type/date/time row prevents the tablet and desktop
+   quick-entry dialog from growing beyond the viewport. Keep all three
+   controls visible and editable rather than hiding them to pass QA. */
+@media (min-width:701px) {
+  .dialog-expense-entry .dialog-header { padding: 12px 20px; }
+  .dialog-expense-entry .dialog-body { padding: 14px 20px 18px; }
+  .dialog-expense-entry .dialog-footer { padding: 12px 20px; }
+  .dialog-expense-entry .control-entry-fields {
+    grid-template-columns: minmax(0,1fr) minmax(0,1.25fr) minmax(0,.82fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .dialog-expense-entry .control-entry-fields .field {
+    min-width: 0;
+    margin-bottom: 0;
+    gap: 6px;
+  }
+  .dialog-expense-entry .control-entry-fields .field input,
+  .dialog-expense-entry .control-entry-fields .field select {
+    min-width: 0;
+    min-height: 42px;
+    padding: 8px 10px;
+  }
+}
