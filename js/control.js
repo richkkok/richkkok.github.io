@@ -189,6 +189,7 @@ export function controlOverview(s,month,asOf=today()) {
   const fixed=rows.filter(t=>costKind(t)==='fixed').reduce((n,t)=>n+expenseValue(t),0);
   const plan=planFor(s,month), limit=limitFor(s,month,plan);
   const fixedItems=fixedRows(s,month,asOf), duplicates=duplicateIncomes(s);
+  const fixedPlanned=fixedItems.reduce((sum,row)=>sum+row.amount,0);
   const alerts=[];
   if (asOf>=p.start && asOf<=p.end) {
     const d=dayStatus(s,asOf);
@@ -198,8 +199,8 @@ export function controlOverview(s,month,asOf=today()) {
   for (const b of due) if (b.status==='mismatch') alerts.push({id:'bill:'+b.id,menu:'cash',label:b.name+' · 청구·출금액 차이',action:'control-bill',key:b.id});
   for (const d of duplicates) alerts.push({id:'income:'+d.id,menu:'transactions',label:'중복 의심 입금 확인',action:'control-duplicate',key:d.id});
   for (const t of rows) if (classification(t,s).pending) alerts.push({id:'category:'+t.id,menu:'transactions',label:'거래 분류 확인',action:'money-review',key:t.id});
-  if (![income,variable,fixed,limit].every(Number.isSafeInteger)) throw Error('합계 금액 범위를 확인해 주세요.');
-  return {p,income,variable,fixed,limit,remaining:limit-variable,free:income-fixed-variable,fixedItems,due,next,allBills,duplicates,alerts,
+  if (![income,variable,fixed,fixedPlanned,limit].every(Number.isSafeInteger)) throw Error('합계 금액 범위를 확인해 주세요.');
+  return {p,income,variable,fixed,fixedPlanned,limit,remaining:limit-variable,free:income-fixed-variable,fixedItems,due,next,allBills,duplicates,alerts,
     unconfigured:rows.filter(t=>paymentKind(s,t.paymentMethod,t.sourceType)==='credit' && !known.has(t.id) && ['expense','refund'].includes(t.direction))};
 }
 export function limitFor(s,month,plan=planFor(s,month)) {
