@@ -122,8 +122,8 @@ try {
   assert.equal(changed.s.settings.paymentAliases.bank107,'태영 생활비 계좌');
   await page.goto('http://127.0.0.1:4189/#cash');
   await page.waitForSelector('.instrument-panel');
-  assert.equal(await page.locator('[name=instrument-target] option').filter({hasText:'태영 신한카드'}).count(),1);
-  assert.equal(await page.locator('[name=instrument-target] option').filter({hasText:'태영 생활비 계좌'}).count(),1);
+  assert.equal(await page.locator('.instrument-directory-name strong').filter({hasText:'태영 신한카드'}).count(),1);
+  assert.equal(await page.locator('.instrument-directory-name strong').filter({hasText:'태영 생활비 계좌'}).count(),1);
   await page.goto('http://127.0.0.1:4189/#home');
   await page.locator('.focus-quick [data-action=quick-expense]').click();
   assert.equal(await page.locator('#dialog [name=paymentMethod]').inputValue(),'태영 신한카드');
