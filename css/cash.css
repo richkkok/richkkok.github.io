@@ -236,3 +236,14 @@
  .instrument-directory-history{min-width:51px;margin:6px 6px 6px 0;padding:7px 6px;font-size:.7rem}
 }
 @media print{.instrument-directory-history,.instrument-directory-edit-label{display:none}}
+
+
+/* Settings: grouped, readable card/account directory inside the management dialog. */
+.payment-manage-group{display:grid;gap:8px;min-width:0}
+.payment-manage-group h3{margin:5px 0 1px;font-size:.93rem;letter-spacing:-.02em;color:#1b4d70}
+.payment-manage-group h3 small{font-size:.72rem;color:#6a8194}
+.payment-manage-advanced{border:1px solid #e0eaf0;border-radius:10px;padding:0 12px;background:#fafcfe}
+.payment-manage-advanced summary{cursor:pointer;min-height:44px;padding:12px 0;font-size:.8rem;font-weight:700;color:#365f7a}
+.payment-manage-advanced .cash-small{margin:1px 0 10px}
+.payment-manage-advanced .btn{margin-bottom:12px}
+@media(max-width:700px){.payment-manage-group{gap:7px}.payment-manage-row .payment-manage-rename,.payment-manage-row .payment-manage-cleanup{width:calc(50% - 4px)}}
