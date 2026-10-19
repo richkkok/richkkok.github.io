@@ -29,12 +29,15 @@ try {
   const read=()=>page.evaluate(async()=>{const {Repository}=await import("./js/db.js"),{cashSummary}=await import("./js/cash.js");const r=new Repository(),s=await r.read();r.close();return {s,cash:cashSummary(s)};});
   const submit=async()=>{await page.locator("#dialog [type=submit]").click();await page.waitForTimeout(150);assert.equal(await page.locator("#dialog[open]").count(),0,await page.locator("#dialog").innerText());};
   assert.match(await page.locator(".instrument-picker h2").innerText(),/카드·계좌 선택/);
-  assert.equal(await page.locator(".instrument-picker-all select[name=instrument-target]").isVisible(),true);
+  assert.equal(await page.locator(".instrument-directory").isVisible(),true);
   assert.equal(await page.locator(".cash-admin").getAttribute("open"),null);
-  await page.locator(".instrument-choice[data-action=instrument-select]").first().click();
-  assert.equal(await page.locator(".instrument-choice[aria-pressed=true]").count(),1);
-  assert.equal(await page.locator('[name=instrument-target] option').count(),3);
-  await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent("우리카드"));
+  await page.locator(".instrument-directory-history[data-action=instrument-select]").first().click();
+  assert.equal(await page.locator(".instrument-directory-history[aria-pressed=true]").count(),1);
+  assert.equal(await page.locator(".instrument-directory-row").count(),3);
+  await page.locator('.instrument-directory-open[data-method="우리카드"]').click();
+  assert.equal(await page.locator("#dialog [name=closingDay]").isVisible(),true);
+  await page.locator("#dialog [data-close]").first().click();
+  await page.locator(`.instrument-directory-history[data-key="m:${encodeURIComponent("우리카드")}"]`).click();
   await page.locator('.instrument-panel [data-action="instrument-add"]').click();
   for(const [key,value] of [["merchant","QA 카드 구매"],["amount","7000"],["at",dates.card]])await page.locator("#dialog [name="+key+"]").fill(value);
   await page.locator("#dialog [name=category]").selectOption("groceries");
@@ -62,9 +65,9 @@ try {
   await page.locator(".instrument-advanced>summary").click();
   await page.locator('[name=instrument-owner]').selectOption("p2");assert.equal(await page.locator(".instrument-row").count(),0);
   await page.locator('[name=instrument-owner]').selectOption("");
-  await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent("신한카드"));
+  await page.locator(`.instrument-directory-history[data-key="m:${encodeURIComponent("신한카드")}"]`).click();
   assert.equal(await page.locator(".instrument-row").count(),0);
-  await page.locator('[name=instrument-target]').selectOption("a:qa-bank");
+  await page.locator('.instrument-directory-history[data-key="a:qa-bank"]').click();
   await page.locator('.instrument-panel [data-action="instrument-add"]').click();
   await page.locator("#dialog [name=kind]").selectOption("income");
   for(const [key,value] of [["merchant","QA 실제 입금"],["amount","25000"],["at",dates.bank]])await page.locator("#dialog [name="+key+"]").fill(value);
@@ -84,9 +87,9 @@ try {
   await page.locator("#dialog [data-close]").first().click();
   d=await read();assert.equal(d.s.transactions.length,4);assert.equal(d.cash.expected,1025000);
   // Return to the exact card, check persistence after refresh.
-  await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent("우리카드"));
+  await page.locator(`.instrument-directory-history[data-key="m:${encodeURIComponent("우리카드")}"]`).click();
   await page.reload({waitUntil:"networkidle"});
-  await page.locator('[name=instrument-target]').selectOption("m:"+encodeURIComponent("우리카드"));
+  await page.locator(`.instrument-directory-history[data-key="m:${encodeURIComponent("우리카드")}"]`).click();
   assert.equal(await page.locator(".instrument-row").count(),3);
   fs.mkdirSync("qa-results",{recursive:true});
   const layouts=[];
