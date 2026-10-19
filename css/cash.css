@@ -247,3 +247,5 @@
 .payment-manage-advanced .cash-small{margin:1px 0 10px}
 .payment-manage-advanced .btn{margin-bottom:12px}
 @media(max-width:700px){.payment-manage-group{gap:7px}.payment-manage-row .payment-manage-rename,.payment-manage-row .payment-manage-cleanup{width:calc(50% - 4px)}}
+
+.instrument-directory-hint{padding:8px 2px;color:#637b8e;font-size:.78rem;line-height:1.5;margin:0}
