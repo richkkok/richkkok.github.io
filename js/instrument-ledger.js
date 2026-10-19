@@ -131,8 +131,8 @@ const choiceButton = (label, action, key, extra = "") =>
 export function instrumentLedgerView(s, f = {}) {
   const choices = instrumentChoices(s);
   const cards = choices.filter(x => x.type === "method");
-  const selected = choices.find(x => x.key === f.instrument) || cards[0] ||
-    choices.find(x => x.type === "account" && !x.account?.archived) || choices[0];
+  // Keep the management screen uncluttered until the user explicitly opens history.
+  const selected = choices.find(x => x.key === f.instrument) || null;
   const viewing = { instrumentPeriod: "all", ...f };
   const data = instrumentRows(s, selected, viewing);
   const history = instrumentHistoryRows(s, selected, viewing);
@@ -246,9 +246,11 @@ export function instrumentLedgerView(s, f = {}) {
               e(selected.accountId) + '">잔액 확인</button>' : '') +
           '</div>' +
         '</div>' :
-        '<div class="instrument-picker-empty"><p>등록된 카드나 계좌가 없어. 먼저 카드 또는 계좌를 추가해 줘.</p>' +
-        '<button class="btn primary" type="button" data-action="instrument-method">카드 추가하기</button>' +
-        '<button class="btn secondary" type="button" data-action="cash-account">계좌 추가하기</button></div>') +
+        (choices.length
+          ? '<p class="instrument-directory-hint">거래내역은 각 카드·계좌 오른쪽의 내역 버튼을 눌러 확인할 수 있어.</p>'
+          : '<div class="instrument-picker-empty"><p>등록된 카드나 계좌가 없어. 먼저 카드 또는 계좌를 추가해 줘.</p>' +
+            '<button class="btn primary" type="button" data-action="instrument-method">카드 추가하기</button>' +
+            '<button class="btn secondary" type="button" data-action="cash-account">계좌 추가하기</button></div>')) +
     '</div>' +
     (selected ?
       '<div class="instrument-ledger-heading"><h3>선택한 카드·계좌의 전체 거래내역</h3><small>' +
