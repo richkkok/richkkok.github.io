@@ -1,6 +1,7 @@
 import { keyText } from './format.js';
 import { cashFingerprint, saveCashAccount } from './cash.js';
 import { daySignature } from './behavior.js';
+import { transactionBasis } from './control.js';
 
 const key = v => keyText(String(v || ''));
 const validName = name => typeof name === 'string' && !!name.trim() &&
@@ -111,6 +112,16 @@ function preserveClosedDaySignatures(state, map) {
 
 export function replacePaymentReferences(state, map) {
   if (!map.size) return { transactions: 0, recurring: 0, reconciliations: 0, links: 0, closedDays: 0 };
+  state.settings.instrumentIds ||= {};
+  for (const [oldKey,name] of map) {
+    const oldId=state.settings.instrumentIds[oldKey] || 'method:'+encodeURIComponent(oldKey);
+    const targetId=state.settings.instrumentIds[key(name)] || oldId;
+    state.settings.instrumentIds[key(name)]=targetId;
+    state.settings.instrumentIds[oldKey]=targetId;
+    for (const list of [state.cardSettlements,state.billAdjustments]) for (const r of list || []) {
+      if(r.instrumentId===oldId){r.instrumentId=targetId;r.billId=targetId+'|'+r.billId.split('|').at(-1);}
+    }
+  }
   const validClosedDays = preserveClosedDaySignatures(state,map);
   const changedBefore = new Map();
   const modifiedAt = new Date().toISOString();
@@ -119,7 +130,12 @@ export function replacePaymentReferences(state, map) {
     const name = map.get(key(t.paymentMethod));
     if (name === undefined || name === t.paymentMethod) continue;
     changedBefore.set(t.id, cashFingerprint(t));
+    const meta=state.transactionControl?.[t.id];
+    const snapshot=meta?.billingSnapshot;
+    const preserved=snapshot?.basis===transactionBasis(t);
     t.paymentMethod = name;
+    if(meta)meta.instrumentId=state.settings.instrumentIds[key(name)];
+    if(preserved)snapshot.basis=transactionBasis(t);
     t.updatedAt = modifiedAt;
     transactions++;
   }

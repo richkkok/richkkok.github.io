@@ -61,7 +61,7 @@ export function instrumentUsage(state, choice) {
     const reconciliations = (state.reconciliations || []).filter(r => names.has(key(r.payment)));
     const rules = (state.rules || []).filter(r => r.field === "payment" && names.has(key(r.pattern)));
     return { transactions: transactions.length, links: links.length, checks: checks.length,
-      recurring: recurring.length, reconciliations: reconciliations.length, rules: rules.length,
+      recurring: recurring.length + Object.values(state.settings.paymentProfiles || {}).filter(p=>p.accountId===account.id).length, reconciliations: reconciliations.length, rules: rules.length,
       initialBalance: account.openingBalance, reserved: account.reserved };
   }
   const id = key(choice.name);

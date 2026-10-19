@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 test-results/
+qa-results/
 *.private.json
 *.richkkok
 *.csv

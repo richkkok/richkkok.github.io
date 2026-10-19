@@ -1,3 +1,4 @@
+import { cardBills } from "./control.js";
 import { cashNow, cashTime, cashRows, cashRoots, cashHidden, cashConnection, validCashTime } from "./cash.js";
 import { escape as e, won, uid, amountInput, normalizeText, keyText } from "./format.js";
 import { period, periodKey, startDay, addDays } from "./period.js";
@@ -149,6 +150,9 @@ export function instrumentLedgerView(s, f = {}) {
   // Tapping each vertical list item opens its editor; a separate control selects history.
   const asOf = cashNow().slice(0, 10);
   const accounts = choices.filter(x => x.type === "account");
+  const allBills = cardBills(s, asOf);
+  const usageByMethod = new Map();
+  for (const t of s.transactions) if (!t.deletedAt && !t.splitParent && !t.duplicateOf && t.date.slice(0,7)===asOf.slice(0,7)) usageByMethod.set(keyText(t.paymentMethod),(usageByMethod.get(keyText(t.paymentMethod))||0)+(t.direction==='expense'?t.amount:t.direction==='refund'?-t.amount:0));
   const creditCards = cards.filter(x => paymentKind(s, x.name) === "credit");
   const otherMethods = cards.filter(x => paymentKind(s, x.name) !== "credit");
   const directoryGroup = (title, entries) => entries.length
@@ -171,7 +175,9 @@ export function instrumentLedgerView(s, f = {}) {
           (bank ? ' data-id="' + e(item.accountId) + '"' : ' data-method="' + e(item.name) + '"') +
           ' aria-label="' + e(item.name + ' 설정 열기') + '">' +
           '<span class="instrument-directory-name"><strong>' + e(item.name) + '</strong><small>' +
-          e(detail) + '</small></span><span class="instrument-directory-edit-label">설정 ›</span></button>' +
+          e(detail) + '</small><small>' + e((bank ? memberName(item.account.owner,s) : memberName(profile?.owner||'joint',s)) + ' · 이번 달 사용 ' + won(usageByMethod.get(keyText(bank ? item.account.paymentMethod : item.name))||0)) + '</small>' +
+          (allBills.find(b=>b.name===item.name && b.paymentDate>=asOf) ? '<small>다음 결제 예정 '+won(allBills.find(b=>b.name===item.name && b.paymentDate>=asOf).estimated)+'</small>' : '') +
+          '</span><span class="instrument-directory-edit-label">설정 ›</span></button>' +
           '<button type="button" class="instrument-directory-history" data-action="instrument-select" data-key="' +
           e(item.key) + '" aria-pressed="' + (selected?.key === item.key) +
           '" aria-label="' + e(item.name + ' 전체 거래내역 보기') + '">내역</button></div>';
@@ -345,12 +351,18 @@ function openPaymentProfileEditor(app, existingName = '') {
       field('결제 예정일 (매월 1~31일)', 'paymentDay', original?.paymentDay ?? '', 'number', 'min="1" max="31" placeholder="카드사에서 확인"') +
       select('마감월 기준 결제 예정월', 'lagMonths',
         [['0', '마감한 당월'], ['1', '다음 달'], ['2', '다다음 달']], String(original?.lagMonths ?? 1)) +
+      select('결제계좌','billingAccount',[['','선택하지 않음'],...(s.cashAccounts||[]).filter(a=>!a.archived).map(a=>[a.id,a.name])],original?.accountId||'') +
+      select('휴일 결제일 처리','holidayPolicy',[['none','조정 없음'],['next','다음 영업일'],['previous','이전 영업일']],original?.holidayPolicy||'none') +
+      field('추가 휴일 (쉼표로 구분)','holidays',(original?.holidays||[]).join(', '),'text','placeholder="2026-10-09, 2026-12-25"') +
+      field('변경 적용 시작일','billingEffective',cashNow().slice(0,10),'date','required') +
+      '<p class="small muted">이용 시작일은 이전 마감일의 다음 날이에요. 주말은 자동 조정하며 공휴일은 위 목록에 입력해 주세요. 이전에 저장한 거래의 청구월은 유지해요.</p>' +
     '</div>' +
     (existing ? '<div class="instrument-rename-preview"><strong>현재 이름: ' + e(name) + '</strong><p>전체 저장된 거래 ' + counts.transactions + '건' +
       (ownerPreview ? ' · ' + ownerPreview : '') + ' · 고정지출 ' + counts.recurring + '건</p>' +
       '<p>이름을 바꾸면 삭제 보관함을 포함한 과거 거래와 카드 청구설정·연결 정보까지 함께 바꿔. 거래 금액·날짜·소유자는 그대로 유지해.</p>' +
       '<label class="check-field"><input type="checkbox" name="bulkRenameConfirmed">기존 이름의 전체 내역을 새 이름으로 바꾸는 데 동의해</label></div>' : '') +
-    '<p class="cash-small">신용카드 이용·결제기간은 카드사 청구서에서 확인해 입력해 줘. 모르면 날짜를 비워 두어도 결제방식 구분은 저장돼. 표시된 결제일은 공휴일 조정·할부·할인 등이 반영되지 않은 예상일이야.</p>',
+    (existing ? '<button type="button" class="btn secondary" data-action="instrument-review" data-key="'+e(existing.key)+'">이 결제수단의 전체 거래 보기</button>' : '') +
+    '<p class="cash-small">신용카드 이용·결제기간은 카드사 청구서에서 확인해 입력해 줘. 모르면 날짜를 비워 두어도 결제방식 구분은 저장돼. 카드사 명세서와 차이가 나면 청구·납부에서 확인하고 조정해 주세요.</p>',
     async f => {
       const newName = String(f.get('methodName') || '').trim();
       const newKind = String(f.get('methodKind'));
@@ -375,7 +387,7 @@ function openPaymentProfileEditor(app, existingName = '') {
         if (renamed) result = renamePaymentMethod(st,name,newName,basis);
         const currentProfile = st.settings.paymentProfiles?.[keyText(newName)];
         savePaymentProfile(st,newName,newKind,closing,payment,lag,
-          existing ? currentProfile : undefined, { identifier, owner: identityOwner });
+          existing ? currentProfile : undefined, { identifier, owner: identityOwner, accountId:String(f.get('billingAccount')||''), holidayPolicy:String(f.get('holidayPolicy')||'none'), holidays:String(f.get('holidays')||'').split(',').map(x=>x.trim()).filter(Boolean), effective:String(f.get('billingEffective')) });
         merged = autoMergeCardCode(st,newName);
       });
       if (!existing || renamed || merged?.merged) {

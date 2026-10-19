@@ -6,7 +6,6 @@ import { emptyState } from "../data/defaults.js";
 
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const executablePath = ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium"].find(p => fs.existsSync(p));
-assert.ok(executablePath, "Browser executable required");
 const server = spawn(process.execPath, ["scripts/serve.cjs"], {env:{...process.env,PORT:"4179"},stdio:"inherit"});
 const token = "A".repeat(43);
 const household = {id:"qa-local-household",name:"QA 공동가계부",syncTopic:"qa-fake-channel"};
@@ -75,7 +74,7 @@ try {
   await page.locator("#dialog [name=displayName]").fill("QA 배우자");
   await page.locator("#dialog [type=submit]").click();
   try {
-    await page.waitForSelector(".focus-board", {timeout:12000});
+    await page.waitForSelector(".control-home", {timeout:12000});
   } catch (error) {
     console.error("INVITE QA DEBUG", JSON.stringify({
       actions: calls,
@@ -99,13 +98,11 @@ try {
   assert.equal(joined.connected,true);
   assert.equal(joined.previousConfigured,false);
   await page.reload({waitUntil:"networkidle"});
-  await page.waitForSelector(".focus-board");
+  await page.waitForSelector(".control-home");
   assert.match(await page.locator("#household-status").innerText(),/공동가계부 사용 중/);
   // Mobile header status is visually collapsed; the member list is reachable
   // through the existing More → Settings navigation instead.
-  await page.locator('#navigation [href="#more"]').click();
-  await page.waitForSelector(".focus-more");
-  await page.locator('[data-action="go-settings"]').click();
+  await page.locator('#navigation [href="#settings"]').click();
   await page.waitForSelector(".settings-simple-grid");
   await page.locator('.settings-simple-grid [data-action="cloud-members"]').click();
   await page.waitForSelector("#dialog .cloud-member-list");
@@ -115,7 +112,7 @@ try {
   const sizes=[];
   for (const width of [320,375,390,768,1024]) {
     await page.setViewportSize({width,height:900});
-    await page.goto("http://127.0.0.1:4179/#home");await page.waitForSelector(".focus-board");
+    await page.goto("http://127.0.0.1:4179/#home");await page.waitForSelector(".control-home");
     const m=await page.evaluate(()=>({width:document.documentElement.scrollWidth,viewport:innerWidth}));
     assert.ok(m.width<=m.viewport+1,JSON.stringify({width,...m}));sizes.push({width,...m});
   }

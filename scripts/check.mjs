@@ -92,7 +92,7 @@ assert.ok(appSource.includes('"공동가계부 사용 중"'));
 assert.ok(appSource.includes('"공동가계부 미사용"'));
 
 const focusCss = fs.readFileSync("css/app.css", "utf8");
-const responsiveCss = fs.readFileSync("css/responsive.css", "utf8");
+const responsiveCss = fs.readFileSync("css/responsive.css", "utf8").replaceAll("\r\n", "\n");
 assert.ok(!focusCss.includes("outline: 3px solid #2b86db"));
 assert.ok(!focusCss.includes("var(--focus-ring)"));
 assert.ok(!focusCss.includes("var(--focus-halo)"));

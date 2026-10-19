@@ -11,7 +11,7 @@ import { monthBudget, expenseValue, planFor } from "./budget.js";
 import { baselineAnalysis, dailyWeights } from "./baseline.js";
 
 export const liveExpense = (t) =>
-  !t.deletedAt &&
+  !t.deletedAt && !t.duplicateOf &&
   !t.splitParent &&
   !t.excluded &&
   t.scope !== "excluded" &&

@@ -26,24 +26,34 @@ jobs:
       - run: pnpm run check
       - run: pnpm test
       - name: Install isolated browser test driver
-        run: npm install --prefix "$RUNNER_TEMP/richkkok-browser" --no-audit --no-fund playwright@1.51.1
+        run: npm install --prefix "$RUNNER_TEMP/richkkok-browser" --no-audit --no-fund playwright@1.55.0
+      - name: Install isolated Chromium and WebKit
+        run: node "$RUNNER_TEMP/richkkok-browser/node_modules/playwright/cli.js" install --with-deps chromium webkit
       - name: Install Korean system font for visual verification
         run: sudo apt-get update -qq && sudo apt-get install -y fonts-noto-cjk
       - name: Browser regression (synthetic local data only)
         run: |
           node qa/rename-browser.mjs
           node qa/adaptive-entry-browser.mjs
-          node qa/money-browser.mjs
-          node qa/cash-browser.mjs
-          node qa/income-browser.mjs
-          node qa/income-reconcile-browser.mjs
-          node qa/focus-browser.mjs
+          node qa/control-browser.mjs
           node qa/instrument-browser.mjs
           node qa/instrument-history-browser.mjs
           node qa/instrument-cleanup-browser.mjs
           node qa/invite-browser.mjs
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/richkkok-browser/node_modules/playwright/index.mjs
+      - run: pnpm run build
+      - name: Verify committed offline release matches source
+        run: git diff --exit-code -- sw.js
+      - name: Verify deployed release with isolated synthetic data
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          node qa/wait-release.mjs
+          node qa/control-browser.mjs
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/richkkok-browser/node_modules/playwright/index.mjs
+          QA_URL: https://richkkok.github.io
+          QA_OUTPUT: qa-results/production
       - name: Save browser verification results
         if: always()
         uses: actions/upload-artifact@v4
@@ -51,9 +61,6 @@ jobs:
           name: browser-verification
           path: qa-results
           retention-days: 7
-      - run: pnpm run build
-      - name: Verify committed offline release matches source
-        run: git diff --exit-code -- sw.js
       - uses: actions/upload-artifact@v4
         with:
           name: validated-static-site

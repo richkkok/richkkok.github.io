@@ -278,7 +278,7 @@ export function matchRecurring(tx, items) {
         recurringId: matches[0].id,
         costKind: "fixed",
         scope: matches[0].scope || tx.scope,
-        category: matches[0].category || tx.category,
+        category: tx.categoryConfirmed ? tx.category : matches[0].category || tx.category,
       }
     : tx;
 }
@@ -316,8 +316,8 @@ export function recurringLedger(state, month, transactions) {
     return {
       ...r,
       actual,
-      outstanding: Math.max(0, r.amount - actual),
-      paid: actual >= r.amount,
+      outstanding: (state.fixedPayments || []).some(x=>x.id===r.id+'|'+r.date && x.amount===actual) ? 0 : Math.max(0, r.amount - actual),
+      paid: actual >= r.amount || (state.fixedPayments || []).some(x=>x.id===r.id+'|'+r.date && x.amount===actual),
     };
   });
 }

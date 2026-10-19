@@ -80,7 +80,7 @@ export class Repository {
           if (current.productVersion !== PRODUCT_VERSION)
             store.put(
               structuredClone(current),
-              current.productVersion === 2 ? "pre-v3-backup" : "pre-v2-backup",
+              current.productVersion >= 3 ? "pre-v4-backup" : current.productVersion === 2 ? "pre-v3-backup" : "pre-v2-backup",
             );
           migrate(current);
           next = change(current) || current;
