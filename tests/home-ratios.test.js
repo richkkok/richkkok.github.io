@@ -155,7 +155,7 @@ test("consumption ratio uses spent/limit and preserves exact remaining display a
   assert.equal(value(document, "remaining"), "1,500,000원");
   assert.equal(document.querySelectorAll(".focus-board > .focus-card").length, 3);
   assert.deepEqual(s, before, "Rendering must never mutate actual transactions or planning state");
-  assert.match(document.querySelector(".focus-budget .focus-ratio").getAttribute("aria-label"), /소비액과 이번 기간 카드대금 추가반영 합계 1,000,000원.*2,500,000원/);
+  assert.match(document.querySelector(".focus-budget .focus-ratio").getAttribute("aria-label"), /이번 결산기간 변동지출 합계 1,000,000원.*2,500,000원/);
 });
 
 test("unmeasured cash displays missing data, never zero or planned salary as a balance", () => {
