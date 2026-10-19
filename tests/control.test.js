@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { IDBFactory } from 'fake-indexeddb';
 import { emptyState } from '../data/defaults.js';
+import { controlView } from '../js/control-ui.js';
 import { Repository } from '../js/db.js';
 import { ensureControl, controlOverview, cardCharges, cardBills, settleBill, confirmFixed, fixedRows, duplicateIncomes, resolveIncome, saveLimit, adjustedDate, validateControl } from '../js/control.js';
 import { savePaymentProfile } from '../js/payment-channels.js';
@@ -88,4 +89,30 @@ test('청구일 변경 후 카드 이름을 바꿔도 과거 청구일 유지',(
 test('급여는 자동 분류하고 사용자 규칙은 급여 기본 규칙보다 우선',()=>{
  assert.equal(classify({direction:'income',merchantNormalized:'회사 급여'}).category,'salary');
  assert.equal(classify({direction:'income',merchantNormalized:'회사 급여'},[{id:'custom',field:'merchant',match:'exact',pattern:'회사 급여',category:'other'}]).category,'other');
+});
+
+test('현황의 여유자금·고정지출 금액과 진행 막대가 월별 실제 합계를 사용',()=>{
+ const s=setup();s.recurring=[{id:'insurance',name:'보험',amount:1900000,day:20,category:'finance',start:'2026-01-01',changes:[]}];
+ s.transactions=[tx('salary',6500000,'2026-10-10',{direction:'income',paymentMethod:'은행',merchantRaw:'급여'}),tx('fixed',1500000,'2026-10-15',{scope:'fixed',costKind:'fixed',recurringId:'insurance',paymentMethod:'은행'}),tx('variable',1200000,'2026-10-01')];
+ ensureControl(s);
+ const o=controlOverview(s,'2026-10','2026-10-19');
+ assert.equal(o.fixed,1500000);assert.equal(o.fixedPlanned,1900000);assert.equal(o.free,3800000);
+ const html=controlView(s,'2026-10',o);
+ assert.match(html,/data-control-value="fixedPaid">1,500,000원/);
+ assert.match(html,/data-control-value="fixedPlanned">1,900,000원/);
+ assert.match(html,/aria-label="월 고정지출 납부 진행률"[^>]*aria-valuenow="79"/);
+ assert.match(html,/aria-label="여유자금 잔여 비율"[^>]*aria-valuenow="58"/);
+ assert.match(html,/aria-label="소비한도 사용률"[^>]*aria-valuenow="48"/);
+});
+test('0원 기준값·고정비 초과·음수 여유자금의 진행 막대가 안전하게 표시',()=>{
+ const s=setup();let html=controlView(s,'2026-10',controlOverview(s,'2026-10','2026-10-19'));
+ assert.match(html,/data-control-value="fixedPaid">0원/);
+ assert.match(html,/data-control-value="fixedPlanned">0원/);
+ assert.match(html,/aria-label="월 고정지출 납부 진행률"[^>]*aria-valuenow="0"/);
+ s.transactions=[tx('fixed',200,'2026-10-01',{scope:'fixed',costKind:'fixed',paymentMethod:'은행'})];ensureControl(s);
+ const o=controlOverview(s,'2026-10','2026-10-19');html=controlView(s,'2026-10',o);
+ assert.equal(o.free,-200);
+ assert.match(html,/aria-label="월 고정지출 납부 진행률"[^>]*aria-valuenow="100"/);
+ assert.match(html,/aria-label="여유자금 잔여 비율"[^>]*aria-valuenow="0"/);
+ assert.doesNotMatch(html,/width:(?:NaN|Infinity)%/);
 });
