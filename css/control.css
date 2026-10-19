@@ -25,3 +25,9 @@
     padding: 8px 10px;
   }
 }
+
+/* The fixed-spend status shares the spending-limit card and meter styling. */
+.control-fixed-summary>.control-list{margin-top:20px}
+.control-fixed-summary>.btn{margin-top:12px}
+.control-summary.is-over .control-ratio>strong{color:#b62b32}
+.control-summary.is-over .control-meter{background:#fde7e9}
