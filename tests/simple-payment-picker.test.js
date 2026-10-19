@@ -33,13 +33,14 @@ test("cards and accounts can be chosen immediately, without expanding any hidden
   const document = doc(html);
   assert.ok(document.querySelector(".instrument-picker"));
   assert.match(document.querySelector(".instrument-picker h2").textContent, /카드·계좌 선택/);
-  const picker = document.querySelector('select[name="instrument-target"]');
-  assert.ok(picker, "Native full-list selector is always visible");
-  assert.ok(!picker.closest("details"), "Choosing a payment must not require expanding details");
-  assert.equal(picker.options.length, instrumentChoices(s).length);
-  assert.ok([...picker.options].some(o => o.textContent.includes("M107")));
-  assert.ok([...picker.options].some(o => o.textContent.includes("생활비 통장")));
-  assert.ok(document.querySelector('.instrument-choice[data-action="instrument-select"]'));
+  const directory = document.querySelector(".instrument-directory");
+  assert.ok(directory, "All cards and accounts are visible without expanding details");
+  assert.ok(!directory.closest("details"));
+  assert.equal(document.querySelectorAll(".instrument-directory-row").length, instrumentChoices(s).length);
+  assert.ok(document.querySelector('.instrument-directory-open[data-action="instrument-profile"][data-method="M107"]'));
+  assert.ok(document.querySelector('.instrument-directory-open[data-action="cash-account"][data-id="qa-a"]'));
+  assert.ok(document.querySelector('.instrument-directory-history[data-action="instrument-select"]'));
+  assert.match(directory.textContent, /생활비 통장/);
   assert.ok(document.querySelector('.instrument-selected [data-action="instrument-profile"][data-method="M107"]'));
   assert.match(document.querySelector('.instrument-selected-meta')?.textContent || "", /구성원 2 1건/);
   assert.ok(document.querySelector('.instrument-picker [data-action="instrument-method"]'));
@@ -52,11 +53,11 @@ test("cards and accounts can be chosen immediately, without expanding any hidden
 test("choosing an account gives a direct rename and cash-check action", () => {
   const s = fixture();
   const document = doc(instrumentLedgerView(s, { instrument: "a:qa-a" }));
-  assert.equal(document.querySelector('select[name="instrument-target"]').value, "a:qa-a");
+  assert.ok(document.querySelector('.instrument-directory-open[data-action="cash-account"][data-id="qa-a"]'));
   assert.ok(document.querySelector('.instrument-selected [data-action="cash-account"][data-id="qa-a"]'));
   assert.ok(document.querySelector('.instrument-selected [data-action="cash-check"][data-id="qa-a"]'));
   assert.ok(document.querySelector('.instrument-selected [data-action="instrument-add"][data-key="a:qa-a"]'));
-  assert.equal(document.querySelector('.instrument-choice[aria-pressed="true"]').dataset.key, "a:qa-a");
+  assert.equal(document.querySelector('.instrument-directory-history[aria-pressed="true"]').dataset.key, "a:qa-a");
 });
 
 test("bank proof is available but collapsed behind one clearly named section", () => {
@@ -88,7 +89,7 @@ test("home exposes a direct card/account picker button before budget secondary d
   assert.ok(document.querySelector('[data-focus-value="remaining"]'));
 });
 
-test("escaped payment names never inject markup in picker chips and dropdown", () => {
+test("escaped payment names never inject markup into directory entries", () => {
   const s = fixture();
   s.settings.paymentMethods.push('<img src=x onerror=alert(1)>');
   const html = instrumentLedgerView(s);
