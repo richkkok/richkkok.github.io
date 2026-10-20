@@ -91,6 +91,8 @@ export function validateState(input) {
       if (p[k] !== undefined && !isMoney(p[k]))
         throw Error("소비·저축 목표 금액을 확인해 주세요.");
   for (const t of state.transactions) {
+    if (t.irregularFixed !== undefined && typeof t.irregularFixed !== 'boolean')
+      throw Error('비정기 지출 분류 형식을 확인해 주세요.');
     if (t.operatingMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(t.operatingMonth))
       throw Error("귀속 운영월을 확인해 주세요.");
     if (t.costKind && !["fixed", "variable", "oneoff"].includes(t.costKind))

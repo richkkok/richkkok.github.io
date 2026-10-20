@@ -46,6 +46,12 @@ export function exactApprovalDuplicate(a, b) {
 }
 
 export function fixedManualDuplicate(a, b) {
+  if (a?.irregularFixed || b?.irregularFixed) {
+    return a.date === b.date && a.direction === b.direction && sameOwner(a,b) &&
+      (a.sourceType === 'manual' || b.sourceType === 'manual') &&
+      keyText(a.paymentMethod) === keyText(b.paymentMethod) &&
+      merchantEquivalent(a,b,true) && amountsEquivalent(a,b);
+  }
   const aFixed = a?.costKind === "fixed" || a?.scope === "fixed" || a?.recurringId;
   const bFixed = b?.costKind === "fixed" || b?.scope === "fixed" || b?.recurringId;
   if (!aFixed || !bFixed || !sameOwner(a, b) || a.direction !== b.direction)

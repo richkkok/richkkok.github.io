@@ -17,6 +17,7 @@ import { mergeValue, mergeStates } from '../js/sync-merge.js';
 import { Repository } from '../js/db.js';
 import { encryptBackup, decryptBackup } from '../js/backup.js';
 import { possibleDuplicates } from '../js/import/duplicates.js';
+import { dedupe } from '../js/import/dedupe.js';
 
 const at='2026-10-20';
 const setup=()=>{const s=emptyState();s.configured=true;s.settings.periodStartDay=1;s.settings.members={p1:'박태영',p2:'김은영'};ensureControl(s);return s;};
@@ -107,4 +108,10 @@ test('수동 비정기 납부 후 가져온 카드·계좌 내역은 중복 확�
 test('잘못된 날짜·금액·중복 연결 백업을 거부한다',()=>{
  const s=setup();assert.throws(()=>save(s,item('bad',{dueDate:'2026-02-30'})),/확인/);assert.throws(()=>save(s,item('bad',{amount:-1})),/확인/);
  s.transactions=[tx()];save(s,item(),{txId:'expense'});s.irregularExpenses.push({...s.irregularExpenses[0],id:'other'});assert.throws(()=>validateState(s),/여러/);
+});
+test('비정기 수동 납부를 가져올 때 같은 건만 제외하고 날짜가 다른 별도 납부는 보존한다',()=>{
+ const s=setup();save(s,item(),{date:'2026-10-19',amount:280000,method:'우리 은행'});
+ const imported=tx('imported',{date:'2026-10-19',merchantRaw:'재산세',merchantNormalized:'재산세',sourceType:'bank-csv',scope:'fixed'});
+ assert.equal(dedupe([imported],s.transactions).duplicates,1);
+ assert.equal(dedupe([{...imported,date:'2026-10-18'}],s.transactions).added.length,1);
 });
