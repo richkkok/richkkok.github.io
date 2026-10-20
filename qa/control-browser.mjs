@@ -95,7 +95,7 @@ try {
     const s=emptyState();s.configured=true;s.settings.privacy=false;s.settings.periodStartDay=1;s.settings.members={p1:'박태영',p2:'김은영'};s.transactions=[];
     const bill=(id,name,day,amount)=>({id,name,day,amount,scope:'fixed',category:'finance',changes:[]});
     s.recurring=[bill('ta','태영 보험 A',5,100),bill('tb','태영 보험 B',25,200),bill('e','은영 보험',10,300),bill('child','서우 보험',15,400),bill('rent','월세',8,500),bill('done','태영 보험 완료',1,50)];
-    s.transactions=[{id:'paid',sourceId:'paid',date:'2026-10-01',datetime:'2026-10-01T10:00:00',direction:'expense',scope:'fixed',recurringId:'done',amount:50,paymentMethod:'은행',merchantRaw:'보험 납부',category:'finance'}];
+    s.transactions=[{id:'paid',sourceId:'paid',date:'2026-10-01',datetime:'2026-10-01T10:00:00',direction:'expense',owner:'joint',scope:'fixed',recurringId:'done',amount:50,paymentMethod:'은행',merchantRaw:'보험 납부',merchantNormalized:'보험 납부',category:'finance',sourceType:'manual'}];
     const r=new Repository();await r.replace(s);r.close();
    });
    await page.reload({waitUntil:'networkidle'});await page.waitForSelector('.control-home');
