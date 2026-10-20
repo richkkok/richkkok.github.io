@@ -70,6 +70,7 @@ export function emptyState() {
     transactions: [],
     rules: [],
     recurring: [],
+    irregularExpenses: [],
     goals: [],
     imports: [],
   };

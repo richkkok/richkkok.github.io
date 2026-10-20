@@ -26,6 +26,7 @@ const autoHash = (value) => {
   return (hash >>> 0).toString(36);
 };
 const isLiveExpense = (tx) =>
+  !tx.irregularFixed &&
   !tx.deletedAt &&
   !tx.splitParent &&
   !tx.excluded &&
@@ -254,6 +255,7 @@ export function occurrence(item, month) {
   return { ...item, date, amount: changes.at(-1)?.amount ?? item.amount };
 }
 export function matchRecurring(tx, items) {
+  if (tx.irregularFixed) return tx;
   if (
     tx.recurringId ||
     !["expense", "refund"].includes(tx.direction) ||

@@ -12,7 +12,7 @@ export function spendingDetails(s, month, asOf = today()) {
   const known = new Set(cardCharges(s, asOf).map(r => r.txId));
   const groups = new Map();
   const add = (id, info, row) => {
-    if (row.kind === 'fixed' || row.kind === 'excluded') return;
+    if (row.kind === 'fixed' || row.kind === 'irregular' || row.kind === 'excluded') return;
     if (!groups.has(id)) groups.set(id, { id, ...info, rows: [], total: 0, variable: 0 });
     const group = groups.get(id);
     group.rows.push(row);

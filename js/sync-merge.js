@@ -15,7 +15,7 @@ export function mergeStates(base, local, remote, choices = {}) {
       return [l, r].filter(Boolean).sort()[0];
     if (/^transactionControl\.[^.]+$/.test(path)) return conflict(b, l, r, path);
     if (/^settings\.incomeSchedules\.\d{4}-\d{2}$/.test(path) || /^settings\.monthOverrides\.\d{4}-\d{2}\.incomeSchedule$/.test(path)) return conflict(b, l, r, path);
-    if (/^(transactions|cashAccounts|cashChecks|cashLinks|cardSettlements|billAdjustments|fixedPayments|incomeReviews|limitHistory)\[[^\]]+\]$/.test(path)) return conflict(b, l, r, path);
+    if (/^(transactions|cashAccounts|cashChecks|cashLinks|cardSettlements|billAdjustments|fixedPayments|incomeReviews|limitHistory|irregularExpenses)\[[^\]]+\]$/.test(path)) return conflict(b, l, r, path);
     if (Array.isArray(l) && Array.isArray(r)) {
       const all = [...(Array.isArray(b) ? b : []), ...l, ...r];
       if (all.every((x) => object(x) && typeof x.id === "string")) {
@@ -52,7 +52,20 @@ export function mergeStates(base, local, remote, choices = {}) {
     }
     return conflict(b, l, r, path);
   }
-  return { state: walk(base, local, remote), conflicts };
+  const state = walk(base, local, remote);
+  // Two devices can independently link the same expense to different schedules.
+  // Preserve both schedules and ask which link to keep; never double-count it.
+  const links = new Map();
+  for (const row of state.irregularExpenses || []) if (!row.deletedAt && row.txId) {
+    const rows = links.get(row.txId) || [];
+    rows.push(row); links.set(row.txId, rows);
+  }
+  for (const [txId, rows] of links) if (rows.length > 1) {
+    const owners = s => (s.irregularExpenses || []).filter(r=>!r.deletedAt&&r.txId===txId).map(r=>r.id);
+    const keep = conflict(owners(base), owners(local), owners(remote), `irregularLinks[${txId}]`);
+    for (const row of rows) if (!keep.includes(row.id)) delete row.txId;
+  }
+  return { state, conflicts };
 }
 export function mergeValue(base, local, remote) {
   const result = mergeStates(base, local, remote);

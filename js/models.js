@@ -1,4 +1,5 @@
 import { validateControl } from "./control.js";
+import { validateIrregular } from "./irregular.js";
 import { validateIncomeSchedules } from "./income-schedule.js";
 import { validateCash } from "./cash.js";
 import { validatePaymentProfiles } from "./payment-channels.js";
@@ -182,9 +183,11 @@ export function validateState(input) {
   }
   validateCash(state);
   validateControl(state);
+  validateIrregular(state);
   return state;
 }
 export function splitTransaction(tx, parts) {
+  if (tx.irregularFixed) throw Error('비정기 지출은 연결을 해제하고 비정기 분류를 변경한 뒤 분할해 주세요.');
   if (
     tx.splitParent ||
     tx.parentId ||
