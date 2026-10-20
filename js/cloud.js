@@ -1,4 +1,5 @@
 import { mergeValue, mergeStates } from "./sync-merge.js";
+import { validateIrregular } from "./irregular.js";
 import { openDialog, field, select, toast, icon } from "./ui.js";
 import { escape as e } from "./format.js";
 import { inviteTokenFromUrl } from "./invite-link.js";
@@ -367,6 +368,7 @@ export class CloudSync {
     let revision = Number(remote.revision);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
+        validateIrregular(candidate);
         const pushed = await api({
           action: "push",
           sessionToken: this.meta.sessionToken,

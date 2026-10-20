@@ -1,4 +1,5 @@
 import { controlOverview } from "./control.js";
+import { irregularAction } from "./irregular-ui.js";
 import { controlView, controlAction, controlSettings, billsPanel } from "./control-ui.js";
 import { focusAction, moreView } from "./focus-ui.js";
 import { cashView, cashAction } from "./cash-ui.js";
@@ -13,6 +14,7 @@ import { Repository } from "./db.js";
 import { sampleState } from "../data/sample.js";
 import {
   currentMonth,
+  today,
   monthTitle,
   escape as e,
   amountInput,
@@ -209,7 +211,7 @@ app.render = () => {
     main.innerHTML = onboardingView(app.state, app.step);
   else
     main.innerHTML = {
-      home: () => controlView(app.state, app.month, control),
+      home: () => controlView(app.state, app.month, control, app.irregularYear || 'all'),
       more: () => controlSettings(app.state, app.month) + settingsView(app.state, app.cloud?.summary()),
       cash: () => billsPanel(control) + cashView(app.state, app.cashFilters, instrumentLedgerView(app.state, app.cashFilters)),
       recurring: () => recurringView(app.state, app.month, app.recurringFilters),
@@ -350,6 +352,7 @@ document.addEventListener("click", async (event) => {
       }
     const action = target.dataset.action;
     if (!action) return;
+    if (await irregularAction(app, action, target)) return;
     if (await controlAction(app, action, target)) return;
     if (await focusAction(app, action, target)) return;
     if (await instrumentLedgerAction(app, action, target)) return;
@@ -418,6 +421,7 @@ document.querySelector("#month-picker").onchange = (event) => {
   }
 };
 document.addEventListener("change", event => {
+  if (event.target.name === 'irregularYear') { app.irregularYear = event.target.value; app.render(); return; }
   if (event.target.name === "cash-status") { app.cashFilters.status = event.target.value; app.cashFilters.limit = 50; app.render(); return; }
   const instrumentFilter = /^(instrument)-(target|period|owner|direction|from|to)$/.exec(event.target.name || "");
   if (instrumentFilter) {
@@ -503,6 +507,14 @@ watchRoute(() => {
   document.querySelector("#main")?.focus({ preventScroll: true });
 });
 app.pwa = setupPWA();
+let displayedDay = today();
+const refreshDay = () => {
+  if (app.state && !document.hidden && !document.querySelector('#dialog').open && today() !== displayedDay) {
+    displayedDay = today(); app.render();
+  }
+};
+document.addEventListener('visibilitychange', refreshDay);
+setInterval(refreshDay, 60000);
 app
   .load()
   .then(async () => {

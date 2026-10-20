@@ -7,6 +7,7 @@ import { classification } from './money.js';
 import { budgetIncomeValue } from './import/normalize.js';
 import { cashFingerprint, saveCashLink } from './cash.js';
 import { occurrence } from './recurring.js';
+import { isIrregular } from './irregular.js';
 
 const active = t => !t.deletedAt && !t.splitParent && !t.duplicateOf;
 const counted = t => active(t) && !t.excluded && t.scope !== 'excluded';
@@ -90,7 +91,7 @@ export function cardCharges(s, asOf = today()) {
       const paymentDate = adjustedDate(nominal,terms);
       result.push({txId:t.id,instrumentId:instrumentId(s,t),name:p?.name || t.paymentMethod,
         billId:instrumentId(s,t)+'|'+month,month,paymentDate,nominal,start:window.start,end:window.end,
-        amount:amount*(t.direction==='refund'?-1:1),kind:t.excluded || t.scope==='excluded'?'excluded':costKind(t),part:i+1,parts:count});
+        amount:amount*(t.direction==='refund'?-1:1),kind:t.excluded || t.scope==='excluded'?'excluded':isIrregular(t)?'irregular':costKind(t),part:i+1,parts:count});
     }
   }
   return result;
@@ -99,9 +100,9 @@ export function cardCharges(s, asOf = today()) {
 export function cardBills(s, asOf=today(), charges=cardCharges(s,asOf)) {
   const map = new Map();
   const add = r => {
-    if (!map.has(r.billId)) map.set(r.billId,{id:r.billId,instrumentId:r.instrumentId,name:r.name,month:r.month,paymentDate:r.paymentDate,start:r.start,end:r.end,estimated:0,variable:0,fixed:0,excluded:0,rows:[]});
+    if (!map.has(r.billId)) map.set(r.billId,{id:r.billId,instrumentId:r.instrumentId,name:r.name,month:r.month,paymentDate:r.paymentDate,start:r.start,end:r.end,estimated:0,variable:0,fixed:0,irregular:0,excluded:0,rows:[]});
     const b=map.get(r.billId); b.estimated+=r.amount;
-    b[r.kind==='fixed'?'fixed':r.kind==='excluded'?'excluded':'variable']+=r.amount;
+    b[r.kind==='irregular'?'irregular':r.kind==='fixed'?'fixed':r.kind==='excluded'?'excluded':'variable']+=r.amount;
     b.rows.push(r); b.start=[b.start,r.start].filter(Boolean).sort()[0]; b.end=[b.end,r.end].filter(Boolean).sort().at(-1);
   };
   for (const r of charges) add(r);
@@ -191,7 +192,8 @@ export function controlOverview(s,month,asOf=today()) {
   const income=rows.reduce((n,t)=>n+budgetIncomeValue(t,s),0);
   const known=new Set(charges.map(r=>r.txId));
   const variable=rows.filter(t=>limitExpense(s,t) && !known.has(t.id)).reduce((n,t)=>n+expenseValue(t),0)+due.reduce((n,b)=>n+b.variable,0);
-  const fixed=rows.filter(t=>costKind(t)==='fixed').reduce((n,t)=>n+expenseValue(t),0);
+  const fixed=rows.filter(t=>costKind(t)==='fixed' && !isIrregular(t)).reduce((n,t)=>n+expenseValue(t),0);
+  const irregular=rows.filter(t=>isIrregular(t)&&!known.has(t.id)).reduce((n,t)=>n+expenseValue(t),0)+due.reduce((n,b)=>n+b.irregular,0);
   const plan=planFor(s,month), limit=limitFor(s,month,plan);
   const fixedItems=fixedRows(s,month,asOf), duplicates=duplicateIncomes(s);
   const fixedPlanned=fixedItems.reduce((sum,row)=>sum+row.amount,0);
@@ -206,8 +208,8 @@ export function controlOverview(s,month,asOf=today()) {
   for (const b of due) if (b.status==='mismatch') alerts.push({id:'bill:'+b.id,menu:'cash',label:b.name+' · 청구·출금액 차이',action:'control-bill',key:b.id});
   for (const d of duplicates) alerts.push({id:'income:'+d.id,menu:'transactions',label:'중복 의심 입금 확인',action:'control-duplicate',key:d.id});
   for (const t of rows) if (classification(t,s).pending) alerts.push({id:'category:'+t.id,menu:'transactions',label:'거래 분류 확인',action:'money-review',key:t.id});
-  if (![income,variable,fixed,fixedPlanned,fixedRemaining,fixedOverdue,limit].every(Number.isSafeInteger)) throw Error('합계 금액 범위를 확인해 주세요.');
-  return {p,asOf,income,variable,fixed,fixedPlanned,fixedRemaining,fixedOverdue,limit,remaining:limit-variable,free:income-fixed-variable,fixedItems,due,next,allBills,duplicates,alerts,
+  if (![income,variable,fixed,irregular,fixedPlanned,fixedRemaining,fixedOverdue,limit].every(Number.isSafeInteger)) throw Error('합계 금액 범위를 확인해 주세요.');
+  return {p,asOf,income,variable,fixed,irregular,fixedPlanned,fixedRemaining,fixedOverdue,limit,remaining:limit-variable,free:income-fixed-variable-irregular,fixedItems,due,next,allBills,duplicates,alerts,
     unconfigured:rows.filter(t=>limitExpense(s,t) && paymentKind(s,t.paymentMethod,t.sourceType)==='credit' && !known.has(t.id))};
 }
 export function limitFor(s,month,plan=planFor(s,month)) {

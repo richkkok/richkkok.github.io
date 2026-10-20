@@ -29,6 +29,7 @@
 /* The fixed-spend status shares the spending-limit card and meter styling. */
 .control-fixed-summary>.control-list{margin-top:20px}
 .control-fixed-summary>.btn{margin-top:12px}
+.irregular-card>.field{max-width:200px;margin-top:16px}.irregular-paid{color:#64748b}.irregular-row small{line-height:1.5;overflow-wrap:anywhere}.dialog-irregular{width:min(640px,calc(100vw - 24px))}.dialog-irregular .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dialog-irregular [hidden]{display:none!important}.dialog-irregular .field{min-width:0}.dialog-irregular input,.dialog-irregular select{max-width:100%;min-width:0}.dialog-irregular .small{line-height:1.7}.dialog-irregular .check-field{align-items:flex-start;line-height:1.6}@media(max-width:600px){.dialog-irregular .form-grid{grid-template-columns:minmax(0,1fr)}.irregular-row>span:last-child{max-width:48%}.irregular-row b{overflow-wrap:anywhere}}
 .control-summary.is-over .control-ratio>strong{color:#b62b32}
 .control-summary.is-over .control-meter{background:#fde7e9}
 

@@ -48,7 +48,7 @@ export function monthBudget(state, month, asOf = today()) {
   const spent = sumExpense(tx),
     fixedActual = sumExpense(
       tx.filter(
-        (t) => t.costKind === "fixed" || t.scope === "fixed" || t.recurringId,
+        (t) => !t.irregularFixed && (t.costKind === "fixed" || t.scope === "fixed" || t.recurringId),
       ),
     );
   const outstanding = recurring.reduce((n, r) => n + r.outstanding, 0),
@@ -56,7 +56,8 @@ export function monthBudget(state, month, asOf = today()) {
   const goals = state.goals
     .filter((g) => (!g.start || g.start <= month) && (!g.end || g.end >= month))
     .reduce((n, g) => n + g.monthly, 0);
-  const variable = spent - fixedActual,
+  const irregularActual = sumExpense(tx.filter(t => t.irregularFixed));
+  const variable = spent - fixedActual - irregularActual,
     shared = sumExpense(
       tx.filter((t) => t.scope === "shared" && !t.recurringId),
     );
@@ -69,7 +70,7 @@ export function monthBudget(state, month, asOf = today()) {
     elapsed = Math.max(0, Math.min(days, dayDiff(p.start, asOf) + 1)),
     remaining = asOf > p.end ? 0 : Math.min(days, days - elapsed + 1);
   const available = income - spent - outstanding - goals,
-    forecast = fixed + (elapsed ? (variable / elapsed) * days : variable);
+    forecast = fixed + irregularActual + (elapsed ? (variable / elapsed) * days : variable);
   const cardRows = state.transactions.filter(
     (t) =>
       !t.deletedAt &&
@@ -102,6 +103,7 @@ export function monthBudget(state, month, asOf = today()) {
     actualIncome,
     spent,
     fixedActual,
+    irregularActual,
     fixed,
     outstanding,
     goals,

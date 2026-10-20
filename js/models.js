@@ -1,4 +1,5 @@
 import { validateControl } from "./control.js";
+import { validateIrregular } from "./irregular.js";
 import { validateIncomeSchedules } from "./income-schedule.js";
 import { validateCash } from "./cash.js";
 import { validatePaymentProfiles } from "./payment-channels.js";
@@ -90,6 +91,8 @@ export function validateState(input) {
       if (p[k] !== undefined && !isMoney(p[k]))
         throw Error("소비·저축 목표 금액을 확인해 주세요.");
   for (const t of state.transactions) {
+    if (t.irregularFixed !== undefined && typeof t.irregularFixed !== 'boolean')
+      throw Error('비정기 지출 분류 형식을 확인해 주세요.');
     if (t.operatingMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(t.operatingMonth))
       throw Error("귀속 운영월을 확인해 주세요.");
     if (t.costKind && !["fixed", "variable", "oneoff"].includes(t.costKind))
@@ -182,9 +185,11 @@ export function validateState(input) {
   }
   validateCash(state);
   validateControl(state);
+  validateIrregular(state);
   return state;
 }
 export function splitTransaction(tx, parts) {
+  if (tx.irregularFixed) throw Error('비정기 지출은 연결을 해제하고 비정기 분류를 변경한 뒤 분할해 주세요.');
   if (
     tx.splitParent ||
     tx.parentId ||

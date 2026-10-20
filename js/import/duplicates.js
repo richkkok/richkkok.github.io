@@ -46,6 +46,12 @@ export function exactApprovalDuplicate(a, b) {
 }
 
 export function fixedManualDuplicate(a, b) {
+  if (a?.irregularFixed || b?.irregularFixed) {
+    return a.date === b.date && a.direction === b.direction && sameOwner(a,b) &&
+      (a.sourceType === 'manual' || b.sourceType === 'manual') &&
+      keyText(a.paymentMethod) === keyText(b.paymentMethod) &&
+      merchantEquivalent(a,b,true) && amountsEquivalent(a,b);
+  }
   const aFixed = a?.costKind === "fixed" || a?.scope === "fixed" || a?.recurringId;
   const bFixed = b?.costKind === "fixed" || b?.scope === "fixed" || b?.recurringId;
   if (!aFixed || !bFixed || !sameOwner(a, b) || a.direction !== b.direction)
@@ -62,6 +68,7 @@ export function fixedManualDuplicate(a, b) {
 
 export function possibleDuplicates(incoming, existing) {
   const groups = new Map();
+  const irregularManual = existing.filter(t=>t.irregularFixed&&t.sourceType==='manual'&&!t.deletedAt&&!t.splitParent);
   for (const t of existing.filter((t) => !t.splitParent && !t.deletedAt)) {
     const k = [t.owner, t.date, t.direction].join("|");
     if (!groups.has(k)) groups.set(k, []);
@@ -70,7 +77,7 @@ export function possibleDuplicates(incoming, existing) {
   return incoming.flatMap((t) => {
     const rows =
       groups.get([t.owner, t.date, t.direction].join("|")) || [];
-    const match = rows.find((x) => {
+    const match = irregularManual.find(x=>x.date===t.date&&x.direction===t.direction&&amountsEquivalent(x,t)&&keyText(x.paymentMethod)===keyText(t.paymentMethod)) || rows.find((x) => {
       if (x.sourceId === t.sourceId) return false;
       if (exactApprovalDuplicate(x, t) || fixedManualDuplicate(x, t)) return true;
       const xMoment = approvalMoment(x),
