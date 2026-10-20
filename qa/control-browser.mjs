@@ -42,10 +42,12 @@ try {
    assert.equal(await page.locator('[role=progressbar][aria-label="월 고정지출 납부 진행률"]').getAttribute('aria-valuenow'),'100');
    await page.locator('.control-title-button').click();
    await page.waitForSelector('#dialog.dialog-spending[open]');
-   assert.deepEqual(await page.locator('#dialog .spending-category').evaluateAll(xs=>xs.map(x=>x.getAttribute('aria-label'))),['신용카드','계좌']);
-   assert.equal(await page.locator('#dialog .spending-group[open]').count(),2);
+   assert.deepEqual(await page.locator('#dialog .spending-category').evaluateAll(xs=>xs.map(x=>x.getAttribute('aria-label'))),['신용카드']);
+   assert.equal(await page.locator('#dialog .spending-group[open]').count(),1);
    assert.match(await page.locator('#dialog').innerText(),/2026-09-04 ~ 2026-10-03/);
-   assert.equal(await page.locator('#dialog [data-edit]').count(),2);
+   assert.equal(await page.locator('#dialog [data-edit]').count(),1);
+   assert.equal(await page.locator('#dialog [data-edit=fixed]').count(),0);
+   assert.doesNotMatch(await page.locator('#dialog').innerText(),/2,700,000원|1,500,000원/);
    const detailSize=await page.locator('#dialog').evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth}));
    assert.ok(detailSize.scroll<=detailSize.width+1,JSON.stringify(detailSize));
    await page.screenshot({path:`${folder}/spending-${name}.png`,fullPage:true});

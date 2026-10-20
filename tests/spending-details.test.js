@@ -16,6 +16,34 @@ function setup() {
 }
 const tx=(id,date,paymentMethod,extra={})=>({id,date,datetime:date+'T10:00:00',paymentMethod,amount:100,direction:'expense',scope:'shared',merchantRaw:id,category:'groceries',...extra});
 const details=s=>{ensureControl(s);return spendingDetails(s,'2026-10','2026-11-09');};
+test('고정지출 제외 후 카드·계좌·체크 결제만 집계하며 목록 합계와 한도 사용액 일치',()=>{
+  const s=setup();
+  s.transactions=[
+    tx('card','2026-10-01','A 카드'),tx('bank','2026-10-11','은행 이체'),tx('debit','2026-10-11','생활 체크'),
+    tx('card-fixed','2026-10-01','A 카드',{costKind:'fixed'}),
+    tx('bank-fixed','2026-10-11','은행 이체',{scope:'fixed'}),
+    tx('debit-fixed','2026-10-11','생활 체크',{recurringId:'insurance'}),
+    tx('fixed-refund','2026-10-02','A 카드',{costKind:'fixed',direction:'refund',amount:20}),
+    tx('cash','2026-10-11','현금'),tx('unknown','2026-10-11','미지정'),tx('prepaid','2026-10-11','선불카드'),
+    tx('repayment','2026-10-11','은행 이체',{direction:'transfer'}),
+    tx('excluded-card','2026-10-01','A 카드',{excluded:true}),
+    tx('refund','2026-10-12','생활 체크',{direction:'refund',amount:30})
+  ];
+  const before=JSON.stringify(s.transactions);
+  let d=details(s);const b=d.overview.due[0];
+  s.billAdjustments.push({id:'fixed-adjust',billId:b.id,instrumentId:b.instrumentId,paymentDate:b.paymentDate,amount:-5,reason:'고정 할인',kind:'fixed'});
+  d=details(s);
+  assert.deepEqual(d.groups.flatMap(g=>g.rows.map(r=>r.txId)).sort(),['card','bank','debit','refund'].sort());
+  assert.equal(d.total,270);assert.equal(d.total,d.overview.variable);
+  assert.equal(d.overview.otherConsumption,300);
+  assert.equal(d.overview.free,d.overview.income-d.overview.fixed-270-300);
+  assert.equal(JSON.stringify(s.transactions),before);
+  // Reclassification updates both the limit and detail list immediately.
+  s.transactions.find(t=>t.id==='card').scope='fixed';d=details(s);
+  assert.equal(d.total,170);assert.equal(d.total,d.overview.variable);
+  const html=spendingDetailsView(s,'2026-10','2026-11-09');
+  assert.doesNotMatch(html,/data-edit="(?:card|card-fixed|bank-fixed|debit-fixed|cash|unknown|prepaid|repayment)"/);
+});
 test('카드별 청구기간과 계좌·체크 결산기간의 양끝을 포함하며 다음 기간은 제외',()=>{
   const s=setup();s.transactions=[tx('a-before','2026-09-03','A 카드'),tx('a-start','2026-09-04','A 카드'),tx('a-end','2026-10-03','A 카드'),tx('a-next','2026-10-04','A 카드'),tx('b-start','2026-08-26','B 카드'),tx('b-end','2026-09-25','B 카드'),tx('b-next','2026-09-26','B 카드'),tx('bank-before','2026-10-09','은행 이체'),tx('bank-start','2026-10-10','은행 이체'),tx('bank-end','2026-11-09','생활 계좌'),tx('bank-next','2026-11-10','은행 이체'),tx('check','2026-11-09','생활 체크')];
   const d=details(s);assert.deepEqual(d.groups.map(g=>g.type),['credit','credit','account','debit']);
@@ -23,16 +51,16 @@ test('카드별 청구기간과 계좌·체크 결산기간의 양끝을 포함�
   assert.equal(d.total,700);assert.equal(d.groups.reduce((n,g)=>n+g.variable,0),d.overview.variable);
   assert.equal(d.groups.find(g=>g.type==='account').rows.length,2);
 });
-test('고정·제외 내역도 표시, 환불·할부·조정을 반영하고 이체·삭제·중복은 제외',()=>{
+test('고정·제외 내역을 숨기고 환불·할부·조정만 한도에 반영',()=>{
   const s=setup();s.transactions=[tx('installment','2026-10-01','A 카드',{amount:300,installments:3}),tx('refund','2026-10-02','A 카드',{amount:20,direction:'refund'}),tx('fixed','2026-10-11','생활 체크',{scope:'fixed'}),tx('excluded','2026-10-11','은행 이체',{excluded:true}),tx('transfer','2026-10-11','은행 이체',{direction:'transfer'}),tx('deleted','2026-10-11','은행 이체',{deletedAt:'yes'}),tx('duplicate','2026-10-11','은행 이체',{duplicateOf:'fixed'})];
   let d=details(s);const b=d.overview.due[0];s.billAdjustments.push({id:'adjust',billId:b.id,instrumentId:b.instrumentId,paymentDate:b.paymentDate,amount:-10,reason:'할인',kind:'variable'});
-  d=details(s);assert.equal(d.total,270);assert.equal(d.overview.variable,70);assert.equal(d.groups.reduce((n,g)=>n+g.variable,0),70);assert.equal(d.groups.flatMap(g=>g.rows).length,5);
-  const html=spendingDetailsView(s,'2026-10','2026-11-09');assert.match(html,/할부 1\/3회/);assert.match(html,/한도 제외/);assert.match(html,/고정지출 · 한도 별도/);
+  d=details(s);assert.equal(d.total,70);assert.equal(d.overview.variable,70);assert.equal(d.groups.reduce((n,g)=>n+g.variable,0),70);assert.equal(d.groups.flatMap(g=>g.rows).length,3);
+  const html=spendingDetailsView(s,'2026-10','2026-11-09');assert.match(html,/할부 1\/3회/);assert.doesNotMatch(html,/data-edit="fixed"|data-edit="excluded"/);
 });
 test('미설정 카드·개인 숨김·빈 목록·100건 이상 전체 표시와 소비한도 진입점',()=>{
   const s=setup();s.settings.privacy=true;s.transactions=Array.from({length:125},(_,i)=>tx('row'+i,'2026-10-11','미설정 카드',{scope:'p1',merchantRaw:'<private>'}));
   const d=details(s);assert.equal(d.groups[0].unconfigured,true);assert.equal(d.groups[0].rows.length,125);
   const html=spendingDetailsView(s,'2026-10','2026-11-09');assert.equal((html.match(/data-edit=/g)||[]).length,125);assert.doesNotMatch(html,/private/);assert.match(html,/청구기간 미설정/);
   assert.match(controlView(s,'2026-10'),/data-action="control-spending"/);
-  s.transactions=[];assert.match(spendingDetailsView(s,'2026-10'),/기록된 소비 내역이 없어요/);
+  s.transactions=[];assert.match(spendingDetailsView(s,'2026-10'),/소비한도에 반영되는 내역이 없어요/);
 });

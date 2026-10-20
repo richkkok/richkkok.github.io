@@ -1,4 +1,4 @@
-import { controlOverview, cardCharges, instrumentId } from './control.js';
+import { controlOverview, cardCharges, instrumentId, limitExpense } from './control.js';
 import { paymentKind } from './payment-channels.js';
 import { inPeriod } from './period.js';
 import { costKind } from './behavior.js';
@@ -12,6 +12,7 @@ export function spendingDetails(s, month, asOf = today()) {
   const known = new Set(cardCharges(s, asOf).map(r => r.txId));
   const groups = new Map();
   const add = (id, info, row) => {
+    if (row.kind === 'fixed' || row.kind === 'excluded') return;
     if (!groups.has(id)) groups.set(id, { id, ...info, rows: [], total: 0, variable: 0 });
     const group = groups.get(id);
     group.rows.push(row);
@@ -26,8 +27,7 @@ export function spendingDetails(s, month, asOf = today()) {
     }
   }
   for (const tx of s.transactions) {
-    if (tx.deletedAt || tx.splitParent || tx.duplicateOf || known.has(tx.id) || tx.date > asOf ||
-        !['expense', 'refund'].includes(tx.direction) || !inPeriod(tx, s, month)) continue;
+    if (!limitExpense(s, tx) || known.has(tx.id) || tx.date > asOf || !inPeriod(tx, s, month)) continue;
     const name = tx.paymentMethod || '미지정', key = keyText(name);
     const account = (s.cashAccounts || []).find(a => [a.name, a.paymentMethod].some(n => n && keyText(n) === key));
     const profile = s.settings.paymentProfiles?.[key];
