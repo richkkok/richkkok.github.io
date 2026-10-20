@@ -10,6 +10,20 @@ import { occurrence } from './recurring.js';
 
 const active = t => !t.deletedAt && !t.splitParent && !t.duplicateOf;
 const counted = t => active(t) && !t.excluded && t.scope !== 'excluded';
+// Only variable purchases paid by credit card or directly from an account
+// (including debit cards) belong to the spending limit.
+export function limitExpense(s, t) {
+  if (!counted(t) || costKind(t)==='fixed' || !['expense','refund'].includes(t.direction)) return false;
+  const kind=paymentKind(s,t.paymentMethod,t.sourceType);
+  if (kind==='credit') return true;
+  if (kind!=='immediate') return false;
+  const key=keyText(t.paymentMethod);
+  const account=(s.cashAccounts||[]).some(a=>[a.name,a.paymentMethod].some(n=>n && keyText(n)===key));
+  if (account) return true;
+  // Immediate also includes cash/prepaid in the general payment classifier.
+  if (/현금|cash|선불|prepaid/i.test(t.paymentMethod||'')) return false;
+  return true;
+}
 const money = v => Number.isSafeInteger(v) && v >= 0 && v <= 1e12;
 const stamp = () => new Date().toISOString();
 const unsafeKey = key => ['__proto__','prototype','constructor'].includes(key);
@@ -185,7 +199,8 @@ export function controlOverview(s,month,asOf=today()) {
   const rows=s.transactions.filter(t=>counted(t) && inPeriod(t,s,month) && t.date<=asOf);
   const income=rows.reduce((n,t)=>n+budgetIncomeValue(t,s),0);
   const known=new Set(charges.map(r=>r.txId));
-  const variable=rows.filter(t=>costKind(t)!=='fixed' && !known.has(t.id)).reduce((n,t)=>n+expenseValue(t),0)+due.reduce((n,b)=>n+b.variable,0);
+  const variable=rows.filter(t=>limitExpense(s,t) && !known.has(t.id)).reduce((n,t)=>n+expenseValue(t),0)+due.reduce((n,b)=>n+b.variable,0);
+  const otherConsumption=rows.filter(t=>costKind(t)!=='fixed' && !known.has(t.id) && !limitExpense(s,t)).reduce((n,t)=>n+expenseValue(t),0);
   const fixed=rows.filter(t=>costKind(t)==='fixed').reduce((n,t)=>n+expenseValue(t),0);
   const plan=planFor(s,month), limit=limitFor(s,month,plan);
   const fixedItems=fixedRows(s,month,asOf), duplicates=duplicateIncomes(s);
@@ -199,9 +214,9 @@ export function controlOverview(s,month,asOf=today()) {
   for (const b of due) if (b.status==='mismatch') alerts.push({id:'bill:'+b.id,menu:'cash',label:b.name+' · 청구·출금액 차이',action:'control-bill',key:b.id});
   for (const d of duplicates) alerts.push({id:'income:'+d.id,menu:'transactions',label:'중복 의심 입금 확인',action:'control-duplicate',key:d.id});
   for (const t of rows) if (classification(t,s).pending) alerts.push({id:'category:'+t.id,menu:'transactions',label:'거래 분류 확인',action:'money-review',key:t.id});
-  if (![income,variable,fixed,fixedPlanned,limit].every(Number.isSafeInteger)) throw Error('합계 금액 범위를 확인해 주세요.');
-  return {p,income,variable,fixed,fixedPlanned,limit,remaining:limit-variable,free:income-fixed-variable,fixedItems,due,next,allBills,duplicates,alerts,
-    unconfigured:rows.filter(t=>paymentKind(s,t.paymentMethod,t.sourceType)==='credit' && !known.has(t.id) && ['expense','refund'].includes(t.direction))};
+  if (![income,variable,otherConsumption,fixed,fixedPlanned,limit].every(Number.isSafeInteger)) throw Error('합계 금액 범위를 확인해 주세요.');
+  return {p,income,variable,otherConsumption,fixed,fixedPlanned,limit,remaining:limit-variable,free:income-fixed-variable-otherConsumption,fixedItems,due,next,allBills,duplicates,alerts,
+    unconfigured:rows.filter(t=>limitExpense(s,t) && paymentKind(s,t.paymentMethod,t.sourceType)==='credit' && !known.has(t.id))};
 }
 export function limitFor(s,month,plan=planFor(s,month)) {
   const exact=[...(s.limitHistory||[])].filter(r=>r.month===month && !r.repeat).at(-1);
