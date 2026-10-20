@@ -37,7 +37,7 @@ export function spendingDetails(s, month, asOf = today()) {
     add(type + ':' + (account?.id || instrumentId(s, tx)),
       { type, name: account?.name || profile?.name || name, start: overview.p.start, end: overview.p.end, unconfigured: type === 'credit' },
       { tx, txId: tx.id, date: tx.date, amount: tx.amount * (tx.direction === 'refund' ? -1 : 1),
-        kind: tx.excluded || tx.scope === 'excluded' ? 'excluded' : costKind(tx) });
+        kind: costKind(tx) });
   }
   const order = ['credit', 'account', 'debit', 'other'];
   const result = [...groups.values()].sort((a,b) => order.indexOf(a.type)-order.indexOf(b.type) || b.total-a.total || a.name.localeCompare(b.name, 'ko'));

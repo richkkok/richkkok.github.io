@@ -85,6 +85,23 @@ try {
    }
    // Directly exercise classification confirmation and no-spend badge without touching the server.
    await page.goto(base+'/#home');await close(page);await page.locator('[data-action=control-zero]').first().click();await page.locator('#dialog [name=confirm]').check();await save(page);assert.equal(await page.locator('[data-action=control-zero]').count(),0);
+   // Card labels never classify every purchase as fixed; include other spending.
+   await page.evaluate(async()=>{
+    const {emptyState}=await import('./data/defaults.js'),{Repository}=await import('./js/db.js'),{savePaymentProfile}=await import('./js/payment-channels.js');
+    const s=emptyState();s.configured=true;s.settings.privacy=false;s.settings.periodStartDay=1;s.transactions=[];s.recurring=[];
+    savePaymentProfile(s,'국민카드 생활비','credit',3,17,0);savePaymentProfile(s,'우리카드 생활비','credit',25,10,1);
+    const t=(id,amount,date,paymentMethod,extra={})=>({id,sourceId:id,date,datetime:date+'T10:00:00',amount,paymentMethod,direction:'expense',owner:'joint',scope:'shared',category:'other',merchantRaw:id,merchantNormalized:id,sourceType:'manual',...extra});
+    s.transactions=[t('국민 생활비 구매',120000,'2026-10-01','국민카드 생활비'),t('우리 생활비 구매',230000,'2026-09-24','우리카드 생활비'),t('기타 구매',50000,'2026-10-11','미지정'),t('보험',1000000,'2026-10-01','국민카드 생활비',{scope:'fixed',costKind:'fixed'})];
+    const r=new Repository();await r.replace(s);r.close();
+   });
+   await page.reload({waitUntil:'networkidle'});await page.waitForSelector('.control-home');
+   await page.locator('#month-picker').fill('2026-10');await page.locator('#month-picker').dispatchEvent('change');
+   assert.equal(await page.locator('[data-control-value=used]').innerText(),'400,000원');
+   await page.locator('.control-spending-trigger').click();
+   assert.equal(await page.locator('#dialog [data-edit]').count(),3);
+   for(const label of ['국민카드 생활비','우리카드 생활비','기타소비'])assert.match(await page.locator('#dialog').innerText(),new RegExp(label));
+   assert.doesNotMatch(await page.locator('#dialog').innerText(),/1,000,000원/);
+   await page.screenshot({path:`${folder}/living-and-other-${name}.png`,fullPage:true});await close(page);
    assert.deepEqual(errors,[]);results.push({engine:name,flows:'limits, surplus, fixed carry, statement reconciliation, entry, edit, persisted reload, badges, responsive',pass:true});
    await context.close();
   }finally{await browser.close();}
