@@ -1,3 +1,4 @@
+import { spendingDetails } from './spending-details.js';
 import { controlOverview, saveLimit, fixedRows, confirmFixed, duplicateIncomes, resolveIncome, settleBill, cardBills } from './control.js';
 import { escape as e, won, uid, today, amountInput, normalizeText, keyText } from './format.js';
 import { button, field, select, openDialog, toast, hiddenPersonal } from './ui.js';
@@ -16,12 +17,31 @@ export function alertsView(o) {
 }
 export function controlView(s,month,o=controlOverview(s,month)) {
   return `<div class="control-home">
-  <section class="control-summary ${o.remaining<0?'is-over':''}" aria-label="소비한도"><header><h1>소비한도</h1>${action('한도 설정','control-limit')}</header><p>이번 달 소비금액 / 월 소비한도</p>${ratio(o.variable,o.limit,'used','limit')}${meter(o.variable,o.limit,'소비한도 사용률')}<p class="control-remaining">${o.remaining<0?'한도 초과':'남은 소비한도'} <strong>${won(Math.abs(o.remaining))}</strong></p><details><summary>다음 청구월 예정액 ${won(o.next.reduce((n,b)=>n+b.variable,0))}</summary>${billList(o.next)}<p class="small muted">입금·현금 지출 기간 ${e(o.p.start)} ~ ${e(o.p.end)}. 고정지출은 아래에서 별도로 관리해요. 카드 사용분은 청구월에 한 번만 반영돼요.</p></details>${o.unconfigured.length?`<p class="control-warning">청구기간 미설정 ${o.unconfigured.length}건은 사용일 기준 임시 반영 중이에요. ${button('카드 설정','go-cash','text')}</p>`:''}</section>
+  <section class="control-summary ${o.remaining<0?'is-over':''}" aria-label="소비한도"><header><h1><button type="button" class="control-title-button" data-action="control-spending">소비한도 <span aria-hidden="true">›</span></button></h1>${action('한도 설정','control-limit')}</header><p>이번 달 소비금액 / 월 소비한도</p><button type="button" class="control-spending-trigger" data-action="control-spending" aria-label="이번 달 소비금액 전체 내역 보기">${ratio(o.variable,o.limit,'used','limit').replace('<div ', '<span ').replace('</div>', '</span>')}<span class="control-detail-hint">소비 내역 전체 보기 ›</span></button>${meter(o.variable,o.limit,'소비한도 사용률')}<p class="control-remaining">${o.remaining<0?'한도 초과':'남은 소비한도'} <strong>${won(Math.abs(o.remaining))}</strong></p><details><summary>다음 청구월 예정액 ${won(o.next.reduce((n,b)=>n+b.variable,0))}</summary>${billList(o.next)}<p class="small muted">입금·현금 지출 기간 ${e(o.p.start)} ~ ${e(o.p.end)}. 고정지출은 아래에서 별도로 관리해요. 카드 사용분은 청구월에 한 번만 반영돼요.</p></details>${o.unconfigured.length?`<p class="control-warning">청구기간 미설정 ${o.unconfigured.length}건은 사용일 기준 임시 반영 중이에요. ${button('카드 설정','go-cash','text')}</p>`:''}</section>
   <section class="control-summary ${o.free<0?'is-over':''}" aria-label="여유자금"><header><h2>여유자금</h2>${button('입금 내역','money-income','text')}</header><p>남은 여유자금 / 이번 달 총 유효 입금액</p><div class="${o.free<0?'control-warning':''}">${ratio(o.free,o.income,'free','income')}</div>${meter(o.free,o.income,'여유자금 잔여 비율')}<details><summary>계산 내역 · 계좌 잔액 확인</summary><div class="control-calculation"><p>유효 입금 <b>${won(o.income)}</b></p><p>− 실제 고정지출 <b>${won(o.fixed)}</b></p><p>− 이번 청구월 변동소비 <b>${won(o.variable)}</b></p></div><p class="small muted">소비를 조절하기 위한 예산 지표예요. 실제 은행 잔액과 달라요.</p>${button('현재 계좌 잔액 검증',s.cashAccounts?.length?'cash-check':'cash-account','secondary')}</details></section>
   <section class="control-summary control-fixed-summary ${o.fixed>o.fixedPlanned?'is-over':''}" aria-label="월 고정지출"><header><h2>월 고정지출</h2>${button('전체·설정','go-recurring','text')}</header><p>현재 지출금액 / 이번 달 고정지출 예정액</p>${ratio(o.fixed,o.fixedPlanned,'fixedPaid','fixedPlanned')}${meter(o.fixed,o.fixedPlanned,'월 고정지출 납부 진행률')}<div class="control-list">${fixedList(o)}</div>${button('고정지출 추가','add-recurring','text','plus')}</section>
   <section class="control-section"><header><h2>확인할 항목 ${o.alerts.length?`<span class="control-badge">${o.alerts.length}</span>`:''}</h2></header>${alertsView(o)}</section>
   <div class="control-entry">${button('수입·지출 기록','add-transaction','primary','plus')}${button('내역 가져오기','go-import','secondary','upload')}</div></div>`;
 }
+export function spendingDetailsView(s,month,asOf=today()) {
+  const d=spendingDetails(s,month,asOf);
+  const labels={credit:'신용카드',account:'계좌',debit:'체크카드',other:'현금·기타'};
+  const rowView=r=>{
+    const hidden=r.tx && hiddenPersonal(r.tx,s);
+    const category=hidden?'':s.categories.find(c=>c.id===r.tx?.category)?.name;
+    const title=hidden?'개인 내역':r.tx?.merchantRaw || r.reason || '소비 내역';
+    const tag=r.kind==='fixed'?'고정지출 · 한도 별도':r.kind==='excluded'?'한도 제외':'한도 반영';
+    const detail=[r.date,category,r.amount<0?'환불·할인':'',r.parts>1?`할부 ${r.part}/${r.parts}회 · 원거래 ${won(r.tx?.amount || 0)}`:'',tag].filter(Boolean).join(' · ');
+    const content=`<span><strong>${e(title)}</strong><small>${e(detail)}</small></span><span><b>${won(r.amount)}</b>${r.txId?'<small>내역 보기 ›</small>':'<small>청구 조정</small>'}</span>`;
+    return r.txId?`<button type="button" class="control-row" data-edit="${e(r.txId)}">${content}</button>`:`<div class="control-row">${content}</div>`;
+  };
+  return `<div class="spending-details"><div class="control-calculation"><p>소비한도 반영액 <b>${won(d.overview.variable)}</b></p><p>전체 내역 합계 <b>${won(d.total)}</b></p></div><p class="small muted">계좌·체크카드 결산기간 ${e(d.overview.p.start)} ~ ${e(d.overview.p.end)}. 신용카드는 ${e(month)} 결제분의 카드별 이용기간을 적용해요. 고정지출·한도 제외 내역도 표시하며, 카드대금 이체는 중복 합산하지 않아요. 할부는 이번 청구 회차 금액이에요.</p>${Object.entries(labels).map(([type,label])=>{
+    const groups=d.groups.filter(g=>g.type===type);
+    if(!groups.length)return '';
+    return `<section class="spending-category" aria-label="${label}"><h3>${label} <span>${won(groups.reduce((n,g)=>n+g.total,0))}</span></h3>${groups.map(g=>`<details class="spending-group" open><summary><span>${e(g.name)} <small>${g.rows.length}건</small></span><b>${won(g.total)}</b></summary><p class="small muted">${g.unconfigured?'청구기간 미설정 · 결산기간 임시 적용':g.type==='credit'?'카드 이용기간':'가계부 결산기간'} ${e(g.start||'기간 정보 없음')} ~ ${e(g.end||'')}${g.paymentDate?` · ${e(g.paymentDate)} 결제`:''}</p>${g.unconfigured?action('카드 결제기간 설정','go-cash'):''}<p class="small muted">소비한도 반영 ${won(g.variable)}</p><div>${g.rows.map(rowView).join('')}</div></details>`).join('')}</section>`;
+  }).join('') || '<p class="empty-inline">이 기간에 기록된 소비 내역이 없어요.</p>'}</div>`;
+}
+
 export function billList(bills) {
   return bills.map(b=>`<button type="button" class="control-row" data-action="control-bill" data-id="${e(b.id)}"><span><strong>${e(b.name)}</strong><small>${e(b.paymentDate)} 결제 · ${e(b.month)} 청구분</small></span><span><b>${won(b.estimated)}</b><small class="${b.status==='mismatch'?'control-warning':''}">${b.status==='matched'?'금액 일치':b.status==='mismatch'?'차이 '+won(b.difference):'납부 미확인'}</small></span></button>`).join('') || '<p class="empty-inline">기록된 청구분이 없어요.</p>';
 }
@@ -35,7 +55,9 @@ export function controlSettings(s,month) {
 export async function controlAction(app,name,target) {
   if (!name.startsWith('control-')) return false;
   const s=app.state,month=app.month;
-  if (name==='control-limit') {
+  if (name==='control-spending') {
+    openDialog(`${month} 소비 내역`, spendingDetailsView(s,month),null,'저장하기','spending');
+  } else if (name==='control-limit') {
     const o=controlOverview(s,month),basis=JSON.stringify(s.limitHistory||[]);
     openDialog('월 소비한도',field('적용 월','month',month,'month','required')+field('월 소비한도 (원)','amount',o.limit,'number','required min="0"')+'<label class="check-field"><input type="checkbox" name="repeat">이 월부터 매월 같은 한도 사용</label><p class="small muted">개별 월에 직접 설정한 한도가 있으면 그 금액을 우선해요.</p>',async f=>{
       await app.update(st=>{if(JSON.stringify(st.limitHistory||[])!==basis)throw Error('다른 기기에서 한도가 변경됐어요. 다시 열어 주세요.');saveLimit(st,String(f.get('month')),amountInput(f.get('amount')),!!f.get('repeat'));});
