@@ -162,7 +162,7 @@ export function fixedRows(s,month,asOf=today()) {
     const validExplicit=explicit && explicit.basis===JSON.stringify(tx.map(t=>[t.id,t.amount,t.direction,t.deletedAt]).sort());
     const paid=!!validExplicit || (tx.length>0 && actual>=r.amount);
     return {...r,categoryName:s.categories.find(c=>c.id===r.category)?.name||'',actual,transactions:tx,paid,status:paid?'paid':actual?'check':r.date<asOf?'overdue':'pending',outstanding:paid?0:Math.max(0,r.amount-actual)};
-  }).sort((a,b)=>a.date.localeCompare(b.date));
+  }).sort((a,b)=>Number(a.paid)-Number(b.paid)||a.date.localeCompare(b.date)||a.name.localeCompare(b.name,'ko'));
 }
 export function confirmFixed(s, row, nextAmount, asOf=today()) {
   const current=fixedRows(s,row.month,asOf).find(r=>r.id===row.id && r.date===row.date);
@@ -195,6 +195,8 @@ export function controlOverview(s,month,asOf=today()) {
   const plan=planFor(s,month), limit=limitFor(s,month,plan);
   const fixedItems=fixedRows(s,month,asOf), duplicates=duplicateIncomes(s);
   const fixedPlanned=fixedItems.reduce((sum,row)=>sum+row.amount,0);
+  const fixedRemaining=fixedItems.reduce((sum,row)=>sum+row.outstanding,0);
+  const fixedOverdue=fixedItems.filter(row=>row.date<asOf).reduce((sum,row)=>sum+row.outstanding,0);
   const alerts=[];
   if (asOf>=p.start && asOf<=p.end) {
     const d=dayStatus(s,asOf);
@@ -204,8 +206,8 @@ export function controlOverview(s,month,asOf=today()) {
   for (const b of due) if (b.status==='mismatch') alerts.push({id:'bill:'+b.id,menu:'cash',label:b.name+' · 청구·출금액 차이',action:'control-bill',key:b.id});
   for (const d of duplicates) alerts.push({id:'income:'+d.id,menu:'transactions',label:'중복 의심 입금 확인',action:'control-duplicate',key:d.id});
   for (const t of rows) if (classification(t,s).pending) alerts.push({id:'category:'+t.id,menu:'transactions',label:'거래 분류 확인',action:'money-review',key:t.id});
-  if (![income,variable,fixed,fixedPlanned,limit].every(Number.isSafeInteger)) throw Error('합계 금액 범위를 확인해 주세요.');
-  return {p,income,variable,fixed,fixedPlanned,limit,remaining:limit-variable,free:income-fixed-variable,fixedItems,due,next,allBills,duplicates,alerts,
+  if (![income,variable,fixed,fixedPlanned,fixedRemaining,fixedOverdue,limit].every(Number.isSafeInteger)) throw Error('합계 금액 범위를 확인해 주세요.');
+  return {p,asOf,income,variable,fixed,fixedPlanned,fixedRemaining,fixedOverdue,limit,remaining:limit-variable,free:income-fixed-variable,fixedItems,due,next,allBills,duplicates,alerts,
     unconfigured:rows.filter(t=>limitExpense(s,t) && paymentKind(s,t.paymentMethod,t.sourceType)==='credit' && !known.has(t.id))};
 }
 export function limitFor(s,month,plan=planFor(s,month)) {
