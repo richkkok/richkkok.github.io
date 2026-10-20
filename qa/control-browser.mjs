@@ -38,6 +38,8 @@ try {
    assert.equal(await page.locator('[data-control-value=income]').innerText(),'6,500,000원');
    assert.equal(await page.locator('[data-control-value=fixedPaid]').innerText(),'1,500,000원');
    assert.equal(await page.locator('[data-control-value=fixedPlanned]').innerText(),'1,200,000원');
+   assert.equal(await page.locator('[data-control-value=fixedRemaining]').innerText(),'1,200,000원');
+   assert.equal(await page.locator('.fixed-insurance-group[open]').count(),0);
    assert.equal(await page.locator('[role=progressbar][aria-label="여유자금 잔여 비율"]').getAttribute('aria-valuenow'),'58');
    assert.equal(await page.locator('[role=progressbar][aria-label="월 고정지출 납부 진행률"]').getAttribute('aria-valuenow'),'100');
    await page.locator('.control-title-button').click();
@@ -62,7 +64,10 @@ try {
    await page.locator('[data-action=control-limit]').first().click();await page.locator('[name=amount]').fill('2400000');await page.locator('[name=repeat]').check();await save(page);
    assert.equal(await page.locator('[data-control-value=limit]').innerText(),'2,400,000원');
    await page.reload({waitUntil:'networkidle'});await page.waitForSelector('.control-home');assert.equal(await page.locator('[data-control-value=limit]').innerText(),'2,400,000원');
+   await page.locator('.fixed-insurance-group > summary').first().click();
    await page.locator('[data-action=control-fixed][data-id=insurance]').first().click();await page.locator('#dialog [name=amount]').fill('1180000');await page.locator('#dialog [name=confirm]').check();await save(page);
+   assert.equal(await page.locator('[data-control-value=fixedRemaining]').innerText(),'0원');
+   assert.equal(await page.locator('[data-fixed-status=paid] [data-id=insurance]').count(),1);
    assert.match(await page.locator('.control-list').innerText(),/납부완료/);
    assert.equal(await page.locator('[data-control-value=fixedPaid]').innerText(),'2,680,000원');
    await page.locator('#month-picker').fill('2026-11');await page.locator('#month-picker').dispatchEvent('change');assert.match(await page.locator('.control-list').innerText(),/1,180,000원/);assert.match(await page.locator('.control-list').innerText(),/납부예정/);
@@ -85,6 +90,24 @@ try {
    }
    // Directly exercise classification confirmation and no-spend badge without touching the server.
    await page.goto(base+'/#home');await close(page);await page.locator('[data-action=control-zero]').first().click();await page.locator('#dialog [name=confirm]').check();await save(page);assert.equal(await page.locator('[data-action=control-zero]').count(),0);
+   await page.evaluate(async()=>{
+    const {emptyState}=await import('./data/defaults.js'),{Repository}=await import('./js/db.js');
+    const s=emptyState();s.configured=true;s.settings.privacy=false;s.settings.periodStartDay=1;s.settings.members={p1:'박태영',p2:'김은영'};s.transactions=[];
+    const bill=(id,name,day,amount)=>({id,name,day,amount,scope:'fixed',category:'finance',changes:[]});
+    s.recurring=[bill('ta','태영 보험 A',5,100),bill('tb','태영 보험 B',25,200),bill('e','은영 보험',10,300),bill('child','서우 보험',15,400),bill('rent','월세',8,500),bill('done','태영 보험 완료',1,50)];
+    s.transactions=[{id:'paid',sourceId:'paid',date:'2026-10-01',datetime:'2026-10-01T10:00:00',direction:'expense',owner:'joint',scope:'fixed',recurringId:'done',amount:50,paymentMethod:'은행',merchantRaw:'보험 납부',merchantNormalized:'보험 납부',category:'finance',sourceType:'manual'}];
+    const r=new Repository();await r.replace(s);r.close();
+   });
+   await page.reload({waitUntil:'networkidle'});await page.waitForSelector('.control-home');
+   await page.locator('#month-picker').fill('2026-10');await page.locator('#month-picker').dispatchEvent('change');
+   assert.equal(await page.locator('[data-control-value=fixedRemaining]').innerText(),'1,500원');
+   assert.equal(await page.locator('.fixed-insurance-group[open]').count(),0);
+   for(const person of ['박태영','김은영','박서우'])assert.equal(await page.locator('[data-fixed-status=pending] summary').filter({hasText:person}).count(),1);
+   assert.equal(await page.locator('[data-fixed-status=paid] [data-id=done]').count(),1);
+   await page.locator('[data-fixed-status=pending] summary').filter({hasText:'박태영'}).click();
+   assert.equal(await page.locator('.fixed-insurance-group[open] [data-action=control-fixed]').count(),2);
+   assert.equal(await page.locator('.fixed-insurance-group[open] [data-id=ta]').isVisible(),true);
+   await page.screenshot({path:`${folder}/fixed-groups-${name}.png`,fullPage:true});
    // Card labels never classify every purchase as fixed; include other spending.
    await page.evaluate(async()=>{
     const {emptyState}=await import('./data/defaults.js'),{Repository}=await import('./js/db.js'),{savePaymentProfile}=await import('./js/payment-channels.js');

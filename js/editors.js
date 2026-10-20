@@ -1,3 +1,4 @@
+import { insurancePeople } from './fixed-groups.js';
 import {
   field,
   select,
@@ -232,7 +233,7 @@ export function recurringEditor(app, id) {
   const next = (r.changes || []).filter((c) => c.effective > today()).at(-1);
   openDialog(
     id ? "고정·반복비 수정" : "고정·반복비 추가",
-    `<div class="form-grid">${field("이름", "name", r.name, "text", 'required maxlength="80"')}${field("현재 월 금액 (원)", "amount", amountToday, "number", "required")}${field("매월 결제일", "day", r.day, "number", 'required min="1" max="31"')}${select("카테고리", "category", categoryOptions(s), r.category)}${field("결제수단", "paymentMethod", r.paymentMethod, "text", 'maxlength="100"')}${select(
+    `<div class="form-grid">${field("이름", "name", r.name, "text", 'required maxlength="80"')}${select("보험료 대상자 (보험 항목만)", "insurancePerson", [["","이름·사용자에서 자동 구분"],...insurancePeople.map(name=>[name,name])], r.insurancePerson||"")}${field("현재 월 금액 (원)", "amount", amountToday, "number", "required")}${field("매월 결제일", "day", r.day, "number", 'required min="1" max="31"')}${select("카테고리", "category", categoryOptions(s), r.category)}${field("결제수단", "paymentMethod", r.paymentMethod, "text", 'maxlength="100"')}${select(
       "사용자",
       "owner",
       ["joint", "p1", "p2"].map((p) => [p, memberName(p, s)]),
@@ -269,6 +270,7 @@ export function recurringEditor(app, id) {
         ...r,
         name: String(f.get("name")).trim(),
         amount: id ? r.amount : amount,
+        insurancePerson: String(f.get("insurancePerson")||""),
         day,
         category: String(f.get("category")),
         paymentMethod: String(f.get("paymentMethod")).trim(),
