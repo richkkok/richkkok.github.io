@@ -42,10 +42,10 @@ try {
    assert.equal(await page.locator('.fixed-insurance-group[open]').count(),0);
    assert.deepEqual(await page.locator('.control-home > .control-summary').evaluateAll(xs=>xs.map(x=>x.getAttribute('aria-label'))),['여유자금','소비한도','월 고정지출','비정기 고정지출']);
    for (let i=0;i<6;i++) {
-    await page.locator('.fixed-insurance-group > summary').click();
+    await page.locator('.fixed-insurance-group > summary').first().click();
     const expected=i%2===0;
     await page.locator('#month-picker').dispatchEvent('change');
-    assert.equal(await page.locator('.fixed-insurance-group').evaluate(el=>el.open),expected,'A render must preserve both expanded and collapsed states');
+    assert.equal(await page.locator('.fixed-insurance-group').first().evaluate(el=>el.open),expected,'A render must preserve both expanded and collapsed states');
    }
 
    assert.equal(await page.locator('[role=progressbar][aria-label="여유자금 잔여 비율"]').getAttribute('aria-valuenow'),'58');
@@ -112,10 +112,10 @@ try {
    assert.equal(await page.locator('.fixed-insurance-group[open]').count(),0);
    assert.deepEqual(await page.locator('.control-home > .control-summary').evaluateAll(xs=>xs.map(x=>x.getAttribute('aria-label'))),['여유자금','소비한도','월 고정지출','비정기 고정지출']);
    for (let i=0;i<6;i++) {
-    await page.locator('.fixed-insurance-group > summary').click();
+    await page.locator('.fixed-insurance-group > summary').first().click();
     const expected=i%2===0;
     await page.locator('#month-picker').dispatchEvent('change');
-    assert.equal(await page.locator('.fixed-insurance-group').evaluate(el=>el.open),expected,'A render must preserve both expanded and collapsed states');
+    assert.equal(await page.locator('.fixed-insurance-group').first().evaluate(el=>el.open),expected,'A render must preserve both expanded and collapsed states');
    }
 
    for(const person of ['박태영','김은영','박서우'])assert.equal(await page.locator('[data-fixed-status=pending] summary').filter({hasText:person}).count(),1);
