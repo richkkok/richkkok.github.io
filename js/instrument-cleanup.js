@@ -165,7 +165,7 @@ export function mergeCardInto(state, sourceName, destinationName, bases = {}) {
     profile.owner ||= src.owner;
     if (!dst.closingDay && src.closingDay)
       Object.assign(profile, {
-        closingDay: src.closingDay, paymentDay: src.paymentDay, lagMonths: src.lagMonths,
+        startDay: src.startDay, billingHistory: src.billingHistory, cycleChangeLog: src.cycleChangeLog, closingDay: src.closingDay, paymentDay: src.paymentDay, lagMonths: src.lagMonths,
       });
   }
   if (src) delete profiles[from];
