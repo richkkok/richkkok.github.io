@@ -36,6 +36,7 @@ jobs:
           node qa/rename-browser.mjs
           node qa/adaptive-entry-browser.mjs
           node qa/control-browser.mjs
+          node qa/card-cycle-browser.mjs
           node qa/irregular-browser.mjs
           node qa/instrument-browser.mjs
           node qa/instrument-history-browser.mjs
@@ -51,6 +52,7 @@ jobs:
         run: |
           node qa/wait-release.mjs
           node qa/control-browser.mjs
+          node qa/card-cycle-browser.mjs
           node qa/irregular-browser.mjs
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/richkkok-browser/node_modules/playwright/index.mjs
