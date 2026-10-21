@@ -33,6 +33,13 @@ try{
    await page.clock.install({time:new Date('2026-10-21T03:00:00Z')});await page.goto(base+'/',{waitUntil:'networkidle'});await seed(page);
    assert.equal(await page.locator('[data-control-value=used]').innerText(),'170,000원');
    assert.match(await page.locator('.control-home').innerText(),/결제 예정월 기준/);
+   assert.ok(await page.locator('.control-next-preview').isVisible());
+   assert.match(await page.locator('.control-next-preview h3').innerText(),/2026년 11월/);
+   assert.equal(await page.locator('[data-next-value=used]').innerText(),'40,000원');
+   assert.equal(await page.locator('[data-next-value=limit]').innerText(),'2,500,000원');
+   assert.equal(await page.locator('[data-next-value=remaining]').innerText(),'2,460,000원');
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+   await page.screenshot({path:`${folder}/next-month-home-${name}.png`,fullPage:true});
    await page.locator('.control-spending-trigger').click();await page.locator('#dialog [data-edit=sep8]').click();
    assert.match(await page.locator('[data-card-allocation]').innerText(),/2026-09-08/);
    assert.match(await page.locator('[data-card-allocation]').innerText(),/2026-10-17/);
