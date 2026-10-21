@@ -57,3 +57,13 @@
 .card-cycle-preview strong{color:#235548}
 .card-cycle-history{margin:12px 0;font-size:13px;line-height:1.65}
 [data-cycle-confirm][hidden]{display:none!important}
+
+.control-next-preview{margin-top:22px;padding:16px;background:#f3f7f5;border:1px solid #d8e5df;border-radius:12px}
+.control-next-preview h3{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;font-size:14px;margin:0 0 12px}
+.control-next-preview h3 span{font-size:12px;font-weight:400;color:#52665c}
+.control-next-amount{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;margin:0 0 10px!important;font-variant-numeric:tabular-nums}
+.control-next-amount>strong{font-size:20px;color:#235548}.control-next-amount>span{font-size:13px;color:#52665c}
+.control-next-preview .control-meter{height:6px;margin:10px 0}
+.control-next-remaining{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;font-size:13px}
+.control-next-preview .small{font-size:12px;line-height:1.6}.control-next-preview details{font-size:13px}
+.control-next-preview.is-over .control-next-remaining{color:#b42318}.control-next-preview.is-over .control-meter i{background:#b42318}
