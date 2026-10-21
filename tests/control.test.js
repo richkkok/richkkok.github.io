@@ -116,3 +116,20 @@ test('0원 기준값·고정비 초과·음수 여유자금의 진행 막대가 
  assert.match(html,/aria-label="여유자금 잔여 비율"[^>]*aria-valuenow="0"/);
  assert.doesNotMatch(html,/width:(?:NaN|Infinity)%/);
 });
+
+test('다음 달 미리보기는 해당 월 한도와 등록된 청구액을 사용하고 원본을 보존',()=>{
+ const s=setup();s.transactions=[tx('oct',170000,'2026-10-02'),tx('nov',40000,'2026-10-04'),tx('future',999999,'2026-10-25')];ensureControl(s);
+ saveLimit(s,'2026-11',100000,false);const before=structuredClone(s);
+ const html=controlView(s,'2026-10',controlOverview(s,'2026-10','2026-10-21'));
+ assert.match(html,/다음 달 소비한도 <span>2026년 11월/);
+ assert.match(html,/data-next-value="used">40,000원/);assert.match(html,/data-next-value="limit">100,000원/);assert.match(html,/data-next-value="remaining">60,000원/);
+ assert.match(html,/aria-label="다음 달 소비한도 사용률"[^>]*aria-valuenow="40"/);assert.deepEqual(s,before);
+ s.transactions[1].amount=120000;
+ assert.match(controlView(s,'2026-10',controlOverview(s,'2026-10','2026-10-21')),/한도 초과 <strong data-next-value="remaining">20,000원/);
+});
+test('다음 달 미리보기는 연말과 사용액 없는 0원 한도를 처리',()=>{
+ const s=setup();saveLimit(s,'2027-01',0,false);
+ const html=controlView(s,'2026-12',controlOverview(s,'2026-12','2026-12-21'));
+ assert.match(html,/다음 달 소비한도 <span>2027년 1월/);assert.match(html,/data-next-value="limit">0원/);
+ assert.match(html,/aria-label="다음 달 소비한도 사용률"[^>]*aria-valuenow="0"/);assert.doesNotMatch(html,/width:(?:NaN|Infinity)%/);
+});
