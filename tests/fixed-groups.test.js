@@ -35,6 +35,13 @@ test('사용자별 보험료 합계와 접힌 목록, 완료 보험은 완료 �
  assert.equal(doc.querySelector('[data-control-value=fixedRemaining]').textContent,'1,500원');
  assert.equal(doc.querySelector('[data-fixed-status=paid] [data-id=paid]').textContent.includes('납부완료'),true);
  assert.equal(doc.querySelector('[data-fixed-status=pending] [data-id=paid]'),null);
+ assert.equal(doc.querySelector('[data-id=paid] .fixed-payment-paid').textContent.includes('납부완료'),true);
+ assert.equal(doc.querySelector('[data-id=t1] .fixed-payment-overdue').textContent.includes('미납'),true);
+ assert.equal(doc.querySelector('[data-id=t2] .fixed-payment-pending').textContent.includes('납부예정'),true);
+ const keys=[...doc.querySelectorAll('.fixed-insurance-group')].map(el=>el.dataset.focusFold);
+ assert.equal(new Set(keys).size,keys.length);
+ assert.ok(keys.every(Boolean));
+
  assert.match(doc.querySelector('[data-fixed-status=pending]').textContent,/박태영 보험료/);
 });
 test('빈 월과 모든 항목 납부완료는 남은 금액 0원',()=>{
