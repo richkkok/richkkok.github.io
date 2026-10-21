@@ -110,7 +110,7 @@ try {
    await page.locator('#month-picker').fill('2026-10');await page.locator('#month-picker').dispatchEvent('change');
    assert.equal(await page.locator('[data-control-value=fixedRemaining]').innerText(),'1,500원');
    assert.equal(await page.locator('.fixed-insurance-group[open]').count(),0);
-   assert.deepEqual(await page.locator('.control-home > .control-summary').evaluateAll(xs=>xs.map(x=>x.getAttribute('aria-label'))),['여유자금','소비한도','월 고정지출']);
+   assert.deepEqual(await page.locator('.control-home > .control-summary').evaluateAll(xs=>xs.map(x=>x.getAttribute('aria-label'))),['여유자금','소비한도','월 고정지출','비정기 고정지출']);
    for (let i=0;i<6;i++) {
     await page.locator('.fixed-insurance-group > summary').click();
     const expected=i%2===0;
