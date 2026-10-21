@@ -510,7 +510,9 @@ app.pwa = setupPWA();
 let displayedDay = today();
 const refreshDay = () => {
   if (app.state && !document.hidden && !document.querySelector('#dialog').open && today() !== displayedDay) {
-    displayedDay = today(); app.render();
+    const nextDay=today(), day=startDay(app.state);
+    if(app.month===periodKey(displayedDay,day)) app.month=periodKey(nextDay,day);
+    displayedDay = nextDay; app.render();
   }
 };
 document.addEventListener('visibilitychange', refreshDay);
