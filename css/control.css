@@ -67,3 +67,5 @@
 .control-next-remaining{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;font-size:13px}
 .control-next-preview .small{font-size:12px;line-height:1.6}.control-next-preview details{font-size:13px}
 .control-next-preview.is-over .control-next-remaining{color:#b42318}.control-next-preview.is-over .control-meter i{background:#b42318}
+
+.control-next-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px}.control-next-heading h3{display:grid;gap:4px;margin:0}.control-next-heading>.btn{min-height:44px;flex-shrink:0;font-size:13px}
