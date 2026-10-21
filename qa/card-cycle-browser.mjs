@@ -39,6 +39,21 @@ try{
    assert.equal(await page.locator('[data-next-value=limit]').innerText(),'2,500,000원');
    assert.equal(await page.locator('[data-next-value=remaining]').innerText(),'2,460,000원');
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+   const beforeLimit=await read(page);
+   await page.locator('.control-next-preview [data-action=control-limit]').click();
+   assert.equal(await page.locator('#dialog [name=month]').inputValue(),'2026-11');
+   assert.equal(await page.locator('#dialog [name=amount]').inputValue(),'2500000');
+   await page.locator('#dialog [name=amount]').fill('1800000');
+   await page.locator('#dialog [type=submit]').click();await page.locator('#dialog[open]').waitFor({state:'hidden'});
+   assert.equal(await page.locator('[data-next-value=limit]').innerText(),'1,800,000원');
+   assert.equal(await page.locator('[data-next-value=remaining]').innerText(),'1,760,000원');
+   assert.equal(await page.locator('[data-control-value=limit]').innerText(),'2,500,000원');
+   assert.deepEqual((await read(page)).transactions,beforeLimit.transactions);
+   await page.reload({waitUntil:'networkidle'});
+   assert.equal(await page.locator('[data-next-value=limit]').innerText(),'1,800,000원');
+   await page.locator('#month-picker').fill('2026-11');await page.locator('#month-picker').dispatchEvent('change');
+   assert.equal(await page.locator('[data-control-value=limit]').innerText(),'1,800,000원');
+   await page.locator('#month-picker').fill('2026-10');await page.locator('#month-picker').dispatchEvent('change');
    await page.screenshot({path:`${folder}/next-month-home-${name}.png`,fullPage:true});
    await page.locator('.control-spending-trigger').click();await page.locator('#dialog [data-edit=sep8]').click();
    assert.match(await page.locator('[data-card-allocation]').innerText(),/2026-09-08/);
@@ -65,6 +80,16 @@ try{
    const saved=await read(page);assert.deepEqual(saved.transactions,original.transactions);assert.equal(saved.settings.paymentProfiles['검증신한카드'].startDay,21);assert.equal(saved.settings.paymentProfiles['검증신한카드'].closingDay,20);
    await open();assert.equal(await page.locator('#dialog [name=startDay]').inputValue(),'21');assert.equal(await page.locator('#dialog [name=paymentDay]').inputValue(),'25');await page.locator('.card-cycle-history summary').click();assert.match(await page.locator('.card-cycle-history').innerText(),/2026-09-01/);await close(page);
    await page.goto(base+'/#home');await page.waitForSelector('.control-home');assert.equal(await page.locator('[data-control-value=used]').innerText(),'160,000원');
+   await page.clock.setSystemTime(new Date('2026-11-01T03:00:00Z'));
+   await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+   assert.equal(await page.locator('#month-picker').inputValue(),'2026-11');
+   assert.equal(await page.locator('[data-control-value=limit]').innerText(),'1,800,000원');
+   await page.reload({waitUntil:'networkidle'});
+   assert.equal(await page.locator('[data-control-value=limit]').innerText(),'1,800,000원');
+   await page.locator('#month-picker').fill('2026-09');await page.locator('#month-picker').dispatchEvent('change');
+   await page.clock.setSystemTime(new Date('2026-12-01T03:00:00Z'));
+   await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+   assert.equal(await page.locator('#month-picker').inputValue(),'2026-09','Preserve manually selected historical month');
    assert.deepEqual(errors,[]);results.push({engine:name,cycleSettings:true,previewReadOnly:true,impactConfirmation:true,sep8October:true,originalPreserved:true,pass:true});
    await context.close();
   }finally{await browser.close();}
