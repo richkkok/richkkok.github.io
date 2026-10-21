@@ -1,11 +1,27 @@
 import { daysInMonth, keyText, shiftMonth } from './format.js';
-import { addDays, period, startDay, inPeriod } from './period.js';
+import { addDays, period, startDay, inPeriod, validDate } from './period.js';
 import { liveExpense, costKind } from './behavior.js';
 import { expenseValue } from './budget.js';
 
 const methodKey = name => keyText(name);
 const dayInMonth = (month, day) =>
   month + '-' + String(Math.min(day, daysInMonth(month))).padStart(2, '0');
+
+// Legacy profiles derive the start without migrating any stored data.
+export const billingStartDay = p => p?.startDay ?? (p?.closingDay ? p.closingDay % 31 + 1 : null);
+export function validateBillingCycle(start, close) {
+  if (!Number.isInteger(start) || start < 1 || start > 31 || !Number.isInteger(close) || close < 1 || close > 31)
+    throw Error('카드 이용 시작일과 마감일은 1~31일로 선택해 주세요.');
+  if (start !== close % 31 + 1)
+    throw Error('이용기간이 겹치거나 빠지는 날짜가 있어요. 시작일은 마감일 다음 날로 선택해 주세요. 예: 4일 시작 / 3일 마감, 1일 시작 / 31일 마감.');
+}
+export function billingTermsAt(profile, date) {
+  if (!profile) return null;
+  if (!profile.billingHistory?.length) return profile;
+  const terms = [...profile.billingHistory].filter(h => h.effective <= date).sort((a,b)=>a.effective.localeCompare(b.effective)).at(-1);
+  return terms?.closingDay ? {...terms, kind:profile.kind} : null;
+}
+const cycleTerms = p => ({ startDay:billingStartDay(p), closingDay:p?.closingDay, paymentDay:p?.paymentDay, lagMonths:p?.lagMonths, holidayPolicy:p?.holidayPolicy || 'none', holidays:p?.holidays || [] });
 
 // Transaction payment methods (not the intermediary paymentChannel) decide
 // whether spending is settled later. User confirmation overrides name guesses.
@@ -59,6 +75,7 @@ export function validatePaymentProfiles(state) {
       throw Error("카드 사용자 구분을 확인해 줘.");
     if (p.holidayPolicy && !['none','next','previous'].includes(p.holidayPolicy)) throw Error('휴일 처리 방식을 확인해 주세요.');
     if (p.holidays && (!Array.isArray(p.holidays) || p.holidays.some(d=>!/^\d{4}-\d{2}-\d{2}$/.test(d)))) throw Error('휴일은 YYYY-MM-DD 형식으로 입력해 주세요.');
+    if (p.startDay != null) validateBillingCycle(p.startDay,p.closingDay);
     const hasDates = p.closingDay != null || p.paymentDay != null;
     if (hasDates && (p.kind !== 'credit' ||
         !Number.isInteger(p.closingDay) || p.closingDay < 1 || p.closingDay > 31 ||
@@ -88,7 +105,7 @@ export function savePaymentProfile(state, name, kind, closingDay = null, payment
   if (expected !== undefined && JSON.stringify(before) !== JSON.stringify(expected))
     throw Error('다른 기기에서 카드 설정이 변경됐어. 다시 열어서 확인해 줘.');
   const profile = { ...before, name: trimmed, kind };
-  if (kind !== "credit") { delete profile.closingDay; delete profile.paymentDay; delete profile.lagMonths; }
+  if (kind !== "credit") { delete profile.startDay; delete profile.closingDay; delete profile.paymentDay; delete profile.lagMonths; }
   const identity = metadata === undefined ? before?.identifier : metadata.identifier;
   const owner = metadata === undefined ? before?.owner : metadata.owner;
   if (identity) profile.identifier = String(identity);
@@ -96,14 +113,20 @@ export function savePaymentProfile(state, name, kind, closingDay = null, payment
   if (kind === 'credit' && daysPresent)
     Object.assign(profile, { closingDay, paymentDay, lagMonths });
   if (metadata) {
+    if (kind === 'credit' && metadata.startDay != null) {
+      validateBillingCycle(metadata.startDay,closingDay); profile.startDay=metadata.startDay;
+    }
     profile.accountId = metadata.accountId || '';
     profile.holidayPolicy = metadata.holidayPolicy || 'none';
     profile.holidays = metadata.holidays || [];
     const effective = metadata.effective || new Date().toISOString().slice(0,10);
-    if (before?.closingDay && JSON.stringify([before.closingDay,before.paymentDay,before.lagMonths,before.holidayPolicy,before.holidays]) !== JSON.stringify([profile.closingDay,profile.paymentDay,profile.lagMonths,profile.holidayPolicy,profile.holidays])) {
-      profile.billingHistory = [...(before.billingHistory || [{effective:'0001-01-01',closingDay:before.closingDay,paymentDay:before.paymentDay,lagMonths:before.lagMonths,holidayPolicy:before.holidayPolicy,holidays:before.holidays}]),{effective,closingDay:profile.closingDay,paymentDay:profile.paymentDay,lagMonths:profile.lagMonths,holidayPolicy:profile.holidayPolicy,holidays:profile.holidays}];
+    if (!validDate(effective)) throw Error('변경 적용 시작일을 확인해 주세요.');
+    if (kind === 'credit' && daysPresent && JSON.stringify(cycleTerms(before)) !== JSON.stringify(cycleTerms(profile))) {
+      const prior = before?.billingHistory || [{effective:'0001-01-01',...cycleTerms(before)}];
+      profile.billingHistory = [...prior.filter(h=>h.effective !== effective),{effective,...cycleTerms(profile)}];
     }
   }
+
   const next = { ...state.settings.paymentProfiles, [key]: profile };
   validatePaymentProfiles({ settings: { paymentProfiles: next } });
   state.settings.paymentProfiles = next;
@@ -117,6 +140,7 @@ export function savePaymentProfile(state, name, kind, closingDay = null, payment
 // salary/operating months. This is not an issuer statement or a bank debit.
 export function billingWindow(asOf, profile) {
   if (!profile || profile.kind !== 'credit' || !profile.closingDay || !profile.paymentDay) return null;
+  if (profile.startDay != null) validateBillingCycle(profile.startDay,profile.closingDay);
   const month = asOf.slice(0, 7);
   const firstClose = dayInMonth(month, profile.closingDay);
   const closeMonth = asOf <= firstClose ? month : shiftMonth(month, 1);

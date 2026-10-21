@@ -1,3 +1,4 @@
+import { previewCardCycle, applyCardCycle } from './card-cycle-change.js';
 import { cardBills } from "./control.js";
 import { cashNow, cashTime, cashRows, cashRoots, cashHidden, cashConnection, validCashTime } from "./cash.js";
 import { escape as e, won, uid, amountInput, normalizeText, keyText } from "./format.js";
@@ -6,7 +7,7 @@ import { memberName } from "../data/defaults.js";
 import { select, field, openDialog, toast } from "./ui.js";
 import { matchRecurring } from "./recurring.js";
 import { cashAction } from "./cash-ui.js";
-import { paymentKind, savePaymentProfile, billingWindow } from "./payment-channels.js";
+import { paymentKind, billingStartDay, billingWindow } from "./payment-channels.js";
 import { paymentNameSummary, paymentRenameBasis, renamePaymentMethod } from "./payment-rename.js";
 import { cardIdentityCode, autoMergeCardCode, mergeCardInto, methodNames, instrumentUsage, hideInstrument, restoreInstrument } from "./instrument-cleanup.js";
 
@@ -347,22 +348,24 @@ function openPaymentProfileEditor(app, existingName = '') {
         field('카드 식별코드 (선택)', 'identifier', original?.identifier || '', 'text', 'maxlength="40" placeholder="예: M107"') +
         select('카드 사용자', 'identityOwner', [['', '선택하지 않음'], ...['p1','p2','joint'].map(id => [id, memberName(id,s)])], original?.owner || '') +
       '</div></details><div data-billing-fields class="form-grid">' +
-      field('카드사 이용 마감일 (매월 1~31일)', 'closingDay', original?.closingDay ?? '', 'number', 'min="1" max="31" placeholder="카드사에서 확인"') +
+      field('카드 이용 시작일 (매월 1~31일)', 'startDay', billingStartDay(original) ?? '', 'number', 'min="1" max="31" placeholder="예: 4"') +
+      field('카드 이용 마감일 (매월 1~31일)', 'closingDay', original?.closingDay ?? '', 'number', 'min="1" max="31" placeholder="카드사에서 확인"') +
       field('결제 예정일 (매월 1~31일)', 'paymentDay', original?.paymentDay ?? '', 'number', 'min="1" max="31" placeholder="카드사에서 확인"') +
       select('마감월 기준 결제 예정월', 'lagMonths',
-        [['0', '마감한 당월'], ['1', '다음 달'], ['2', '다다음 달']], String(original?.lagMonths ?? 1)) +
+        [['0', '마감월과 같은 달'], ['1', '다음 달'], ...(original?.lagMonths===2 ? [['2','다다음 달 (기존 설정 유지)']] : [])], String(original?.lagMonths ?? 1)) +
       select('결제계좌','billingAccount',[['','선택하지 않음'],...(s.cashAccounts||[]).filter(a=>!a.archived).map(a=>[a.id,a.name])],original?.accountId||'') +
       select('휴일 결제일 처리','holidayPolicy',[['none','조정 없음'],['next','다음 영업일'],['previous','이전 영업일']],original?.holidayPolicy||'none') +
       field('추가 휴일 (쉼표로 구분)','holidays',(original?.holidays||[]).join(', '),'text','placeholder="2026-10-09, 2026-12-25"') +
       field('변경 적용 시작일','billingEffective',cashNow().slice(0,10),'date','required') +
-      '<p class="small muted">이용 시작일은 이전 마감일의 다음 날이에요. 주말은 자동 조정하며 공휴일은 위 목록에 입력해 주세요. 이전에 저장한 거래의 청구월은 유지해요.</p>' +
-    '</div>' +
+      '<p class="small muted">시작일과 마감일은 모두 포함해요. 기간 중복이나 누락을 막기 위해 시작일은 마감일 다음 날이어야 해요. 짧은 달의 마감일은 말일로, 다음 시작일은 그 다음 날로 계산해요. 휴일 조정은 출금일에만 적용하며 소비한도 월은 약정 결제월을 유지해요.</p>' +
+    '</div><div class="card-cycle-preview" data-cycle-preview aria-live="polite"></div><label class="check-field" data-cycle-confirm hidden><input type="checkbox" name="cycleChangeConfirmed">위 변경 범위와 영향금액을 확인했어요</label>' +
     (existing ? '<div class="instrument-rename-preview"><strong>현재 이름: ' + e(name) + '</strong><p>전체 저장된 거래 ' + counts.transactions + '건' +
       (ownerPreview ? ' · ' + ownerPreview : '') + ' · 고정지출 ' + counts.recurring + '건</p>' +
       '<p>이름을 바꾸면 삭제 보관함을 포함한 과거 거래와 카드 청구설정·연결 정보까지 함께 바꿔. 거래 금액·날짜·소유자는 그대로 유지해.</p>' +
       '<label class="check-field"><input type="checkbox" name="bulkRenameConfirmed">기존 이름의 전체 내역을 새 이름으로 바꾸는 데 동의해</label></div>' : '') +
+    (original?.cycleChangeLog?.length ? '<details class="card-cycle-history"><summary>최근 결제주기 변경 영향</summary>'+original.cycleChangeLog.slice(-5).reverse().map(log=>'<p>'+e(log.effective)+' 적용 / '+log.changes.length+'건 변경</p>'+log.totals.map(([m,v])=>'<p>'+e(m)+' '+(v>0?'+':'')+won(v)+'</p>').join('')).join('')+'</details>' : '') +
     (existing ? '<button type="button" class="btn secondary" data-action="instrument-review" data-key="'+e(existing.key)+'">이 결제수단의 전체 거래 보기</button>' : '') +
-    '<p class="cash-small">신용카드 이용·결제기간은 카드사 청구서에서 확인해 입력해 줘. 모르면 날짜를 비워 두어도 결제방식 구분은 저장돼. 카드사 명세서와 차이가 나면 청구·납부에서 확인하고 조정해 주세요.</p>',
+    '<p class="cash-small">신용카드 이용·결제기간은 카드사 청구서에서 확인해 입력해 줘. 새 신용카드는 시작일, 마감일, 결제일을 모두 입력해 주세요. 기존 미설정 카드의 이름만 변경할 때는 빈 값을 유지할 수 있어요. 카드사 명세서와 차이가 나면 청구·납부에서 확인하고 조정해 주세요.</p>',
     async f => {
       const newName = String(f.get('methodName') || '').trim();
       const newKind = String(f.get('methodKind'));
@@ -370,10 +373,11 @@ function openPaymentProfileEditor(app, existingName = '') {
       const identityOwner = String(f.get('identityOwner') || '');
       if (identifier && !identityOwner)
         throw Error('카드 식별코드를 등록하려면 해당 카드 사용자도 선택해 줘.');
+      const start = String(f.get('startDay') || '').trim();
       const first = String(f.get('closingDay') || '').trim();
       const second = String(f.get('paymentDay') || '').trim();
-      if (newKind === 'credit' && !!first !== !!second)
-        throw Error('카드 이용 마감일과 결제일은 둘 다 입력하거나 둘 다 비워 줘.');
+      if (newKind === 'credit' && ((!start || !first || !second) && (!existing || start || first || second)))
+        throw Error('카드 이용 시작일, 마감일, 결제일을 모두 입력해 주세요.');
       const closing = newKind === 'credit' && first ? Number(first) : null;
       const payment = newKind === 'credit' && second ? Number(second) : null;
       const lag = newKind === 'credit' ? Number(f.get('lagMonths')) : 1;
@@ -386,8 +390,8 @@ function openPaymentProfileEditor(app, existingName = '') {
           throw Error('다른 기기에서 카드나 거래기록이 변경됐어. 다시 열어서 확인해 줘.');
         if (renamed) result = renamePaymentMethod(st,name,newName,basis);
         const currentProfile = st.settings.paymentProfiles?.[keyText(newName)];
-        savePaymentProfile(st,newName,newKind,closing,payment,lag,
-          existing ? currentProfile : undefined, { identifier, owner: identityOwner, accountId:String(f.get('billingAccount')||''), holidayPolicy:String(f.get('holidayPolicy')||'none'), holidays:String(f.get('holidays')||'').split(',').map(x=>x.trim()).filter(Boolean), effective:String(f.get('billingEffective')) });
+        applyCardCycle(st,newName,newKind,closing,payment,lag,
+          { startDay:newKind==='credit'&&start?Number(start):null, identifier, owner: identityOwner, accountId:String(f.get('billingAccount')||''), holidayPolicy:String(f.get('holidayPolicy')||'none'), holidays:String(f.get('holidays')||'').split(',').map(x=>x.trim()).filter(Boolean), effective:String(f.get('billingEffective')) }, !!f.get('cycleChangeConfirmed'));
         merged = autoMergeCardCode(st,newName);
       });
       if (!existing || renamed || merged?.merged) {
@@ -402,9 +406,27 @@ function openPaymentProfileEditor(app, existingName = '') {
     }, '설정 저장');
   const selector = dialog.querySelector('[name="methodKind"]');
   const fields = dialog.querySelector('[data-billing-fields]');
-  const toggle = () => { fields.hidden = selector.value !== 'credit'; };
-  selector.addEventListener('change', toggle);
-  toggle();
+  const preview = dialog.querySelector('[data-cycle-preview]');
+  const confirmation = dialog.querySelector('[data-cycle-confirm]');
+  const updatePreview = () => {
+    fields.hidden = selector.value !== 'credit';
+    const f=new dialog.ownerDocument.defaultView.FormData(dialog.querySelector('form'));
+    const start=Number(f.get('startDay')), close=Number(f.get('closingDay')), payment=Number(f.get('paymentDay'));
+    confirmation.hidden=true;
+    try {
+      if(selector.value==='credit' && (!start||!close||!payment))throw Error('주기 입력 대기');
+      const result=previewCardCycle(s,name||String(f.get('methodName')||'미리보기 카드'),selector.value,selector.value==='credit'?close:null,selector.value==='credit'?payment:null,Number(f.get('lagMonths')),
+        {startDay:selector.value==='credit'?start:null,effective:String(f.get('billingEffective')),accountId:String(f.get('billingAccount')||''),holidayPolicy:String(f.get('holidayPolicy')||'none'),holidays:String(f.get('holidays')||'').split(',').map(x=>x.trim()).filter(Boolean)});
+      const w=result.window;
+      preview.innerHTML=(w?`<h3>결제주기 미리보기</h3><p>이용기간 <strong>${e(w.start)} ~ ${e(w.end)}</strong></p><p>카드 결제예정일 <strong>${e(w.payment)}</strong>${w.adjusted!==w.payment?` (휴일 조정 출금일 ${e(w.adjusted)})`:''}</p><p>현재까지 등록된 사용액 <strong>${won(result.usage)}</strong> (자동 계산 예상액)</p><p>소비한도 반영월 <strong>${e(w.payment.slice(0,7))}</strong></p><p class="small muted">고정비와 제외 내역은 소비한도에 포함하지 않고 할부는 회차별로 반영해요.</p>`:'') +
+        `<p>적용 시작일 ${e(String(f.get('billingEffective')))} 이후 거래 기준. 납부기록 연결 거래 ${result.protectedCount}건 보호.</p>` +
+        (result.changes.length?`<h3>기존 거래 변경 미리보기: ${result.changes.length}건</h3>${result.totals.map(([m,v])=>`<p>${e(m)} 소비한도 사용액 변화 <strong>${v>0?'+':''}${won(v)}</strong></p>`).join('')}<details><summary>거래별 변경 전후 확인</summary>${result.changes.map(c=>`<p>${e(c.date)} / ${won(c.amount)}<br>${e(c.before.map(r=>r.month+' ('+(r.payment||'사용일 기준')+')').join(', '))} → ${e(c.after.map(r=>r.month+' ('+(r.payment||'사용일 기준')+')').join(', '))}</p>`).join('')}</details>`:'<p>기존 거래의 청구기간과 반영월 변경 없음</p>');
+      confirmation.hidden=!result.changes.length;
+    } catch(error) { preview.innerHTML=`<p class="control-warning">${e(error.message==='주기 입력 대기'?'시작일, 마감일, 결제일을 선택하면 이용기간과 반영월이 표시돼요.':error.message)}</p>`; }
+  };
+  dialog.querySelector('form').addEventListener('input',event=>{if(event.target.name!=='cycleChangeConfirmed'){confirmation.querySelector('input').checked=false;updatePreview();}});
+  dialog.querySelector('form').addEventListener('change',event=>{if(event.target.name!=='cycleChangeConfirmed'){confirmation.querySelector('input').checked=false;updatePreview();}});
+  updatePreview();
 }
 export async function instrumentLedgerAction(app, action, target) {
   if (!action.startsWith("instrument-")) return false;

@@ -1,5 +1,5 @@
 import { keyText, shiftMonth, daysInMonth, today, uid } from './format.js';
-import { billingWindow, paymentKind } from './payment-channels.js';
+import { billingWindow, billingTermsAt, paymentKind } from './payment-channels.js';
 import { period, startDay, inPeriod, validDate, addDays } from './period.js';
 import { planFor, expenseValue } from './budget.js';
 import { costKind, dayStatus } from './behavior.js';
@@ -51,10 +51,10 @@ export function ensureControl(s) {
     const p = s.settings.paymentProfiles?.[keyText(t.paymentMethod)];
     const basis = transactionBasis(t);
     if (p?.closingDay && p?.paymentDay && (!meta.billingSnapshot || meta.billingSnapshot.basis !== basis)) {
-      const history = [...(p.billingHistory || [])].filter(h => h.effective <= t.date).sort((a,b)=>a.effective.localeCompare(b.effective));
-      const terms = history.at(-1) || p;
+      const terms = billingTermsAt(p,t.date);
+      if (!terms) continue;
       const window = billingWindow(t.date, { ...terms, kind:'credit' });
-      meta.billingSnapshot = { ...window, basis, terms: { closingDay:terms.closingDay,paymentDay:terms.paymentDay,lagMonths:terms.lagMonths,holidayPolicy:terms.holidayPolicy || 'none', holidays:terms.holidays || [] } };
+      meta.billingSnapshot = { ...window, basis, terms: { startDay:terms.startDay,closingDay:terms.closingDay,paymentDay:terms.paymentDay,lagMonths:terms.lagMonths,holidayPolicy:terms.holidayPolicy || 'none', holidays:terms.holidays || [] } };
     }
   }
   return s;
@@ -79,9 +79,10 @@ export function cardCharges(s, asOf = today()) {
     const p = s.settings.paymentProfiles?.[keyText(t.paymentMethod)];
     const snapshot=s.transactionControl?.[t.id]?.billingSnapshot || t.billingSnapshot;
     const saved = snapshot?.basis === transactionBasis(t) ? snapshot : null;
-    const window = saved || billingWindow(t.date,p);
+    const applicable = billingTermsAt(p,t.date);
+    const window = saved || billingWindow(t.date,applicable);
     if (!window) continue;
-    const terms = saved?.terms || p;
+    const terms = saved?.terms || applicable;
     const count = t.direction === 'refund' ? 1 : (t.installments || 1);
     const startMonth = t.billingMonth || window.payment.slice(0,7);
     for (let i=0;i<count;i++) {
@@ -191,7 +192,7 @@ export function controlOverview(s,month,asOf=today()) {
   const rows=s.transactions.filter(t=>counted(t) && inPeriod(t,s,month) && t.date<=asOf);
   const income=rows.reduce((n,t)=>n+budgetIncomeValue(t,s),0);
   const known=new Set(charges.map(r=>r.txId));
-  const variable=rows.filter(t=>limitExpense(s,t) && !known.has(t.id)).reduce((n,t)=>n+expenseValue(t),0)+due.reduce((n,b)=>n+b.variable,0);
+  const variable=s.transactions.filter(t=>t.date<=asOf && t.date.slice(0,7)===month && limitExpense(s,t) && !known.has(t.id)).reduce((n,t)=>n+expenseValue(t),0)+due.reduce((n,b)=>n+b.variable,0);
   const fixed=rows.filter(t=>costKind(t)==='fixed' && !isIrregular(t)).reduce((n,t)=>n+expenseValue(t),0);
   const irregular=rows.filter(t=>isIrregular(t)&&!known.has(t.id)).reduce((n,t)=>n+expenseValue(t),0)+due.reduce((n,b)=>n+b.irregular,0);
   const plan=planFor(s,month), limit=limitFor(s,month,plan);
@@ -233,6 +234,12 @@ export function settleBill(s,bill,amount,date,accountId,existingId='') {
     tx={id,sourceId:id,date,datetime:date+'T00:00:00',amount,direction:'transfer',scope:'excluded',excluded:true,owner:account.owner||'joint',category:'finance',categoryConfirmed:true,paymentMethod:account.paymentMethod||account.name,merchantRaw:bill.name+' 카드대금',merchantNormalized:bill.name+' 카드대금',sourceType:'manual',note:'카드 사용내역 정산',createdAt:stamp(),updatedAt:stamp()};
     s.transactions.push(tx);
     saveCashLink(s,id,[{accountId,direction:'out',at:tx.datetime}],false,cashFingerprint(tx));
+  }
+  if (existingId && accountId) {
+    const link=(s.cashLinks||[]).find(l=>l.id===tx.id);
+    if (link && (link.ignored || link.basis!==cashFingerprint(tx) || !link.legs?.some(l=>l.direction==='out'&&l.accountId===accountId)))
+      throw Error('기존 출금의 계좌 연결이 달라요. 입출금 연결을 먼저 확인해 주세요.');
+    if (!link) saveCashLink(s,tx.id,[{accountId,direction:'out',at:tx.datetime}],false,cashFingerprint(tx));
   }
   s.cardSettlements.push({id:uid(),billId:bill.id,instrumentId:bill.instrumentId,txId:tx.id,scheduledDate:bill.paymentDate,at:stamp()});
 }

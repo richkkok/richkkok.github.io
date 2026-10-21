@@ -66,11 +66,11 @@ test('고정지출 제외 후 생활비·기타소비를 포함하고 목록 합
   const html=spendingDetailsView(s,'2026-10','2026-11-09');
   assert.doesNotMatch(html,/data-edit="(?:card|card-fixed|bank-fixed|debit-fixed|repayment)"/);
 });
-test('카드별 청구기간과 계좌·체크 결산기간의 양끝을 포함하며 다음 기간은 제외',()=>{
+test('카드별 청구기간과 계좌 체크 실제 사용월을 구분하며 급여 결산기간과 독립',()=>{
   const s=setup();s.transactions=[tx('a-before','2026-09-03','A 카드'),tx('a-start','2026-09-04','A 카드'),tx('a-end','2026-10-03','A 카드'),tx('a-next','2026-10-04','A 카드'),tx('b-start','2026-08-26','B 카드'),tx('b-end','2026-09-25','B 카드'),tx('b-next','2026-09-26','B 카드'),tx('bank-before','2026-10-09','은행 이체'),tx('bank-start','2026-10-10','은행 이체'),tx('bank-end','2026-11-09','생활 계좌'),tx('bank-next','2026-11-10','은행 이체'),tx('check','2026-11-09','생활 체크')];
-  const d=details(s);assert.deepEqual(d.groups.map(g=>g.type),['credit','credit','account','debit']);
-  assert.deepEqual(d.groups.flatMap(g=>g.rows.map(r=>r.txId)).sort(),['a-start','a-end','b-start','b-end','bank-start','bank-end','check'].sort());
-  assert.equal(d.total,700);assert.equal(d.groups.reduce((n,g)=>n+g.variable,0),d.overview.variable);
+  const d=details(s);assert.deepEqual(d.groups.map(g=>g.type),['credit','credit','account']);
+  assert.deepEqual(d.groups.flatMap(g=>g.rows.map(r=>r.txId)).sort(),['a-start','a-end','b-start','b-end','bank-before','bank-start'].sort());
+  assert.equal(d.total,600);assert.equal(d.groups.reduce((n,g)=>n+g.variable,0),d.overview.variable);
   assert.equal(d.groups.find(g=>g.type==='account').rows.length,2);
 });
 test('고정·제외 내역을 숨기고 환불·할부·조정만 한도에 반영',()=>{

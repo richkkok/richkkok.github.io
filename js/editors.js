@@ -1,3 +1,5 @@
+import { cardCharges, limitExpense } from './control.js';
+import { paymentKind } from './payment-channels.js';
 import { insurancePeople } from './fixed-groups.js';
 import {
   field,
@@ -68,7 +70,7 @@ export function editTransaction(app, id, { paymentFirst = false } = {}) {
     openDialog('중복으로 제외한 입금',`<p>${e(tx.merchantRaw)} · ${won(tx.amount)}</p><p>원본은 보존되어 있어요.</p><button type="button" class="btn secondary" data-action="control-restore-income" data-id="${e(tx.id)}">별개의 입금으로 복원</button>`);
     return;
   }
-  const body = `${tx.irregularFixed ? '<p class="small muted">비정기 고정지출로 집계 중이에요. 월 고정지출·소비한도에서는 제외돼요.</p>' : ''}<div class="form-grid editor-primary">${select("거래 유형", "direction", Object.entries(DIRECTIONS), tx.direction)}${select("누가", "owner", ["p1","p2","joint"].map(p=>[p,memberName(p,state)]),tx.owner)}${field("어떻게", "paymentMethod", tx.paymentMethod, "text", 'required maxlength="100"')}${field("사용처", "merchantRaw", tx.merchantRaw, "text", 'required maxlength="300"')}${field("금액", "amount", tx.amount, "number", "required")}${field("날짜와 시간", "datetime", tx.datetime.slice(0, 16), "datetime-local", "required")}</div> <details class="advanced editor-advanced"><summary>사용자 · 결제 · 고급 설정</summary><div class="form-grid">${select("카테고리", "category", categoryOptions(state), tx.category)}${select("사용 범위", "scope", scopeOptions(state), tx.scope)}${select("카드 실적인정", "performanceStatus", Object.entries(PERFORMANCE), tx.performanceStatus)}${select("고정·반복비 연결", "recurringId", [["", "연결하지 않음"], ...state.recurring.map((r) => [r.id, r.name])], tx.recurringId)}${field("귀속 운영월", "operatingMonth", tx.operatingMonth || "", "month")}${select(
+  const body = `${tx.irregularFixed ? '<p class="small muted">비정기 고정지출로 집계 중이에요. 월 고정지출·소비한도에서는 제외돼요.</p>' : ''}<div class="form-grid editor-primary">${select("거래 유형", "direction", Object.entries(DIRECTIONS), tx.direction)}${select("누가", "owner", ["p1","p2","joint"].map(p=>[p,memberName(p,state)]),tx.owner)}${field("어떻게", "paymentMethod", tx.paymentMethod, "text", 'required maxlength="100"')}${field("사용처", "merchantRaw", tx.merchantRaw, "text", 'required maxlength="300"')}${field("금액", "amount", tx.amount, "number", "required")}${field("날짜와 시간", "datetime", tx.datetime.slice(0, 16), "datetime-local", "required")}</div><div data-card-allocation class="card-cycle-preview" aria-live="polite"></div> <details class="advanced editor-advanced"><summary>사용자 · 결제 · 고급 설정</summary><div class="form-grid">${select("카테고리", "category", categoryOptions(state), tx.category)}${select("사용 범위", "scope", scopeOptions(state), tx.scope)}${select("카드 실적인정", "performanceStatus", Object.entries(PERFORMANCE), tx.performanceStatus)}${select("고정·반복비 연결", "recurringId", [["", "연결하지 않음"], ...state.recurring.map((r) => [r.id, r.name])], tx.recurringId)}${field("귀속 운영월", "operatingMonth", tx.operatingMonth || "", "month")}${select(
     "지출 성격",
     "costKind",
     [
@@ -79,7 +81,7 @@ export function editTransaction(app, id, { paymentFirst = false } = {}) {
     tx.costKind ||
       (tx.scope === "fixed" || tx.recurringId ? "fixed" : "variable"),
   )}${field("결제경로", "paymentChannel", tx.paymentChannel || "", "text", 'maxlength="100"')}${field("할부개월 (일시불 1)", "installments", tx.installments || 1, "number", 'min="1" max="120"')}${field("청구월 직접 지정", "billingMonth", tx.billingMonth || "", "month")}${field("메모", "note", tx.note, "text", 'maxlength="1000"')}</div></details>${tx.irregularFixed ? '<label class="check-field"><input type="checkbox" name="irregularFixed" checked>비정기 고정지출로 집계 (해제 전 홈에서 납부 연결 해제)</label>' : ''}${paymentFirst ? '<p class="instrument-edit-help">결제수단을 바꾸면 해당 카드·계좌의 거래목록에서도 이동해. 은행에 연결된 거래는 연결을 다시 확인해야 할 수 있어.</p>' : ""}${existing ? `<div class="editor-secondary">${!tx.parentId ? `<button class="btn secondary" type="button" data-split="${e(tx.id)}">거래 분할</button>` : '<span class="small muted">분할된 내역이에요</span>'}<button class="btn danger-text" type="button" data-delete-transaction="${e(tx.id)}">휴지통으로 이동</button></div>` : ""}`;
-  openDialog(existing ? "내역 수정" : "내역 직접 입력", body, async (form) => {
+  const dialog = openDialog(existing ? "내역 수정" : "내역 직접 입력", body, async (form) => {
     const datetime = String(form.get("datetime"));
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(datetime))
       throw Error("날짜와 시간을 확인해 주세요.");
@@ -150,6 +152,24 @@ export function editTransaction(app, id, { paymentFirst = false } = {}) {
     });
     toast("내역을 저장했어요.");
   }, "저장하기", "transaction-editor");
+  const form=dialog.querySelector('form');
+  const allocation=dialog.querySelector('[data-card-allocation]');
+  const refreshAllocation=()=>{
+    const values=new form.ownerDocument.defaultView.FormData(form);
+    const candidate={...tx,date:String(values.get('datetime')||'').slice(0,10),amount:Number(values.get('amount')),direction:String(values.get('direction')),paymentMethod:String(values.get('paymentMethod')),installments:Number(values.get('installments')||1),billingMonth:String(values.get('billingMonth')||''),scope:String(values.get('scope')),costKind:String(values.get('costKind'))};
+    candidate.excluded=candidate.scope==='excluded'||candidate.direction==='transfer';
+    if(paymentKind(state,candidate.paymentMethod)!=='credit'||!['expense','refund'].includes(candidate.direction)){allocation.innerHTML='';return;}
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(candidate.date)||!Number.isSafeInteger(candidate.amount)){allocation.innerHTML='';return;}
+    try {
+      const view={...state,transactions:[candidate]};
+      const charges=cardCharges(view,candidate.date);
+      allocation.innerHTML=`<h3>신용카드 소비한도 반영</h3><p>거래일 ${e(candidate.date)} / ${e(candidate.paymentMethod)} / ${won(candidate.amount)}</p>`+
+        (charges.length?charges.map(r=>`<p>${r.parts>1?`${r.part}/${r.parts}회 ${won(r.amount)} / `:''}카드 결제예정일 <strong>${e(r.nominal)}</strong>${r.nominal!==r.paymentDate?` (휴일 조정 ${e(r.paymentDate)})`:''}<br>소비한도 반영 <strong>${e(r.month.slice(0,4))}년 ${Number(r.month.slice(5))}월</strong>${r.kind==='fixed'||r.kind==='irregular'||r.kind==='excluded'?' (고정지출 또는 제외 내역: 소비한도 합계 제외)':''}</p>`).join(''):'<p>이 거래에 적용할 카드 결제주기가 없어요. 사용월에 임시 반영돼요.</p>')+'<p class="small muted">거래일은 변경하지 않아요. 결제예정금액은 카드사 확정 청구액이 아닌 자동 계산액이에요.</p>';
+    }catch{allocation.innerHTML='<p>날짜와 카드 설정을 확인해 주세요.</p>';}
+  };
+  form.addEventListener('input',refreshAllocation);
+  form.addEventListener('change',refreshAllocation);
+  refreshAllocation();
 }
 export function splitEditor(app, id) {
   const tx = app.state.transactions.find((t) => t.id === id);

@@ -27,7 +27,7 @@ export function spendingDetails(s, month, asOf = today()) {
     }
   }
   for (const tx of s.transactions) {
-    if (!limitExpense(s, tx) || known.has(tx.id) || tx.date > asOf || !inPeriod(tx, s, month)) continue;
+    if (!limitExpense(s, tx) || known.has(tx.id) || tx.date > asOf || tx.date.slice(0,7)!==month) continue;
     const name = tx.paymentMethod || '미지정', key = keyText(name);
     const account = (s.cashAccounts || []).find(a => [a.name, a.paymentMethod].some(n => n && keyText(n) === key));
     const profile = s.settings.paymentProfiles?.[key];
@@ -35,7 +35,7 @@ export function spendingDetails(s, month, asOf = today()) {
     const type = kind === 'credit' ? 'credit' : account || /계좌|은행|통장|이체/i.test(name) ? 'account' :
       profile?.kind === 'immediate' || /체크\s*카드|직불|선불|debit|prepaid/i.test(name) ? 'debit' : 'other';
     add(type + ':' + (account?.id || instrumentId(s, tx)),
-      { type, name: account?.name || profile?.name || name, start: overview.p.start, end: overview.p.end, unconfigured: type === 'credit' },
+      { type, name: account?.name || profile?.name || name, start: month+'-01', end: month+'-'+String(new Date(Number(month.slice(0,4)),Number(month.slice(5)),0).getDate()), unconfigured: type === 'credit' },
       { tx, txId: tx.id, date: tx.date, amount: tx.amount * (tx.direction === 'refund' ? -1 : 1),
         kind: costKind(tx) });
   }
