@@ -48,3 +48,12 @@
 .fixed-status-section[data-fixed-status="pending"] .fixed-insurance-group>summary>span:last-child,
 .fixed-status-section[data-fixed-status="pending"] .fixed-insurance-group>summary>span:last-child>small{color:#c05a00}
 .fixed-status-section + .fixed-status-section[data-fixed-status="paid"]{border-top:3px solid #64748b;margin-top:28px;padding-top:8px}
+
+.card-cycle-preview{margin:16px 0;padding:14px 16px;border:1px solid #c9dcd4;border-radius:12px;background:#f5faf8;overflow-wrap:anywhere}
+.card-cycle-preview:empty{display:none}
+.card-cycle-preview h3{font-size:15px;margin:0 0 10px}
+.card-cycle-preview p{font-size:13px;line-height:1.65;margin:8px 0}
+.card-cycle-preview details{max-height:260px;overflow:auto}
+.card-cycle-preview strong{color:#235548}
+.card-cycle-history{margin:12px 0;font-size:13px;line-height:1.65}
+[data-cycle-confirm][hidden]{display:none!important}
