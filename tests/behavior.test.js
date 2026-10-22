@@ -529,7 +529,7 @@ test("31일 기준의 짧은 달은 실제 포함된 반복 예정일만 집계"
 test("빠른입력은 마지막으로 저장한 사용자와 사람별 결제수단을 최우선 유지", () => {
   const state = emptyState();
   state.settings.members = { p1: "박태영", p2: "김은영" };
-  state.settings.paymentMethods = ["기본카드"];
+  state.settings.paymentMethods = ["기본카드", "태영 우리카드", "은영 우리카드"];
   const values = new Map([
     ["richkkok-owner", "p2"],
     ["richkkok-payment-p1", "태영 우리카드"],

@@ -40,6 +40,7 @@ try {
     const s = emptyState();
     s.configured = true;
     s.settings.privacy = false;
+    s.settings.paymentMethods = ["QA 체크카드"];
     s.settings.income = 6000000;
     s.settings.sharedBudget = 1800000;
     const r = new Repository();
@@ -105,9 +106,9 @@ try {
         cardHeights: cards.map((card) => Math.round(card.getBoundingClientRect().height)),
         coreChildren: cards.length,
         merchantPlaceholder: selector("merchant").getAttribute("placeholder"),
-        paymentPlaceholder: selector("paymentMethod").getAttribute("placeholder"),
+        paymentTag: selector("paymentMethod").tagName,
         merchantListValid: d.querySelector("#recent-merchants")?.parentElement?.classList.contains("quick-field-merchant"),
-        paymentListValid: d.querySelector("#payment-options")?.parentElement?.classList.contains("quick-field-payment"),
+        paymentRequired: selector("paymentMethod").required,
         dateSettingsValid: !!d.querySelector(".dialog-body > details.quick-adjust"),
         summaryValid: d.querySelector("#auto-entry-summary")?.parentElement?.classList.contains("quick-entry-primary"),
         footerValid: !!d.querySelector(".dialog-body + .dialog-footer"),
@@ -140,9 +141,9 @@ try {
     assert.equal(dialog.innerFormElements, 1, "Dialog must contain a single form: " + JSON.stringify(dialog));
     assert.deepEqual(dialog.children, ["form."], "Dialog must not have stray elements outside the form");
     assert.equal(dialog.merchantPlaceholder, "예: 스타벅스, 이마트, 병원", "Merchant placeholder must be valid HTML");
-    assert.equal(dialog.paymentPlaceholder, "예: 우리카드, 현금, 네이버페이", "Payment placeholder must be valid HTML");
+    assert.equal(dialog.paymentTag, "SELECT", "Payments must be selected from saved methods");
     assert.equal(dialog.merchantListValid, true, "Recent merchant suggestions must be outside the input label");
-    assert.equal(dialog.paymentListValid, true, "Payment suggestions must be outside the input label");
+    assert.equal(dialog.paymentRequired, true, "A saved payment method is required");
     assert.equal(dialog.dateSettingsValid, true, "Date / category options must be outside the core cards");
     assert.equal(dialog.summaryValid, true, "Auto classification summary must follow the field grid");
     assert.equal(dialog.footerValid, true, "Save / cancel buttons must remain in the form footer");
@@ -176,7 +177,7 @@ try {
   await page.locator("#dialog [name=amount]").fill("12340");
   await page.locator("#dialog [name=merchant]").fill("QA 반응형마트");
   await page.locator("#dialog [name=owner]").selectOption("p2");
-  await page.locator("#dialog [name=paymentMethod]").fill("QA 체크카드");
+  await page.locator("#dialog [name=paymentMethod]").selectOption("QA 체크카드");
   await page.locator("#dialog [type=submit]").click();
   await page.waitForSelector("#dialog[open]", { state: "hidden" });
   const after = await read();

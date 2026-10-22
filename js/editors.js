@@ -28,7 +28,7 @@ import { splitTransaction } from "./models.js";
 import { classify, applyRules } from "./rules.js";
 import { matchRecurring, syncAutoRecurring } from "./recurring.js";
 import { planFor } from "./budget.js";
-import { resolvePaymentAlias } from "./payment-rename.js";
+import { requirePaymentChoice, paymentSelect } from "./payment-picker.js";
 const categoryOptions = (s) =>
   s.categories.filter((c) => !c.archived).map((c) => [c.id, c.name]);
 const scopeOptions = (s) =>
@@ -70,7 +70,7 @@ export function editTransaction(app, id, { paymentFirst = false } = {}) {
     openDialog('중복으로 제외한 입금',`<p>${e(tx.merchantRaw)} · ${won(tx.amount)}</p><p>원본은 보존되어 있어요.</p><button type="button" class="btn secondary" data-action="control-restore-income" data-id="${e(tx.id)}">별개의 입금으로 복원</button>`);
     return;
   }
-  const body = `${tx.irregularFixed ? '<p class="small muted">비정기 고정지출로 집계 중이에요. 월 고정지출·소비한도에서는 제외돼요.</p>' : ''}<div class="form-grid editor-primary">${select("거래 유형", "direction", Object.entries(DIRECTIONS), tx.direction)}${select("누가", "owner", ["p1","p2","joint"].map(p=>[p,memberName(p,state)]),tx.owner)}${field("어떻게", "paymentMethod", tx.paymentMethod, "text", 'required maxlength="100"')}${field("사용처", "merchantRaw", tx.merchantRaw, "text", 'required maxlength="300"')}${field("금액", "amount", tx.amount, "number", "required")}${field("날짜와 시간", "datetime", tx.datetime.slice(0, 16), "datetime-local", "required")}</div><div data-card-allocation class="card-cycle-preview" aria-live="polite"></div> <details class="advanced editor-advanced"><summary>사용자 · 결제 · 고급 설정</summary><div class="form-grid">${select("카테고리", "category", categoryOptions(state), tx.category)}${select("사용 범위", "scope", scopeOptions(state), tx.scope)}${select("카드 실적인정", "performanceStatus", Object.entries(PERFORMANCE), tx.performanceStatus)}${select("고정·반복비 연결", "recurringId", [["", "연결하지 않음"], ...state.recurring.map((r) => [r.id, r.name])], tx.recurringId)}${field("귀속 운영월", "operatingMonth", tx.operatingMonth || "", "month")}${select(
+  const body = `${tx.irregularFixed ? '<p class="small muted">비정기 고정지출로 집계 중이에요. 월 고정지출·소비한도에서는 제외돼요.</p>' : ''}<div class="form-grid editor-primary">${select("거래 유형", "direction", Object.entries(DIRECTIONS), tx.direction)}${select("누가", "owner", ["p1","p2","joint"].map(p=>[p,memberName(p,state)]),tx.owner)}${paymentSelect(state, "어떻게", tx.paymentMethod, existing?.paymentMethod)}${field("사용처", "merchantRaw", tx.merchantRaw, "text", 'required maxlength="300"')}${field("금액", "amount", tx.amount, "number", "required")}${field("날짜와 시간", "datetime", tx.datetime.slice(0, 16), "datetime-local", "required")}</div><div data-card-allocation class="card-cycle-preview" aria-live="polite"></div> <details class="advanced editor-advanced"><summary>사용자 · 결제 · 고급 설정</summary><div class="form-grid">${select("카테고리", "category", categoryOptions(state), tx.category)}${select("사용 범위", "scope", scopeOptions(state), tx.scope)}${select("카드 실적인정", "performanceStatus", Object.entries(PERFORMANCE), tx.performanceStatus)}${select("고정·반복비 연결", "recurringId", [["", "연결하지 않음"], ...state.recurring.map((r) => [r.id, r.name])], tx.recurringId)}${field("귀속 운영월", "operatingMonth", tx.operatingMonth || "", "month")}${select(
     "지출 성격",
     "costKind",
     [
@@ -105,7 +105,7 @@ export function editTransaction(app, id, { paymentFirst = false } = {}) {
       categoryConfirmed: tx.categoryConfirmed || (existing ? existing.category !== String(form.get("category")) : String(form.get("category")) !== "other"),
       scope,
       owner: String(form.get("owner")),
-      paymentMethod: resolvePaymentAlias(state,String(form.get("paymentMethod")).trim()),
+      paymentMethod: requirePaymentChoice(app.state, form.get("paymentMethod"), existing?.paymentMethod),
       note: String(form.get("note")),
       recurringId: form.get("recurringId") || null,
       performanceStatus: String(form.get("performanceStatus")),
@@ -121,6 +121,7 @@ export function editTransaction(app, id, { paymentFirst = false } = {}) {
       next = classify(next, state.rules);
     next = matchRecurring(next, state.recurring);
     await app.update((s) => {
+      next.paymentMethod = requirePaymentChoice(s, next.paymentMethod, existing?.paymentMethod);
       const index = s.transactions.findIndex((t) => t.id === next.id);
       if (existing && JSON.stringify(s.transactions[index]) !== JSON.stringify(existing)) throw Error("다른 기기에서 거래가 바뀌었어요. 다시 열어 주세요.");
       if (index < 0) s.transactions.push(next);

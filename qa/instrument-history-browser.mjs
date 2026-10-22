@@ -75,7 +75,7 @@ try {
   const newPayment = page.locator("#dialog .editor-primary [name=paymentMethod]");
   assert.equal(await newPayment.isVisible(), true);
   await page.locator("#dialog [name=merchantRaw]").fill("변경된 작년 내역");
-  await newPayment.fill("신한카드");
+  await newPayment.selectOption("신한카드");
   await page.locator("#dialog [type=submit]").click();
   await page.locator("#dialog[open]").waitFor({ state: "hidden" });
   let state = await read();

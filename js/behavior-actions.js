@@ -17,7 +17,7 @@ import { planFor } from "./budget.js";
 import { memberName } from "../data/defaults.js";
 import { exactApprovalDuplicate, fixedManualDuplicate } from "./import/duplicates.js";
 import { instrumentChoices, instrumentHistoryRows } from "./instrument-ledger.js";
-import { resolvePaymentAlias } from "./payment-rename.js";
+import { paymentChoices, findPaymentChoice, requirePaymentChoice, paymentSelect } from "./payment-picker.js";
 import { paymentKind } from "./payment-channels.js";
 
 export function resolveEntryOwner(
@@ -59,23 +59,14 @@ export function resolveEntryPayment(
   recent,
   storage = globalThis.localStorage,
 ) {
-  const hidden = new Set(state.settings.hiddenPaymentMethods || []);
-  const hiddenBanks = new Set(state.settings.hiddenCashAccounts || []);
-  const hiddenAccountMethods = new Set((state.cashAccounts || [])
-    .filter(a => hiddenBanks.has(a.id)).flatMap(a => [a.name,a.paymentMethod])
-    .filter(Boolean).map(keyText));
-  const visible = name => name && !hidden.has(keyText(name)) &&
-    !hiddenAccountMethods.has(keyText(name));
+  const choices = paymentChoices(state);
+  const available = value => findPaymentChoice(state, value, choices)?.value;
   try {
-    const saved = storage?.getItem(`richkkok-payment-${owner}`);
-    if (saved) {
-      const resolved = resolvePaymentAlias(state,saved);
-      if (visible(resolved)) return resolved;
-    }
+    const saved = available(storage?.getItem(`richkkok-payment-${owner}`));
+    if (saved) return saved;
   } catch {}
-  const candidate = recent.find(t => t.owner === owner && visible(t.paymentMethod))?.paymentMethod ||
-    (state.settings.paymentMethods || []).find(visible);
-  return candidate ? resolvePaymentAlias(state,candidate) : "미지정";
+  const recentPayment = recent.find(t => t.owner === owner && available(t.paymentMethod));
+  return available(recentPayment?.paymentMethod) || choices[0]?.value || "";
 }
 
 export function quickEntry(app, date = today()) {
@@ -99,7 +90,7 @@ export function quickEntry(app, date = today()) {
   let touched = false, automaticFixed = false, advancedTouched = false;
   const dialog = openDialog(
     "수입·지출 기록",
-    `<div class="control-entry-fields">${select("거래 유형","direction",[["expense","지출"],["income","수입"],["refund","환불"],["transfer","이체·카드대금"]],"expense")}${field("언제","date",date,"date","required")}${field("시간","time",String(stamp.getHours()).padStart(2,"0")+":"+String(stamp.getMinutes()).padStart(2,"0"),"time","required")}</div><div class="quick-entry-primary"> <div class="form-grid quick-core-grid"><div class="quick-field quick-field-amount"><div class="quick-amount">${field("얼마 썼어?", "amount", "", "number", 'required min="1" autofocus placeholder="0"')}</div></div><div class="quick-field quick-field-merchant">${field("어디서 썼어?", "merchant", "", "text", 'required maxlength="300" list="recent-merchants" placeholder="예: 스타벅스, 이마트, 병원"')}<datalist id="recent-merchants">${merchants.map((m) => `<option value="${e(m)}"></option>`).join("")}</datalist></div><div class="quick-field quick-field-payment">${field("어떻게 결제했어?", "paymentMethod", payment, "text", 'required maxlength="100" list="payment-options" placeholder="예: 우리카드, 현금, 네이버페이"')}<datalist id="payment-options">${[...new Set([...(state.settings.paymentMethods || []), ...recent.map((t) => t.paymentMethod)])].filter(p => !(state.settings.hiddenPaymentMethods || []).includes(keyText(p)) && !(state.cashAccounts || []).some(a => (state.settings.hiddenCashAccounts || []).includes(a.id) && [a.name,a.paymentMethod].some(v => keyText(v) === keyText(p)))).map((p) => `<option value="${e(p)}"></option>`).join("")}</datalist></div><div class="quick-field quick-field-owner">${select(
+    `<div class="control-entry-fields">${select("거래 유형","direction",[["expense","지출"],["income","수입"],["refund","환불"],["transfer","이체·카드대금"]],"expense")}${field("언제","date",date,"date","required")}${field("시간","time",String(stamp.getHours()).padStart(2,"0")+":"+String(stamp.getMinutes()).padStart(2,"0"),"time","required")}</div><div class="quick-entry-primary"> <div class="form-grid quick-core-grid"><div class="quick-field quick-field-amount"><div class="quick-amount">${field("얼마 썼어?", "amount", "", "number", 'required min="1" autofocus placeholder="0"')}</div></div><div class="quick-field quick-field-merchant">${field("어디서 썼어?", "merchant", "", "text", 'required maxlength="300" list="recent-merchants" placeholder="예: 스타벅스, 이마트, 병원"')}<datalist id="recent-merchants">${merchants.map((m) => `<option value="${e(m)}"></option>`).join("")}</datalist></div><div class="quick-field quick-field-payment">${paymentSelect(state, "어떻게 결제했어?", payment)}</div><div class="quick-field quick-field-owner">${select(
       "누가 썼어?",
       "owner",
       ["p1", "p2", "joint"].map((p) => [p, memberName(p, state)]),
@@ -150,7 +141,7 @@ export function quickEntry(app, date = today()) {
           excluded: direction === "transfer",
           category: String(f.get("category")),
           costKind: scope === "fixed" ? "fixed" : String(f.get("costKind")),
-          paymentMethod: resolvePaymentAlias(state,String(f.get("paymentMethod")).trim() || "미지정"),
+          paymentMethod: requirePaymentChoice(app.state, f.get("paymentMethod")),
           paymentChannel: String(f.get("paymentChannel")).trim(),
           operatingMonth: String(f.get("operatingMonth")) || null,
           note: String(f.get("note")),
@@ -188,6 +179,7 @@ export function quickEntry(app, date = today()) {
       if (!tx.merchantRaw || tx.amount <= 0)
         throw Error("금액과 소비처를 입력해 주세요.");
       await app.update((s) => {
+        tx.paymentMethod = requirePaymentChoice(s, tx.paymentMethod);
         if (s.transactions.some((t) => t.id === id)) return;
         s.transactions.push(tx);
         s.settings.trackingSince ||= actualDate;
@@ -268,7 +260,7 @@ export function quickEntry(app, date = today()) {
     }
     refreshAutoSummary();
   };
-  dialog.querySelector("[name=paymentMethod]").oninput = () => {
+  dialog.querySelector("[name=paymentMethod]").onchange = () => {
     paymentTouched = true;
     refreshAutoSummary();
   };

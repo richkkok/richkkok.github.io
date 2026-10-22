@@ -13,6 +13,7 @@ async function seed(page){
   const s=emptyState();s.configured=true;s.settings.privacy=false;s.settings.periodStartDay=1;s.settings.variableBudget=2500000;s.recurring=[];s.transactions=[];
   const t=(id,amount,date,extra={})=>({id,sourceId:id,date,datetime:date+'T10:00:00',amount,direction:'expense',owner:'p1',scope:'shared',category:'groceries',categoryConfirmed:true,merchantRaw:'검증용 거래',merchantNormalized:'검증용 거래',paymentMethod:'검증 카드',sourceType:'manual',...extra});
   savePaymentProfile(s,'검증 카드','credit',3,17,0);
+  s.settings.paymentMethods.push('현금');
   s.transactions=[t('salary',6500000,'2026-10-10',{direction:'income',paymentMethod:'검증 은행',merchantRaw:'가상 급여'}),t('variable',1200000,'2026-10-01'),t('fixed',1500000,'2026-10-15',{scope:'fixed',costKind:'fixed',paymentMethod:'검증 은행'})];
   s.recurring=[{id:'insurance',name:'검증 보험',amount:1200000,day:16,category:'finance',paymentMethod:'검증 은행',owner:'joint',scope:'fixed',start:'2026-01-01',end:'',changes:[]}];
   s.cashAccounts=[{id:'bank',name:'검증 은행',paymentMethod:'검증 은행',owner:'p1',openingAt:'2026-10-01T00:00:00',openingBalance:0,reserved:0,autoMatch:true}];
@@ -88,7 +89,7 @@ try {
    await page.locator('#navigation [href="#home"]').click();assert.equal(await page.locator('[data-control-value=used]').innerText(),'1,180,000원');
    await page.locator('[data-action=add-transaction]').first().click();
    for(const key of ['direction','date','time','paymentMethod','owner'])assert.equal(await page.locator(`#dialog [name=${key}]`).isVisible(),true);
-   await page.locator('#dialog [name=amount]').fill('4500');await page.locator('#dialog [name=merchant]').fill('스타벅스');await page.locator('#dialog [name=paymentMethod]').fill('현금');assert.match(await page.locator('#auto-entry-summary').innerText(),/카페/);await save(page);
+   await page.locator('#dialog [name=amount]').fill('4500');await page.locator('#dialog [name=merchant]').fill('스타벅스');await page.locator('#dialog [name=paymentMethod]').selectOption('현금');assert.match(await page.locator('#auto-entry-summary').innerText(),/카페/);await save(page);
    await page.locator('#navigation [href="#transactions"]').click();await page.locator('.transaction-row').filter({hasText:'스타벅스'}).click();
    for(const key of ['datetime','direction','owner','paymentMethod','amount'])assert.equal(await page.locator(`#dialog [name=${key}]`).isVisible(),true);
    await page.locator('#dialog [name=amount]').fill('5000');await save(page);await page.reload({waitUntil:'networkidle'});assert.match(await page.locator('.transaction-row').filter({hasText:'스타벅스'}).innerText(),/5,000원/);
